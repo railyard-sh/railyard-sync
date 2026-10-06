@@ -3,11 +3,11 @@
 ::
 
     railyard-sync import netbox --netbox-url URL --site SLUG [--site SLUG …]
-        --railyard-url URL --org ORG (--project REF | --name NAME)
+        [--railyard-url URL] --org ORG (--project REF | --name NAME)
         [--dry-run] [--allow-deletes] [--out FILE] [--snapshot-out FILE] [--from-snapshot FILE]
         [--insecure] [--name-version]
 
-    railyard-sync export netbox --railyard-url URL --org ORG --project REF [--change-request ID]
+    railyard-sync export netbox [--railyard-url URL] --org ORG --project REF [--change-request ID]
         --netbox-url URL [--netbox-version X.Y] [--apply] [--allow-deletes] [--import-components]
         [--insecure] [--json]
 
@@ -53,6 +53,7 @@ from .errors import (
     RailyardPreconditionError,
 )
 from .export.netbox_rest import ENDPOINT, MIN_VERSION, NetBoxClient, NetBoxError, NetBoxVersionError, parse_version
+from .export.policy import DEFAULT_RAILYARD_URL
 from .export.run import SyncRefused, SyncResult, sync_to_netbox
 from .importer.merge import MergeDiff, merge
 
@@ -145,7 +146,10 @@ def _add_netbox_url(group: Any, *, required: bool, what: str) -> None:
 
 def _add_railyard(group: Any) -> None:
     group.add_argument(
-        "--railyard-url", metavar="URL", required=True, help=f"Railyard URL (token from ${RAILYARD_TOKEN_ENV})"
+        "--railyard-url",
+        metavar="URL",
+        default=DEFAULT_RAILYARD_URL,
+        help=f"Railyard URL (default {DEFAULT_RAILYARD_URL}; token from ${RAILYARD_TOKEN_ENV})",
     )
     group.add_argument("--org", required=True, help="organisation id, slug or name")
 

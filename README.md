@@ -41,13 +41,14 @@ export RAILYARD_TOKEN=ry_…   # a Railyard personal access token (User settings
 
 # First import: creates a new estate from the site.
 railyard-sync import netbox --netbox-url https://netbox.example.com --site ldn1 \
-  --railyard-url https://railyard.sh --org my-org --name "LDN1 baseline"
+  --org my-org --name "LDN1 baseline"
 
 # Later: refresh that estate from NetBox (preview first).
 railyard-sync import netbox --netbox-url https://netbox.example.com --site ldn1 \
-  --railyard-url https://railyard.sh --org my-org --project ldn1-baseline --dry-run
+  --org my-org --project ldn1-baseline --dry-run
 ```
 
+Railyard is `https://railyard.sh` unless you pass `--railyard-url` (a self-hosted Railyard, say).
 Tokens are read from the environment, never from the command line. `--snapshot-out`/`--from-snapshot`
 save and replay what was read from NetBox, and `--dry-run --out project.json` writes the Railyard
 document without uploading it (open it in Railyard with **Open project file**). A refresh is saved
@@ -64,11 +65,11 @@ export NETBOX_TOKEN=…        # a NetBox API token that may create what the exp
 export RAILYARD_TOKEN=ry_…
 
 # Preview: what would be created, updated and deleted. Nothing is written.
-railyard-sync export netbox --railyard-url https://railyard.sh --org my-org --project ldn1-design \
+railyard-sync export netbox --org my-org --project ldn1-design \
   --netbox-url https://netbox.example.com
 
 # Write it.
-railyard-sync export netbox --railyard-url https://railyard.sh --org my-org --project ldn1-design \
+railyard-sync export netbox --org my-org --project ldn1-design \
   --netbox-url https://netbox.example.com --apply
 ```
 

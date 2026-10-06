@@ -436,3 +436,13 @@ def test_plan_limit_message_without_upgrade_paths():
     message = cli.plan_limit_message(e)
     assert message.startswith("This import has 1200 racks; the Partner plan allows 1000 per estate.")
     assert "Contact Railyard about an Enterprise plan, or import fewer sites." in message
+
+
+def test_railyard_url_defaults_to_railyard_sh():
+    parser = cli.build_parser()
+    args = parser.parse_args(["import", "netbox", "--netbox-url", NETBOX, "--site", "ldn1", "--org", "acme"])
+    assert args.railyard_url == "https://railyard.sh"
+    args = parser.parse_args([*BASE[:6], "--railyard-url", "https://railyard.example.com", "--org", "acme"])
+    assert args.railyard_url == "https://railyard.example.com"
+    args = parser.parse_args(["export", "netbox", "--org", "acme", "--project", "p", "--netbox-url", NETBOX])
+    assert args.railyard_url == "https://railyard.sh"
