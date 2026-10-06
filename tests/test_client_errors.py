@@ -125,6 +125,14 @@ def test_400_names_a_field():
     assert "Field: x" in text(err)
 
 
+def test_details_the_message_does_not_render_are_listed():
+    err, _, _ = save(answer(409, {"error": "conflict", "code": "history_quota", "quota": 500, "used": 500}))
+    assert "Details: quota: 500; used: 500" in text(err)
+    err, _, _ = save(answer(418, {"error": "teapot", "hint": "brew"}))
+    assert text(err).startswith(f"Railyard API error (HTTP 418) for PUT {PATH}: teapot")
+    assert 'Details: hint: "brew"' in text(err)
+
+
 def test_401_says_how_to_replace_the_token():
     err, _, _ = save(answer(401, {"error": "authentication required"}))
     assert isinstance(err, RailyardTokenRejectedError)

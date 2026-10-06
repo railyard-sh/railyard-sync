@@ -254,7 +254,20 @@ class RailyardClient:
         """Never let the token reach a message, whatever a server or proxy echoed back."""
         return text.replace(self._token, "[token]") if self._token else text
 
-    def _error(
+    def _error(self, method: str, path: str, resp: _Response, **kwargs: Any) -> RailyardAPIError:
+        """The typed error for a failed response, with everything that helps act on it: the method and
+        path, the status, the server's ``error`` and ``code``, its structured details, the request id, and
+        what to do about it. Never the token. Details the message does not already render are listed."""
+        error = self._typed_error(method, path, resp, **kwargs)
+        rest = {k: v for k, v in error.details.items() if k not in _RENDERED_DETAILS}
+        if rest and not isinstance(error, RailyardPlanError):
+            error.hints.append(
+                "Details: "
+                + "; ".join(f"{k}: {self._scrub(json.dumps(v, ensure_ascii=False))}" for k, v in rest.items())
+            )
+        return error
+
+    def _typed_error(
         self,
         method: str,
         path: str,
@@ -266,9 +279,6 @@ class RailyardClient:
         attempts: int = 1,
         headers: dict[str, str] | None = None,
     ) -> RailyardAPIError:
-        """The typed error for a failed response, with everything that helps act on it: the method and
-        path, the status, the server's ``error`` and ``code``, its structured details, the request id, and
-        what to do about it. Never the token."""
         status = resp.status_code
         payload = _json_body(resp)
         code = str(payload.get("code") or "")
@@ -398,10 +408,7 @@ class RailyardClient:
                 hints=hints,
                 **context,
             )
-        extra = "; ".join(f"{k}: {v}" for k, v in details.items() if not isinstance(v, dict | list))
-        return RailyardAPIError(
-            f"Railyard API error (HTTP {status}) for {where}{suffix}" + (f" ({extra})" if extra else ""), **context
-        )
+        return RailyardAPIError(f"Railyard API error (HTTP {status}) for {where}{suffix}", **context)
 
     # -- validation ---------------------------------------------------------
 
@@ -625,6 +632,24 @@ def _revision(resp: _Response) -> int:
         raise RailyardAPIError(
             "Railyard's response had no usable ETag, so the project's revision is unknown", status=resp.status_code
         ) from None
+
+
+#: Details the error messages already render (the 400 problems and field, 413 sizes, 402 plan fields).
+_RENDERED_DETAILS = {
+    "problems",
+    "truncated",
+    "field",
+    "limit",
+    "size",
+    "plan",
+    "resource",
+    "current",
+    "scope",
+    "requiredPlans",
+    "projectPass",
+    "feature",
+    "deliverable",
+}
 
 
 def _action(method: str, path: str) -> str:
