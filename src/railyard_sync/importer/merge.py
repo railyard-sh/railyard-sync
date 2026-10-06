@@ -797,6 +797,36 @@ class _Merger:
                             (a.get("id"), b.get("id")),
                         )
                     )
+        # Railyard names devices uniquely across an estate, ignoring case and surrounding spaces, and refuses
+        # a save that would give an imported device a name another device already has. The builder keeps
+        # imported names apart; a clash with a device designed in Railyard, or one kept from an earlier
+        # import, is the merge's to report.
+        by_name: dict[str, list[dict]] = {}
+        for _, pl in _iter_placements(self.doc):
+            label = str(pl.get("label") or "").strip()
+            if label:
+                by_name.setdefault(label.casefold(), []).append(pl)
+        for group in by_name.values():
+            fresh = [pl for pl in group if pl.get("id") in imported_pl]
+            if len(group) < 2 or not fresh or len(fresh) == len(group):
+                continue
+            others = [pl for pl in group if pl.get("id") not in imported_pl]
+            stale = all(self.ours(pl.get("id")) for pl in others)
+            hint = (
+                "it was deleted or renamed in the DCIM; re-run with --allow-deletes to drop it, "
+                "or rename it in Railyard"
+                if stale
+                else "rename the Railyard device (or the DCIM's) so the names differ"
+            )
+            self.diff.conflicts.append(
+                Conflict(
+                    "device_name",
+                    f"imported device {_label(fresh[0])!r} ({fresh[0].get('id')}) has the same name as "
+                    + ", ".join(f"{origin(pl.get('id'), imported_pl)} device {pl.get('id')}" for pl in others)
+                    + f"; Railyard needs device names to be unique in an estate: {hint}",
+                    tuple(pl.get("id") for pl in group),
+                )
+            )
         by_space: dict[tuple[Any, str], list[dict]] = {}
         for rack in self.doc.get("racks") or []:
             by_space.setdefault((rack.get("containerId"), str(rack.get("name", "")).casefold()), []).append(rack)

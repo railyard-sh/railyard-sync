@@ -145,6 +145,11 @@ class _Builder:
         self.locations = {loc.id: loc for loc in snapshot.locations}
         self.device_types = {dt.id: dt for dt in snapshot.device_types}
         self.devices = {d.id: d for d in snapshot.devices}
+        # Railyard names devices uniquely across an estate (case and surrounding spaces ignored); NetBox
+        # only within a site. Keys are casefolded names already given; renamed maps placement id to the
+        # DCIM's own name.
+        self.device_names: dict[str, str] = {}
+        self.renamed_devices: dict[str, str] = {}
         self.components: dict[tuple[str, str], Component] = {}
         self.components_by_device: dict[str, list[Component]] = {}
         for comp in snapshot.components:
@@ -184,6 +189,34 @@ class _Builder:
         if fitted != value:
             self.report.warn(f"{what}: shortened to {limit} characters ({fitted!r})")
         return fitted
+
+    def unique_device_name(self, device: Device, name: str) -> str:
+        """``name``, or ``name (<site slug>)`` / ``name #<id>`` when another imported device already has it.
+
+        Railyard refuses two devices with one name in an estate, ignoring case and surrounding spaces; NetBox
+        allows it across sites. Devices are taken in source-id order, so the older device keeps its name and
+        a refresh gives the same names again. The rename is reported and recorded in
+        ``meta.railyardSync.renamedDevices`` (placement id -> the DCIM's name).
+        """
+        key = name.strip().casefold()
+        if key not in self.device_names:
+            self.device_names[key] = device.id
+            return name
+        site = self.sites.get(device.site_id)
+        candidates = [f"{name} ({site.slug})"] if site and site.slug else []
+        candidates.append(f"{name} #{device.id}")
+        for candidate in candidates:
+            candidate = m.fit(candidate, MAX_IDENTIFIER)
+            if candidate.strip().casefold() not in self.device_names:
+                break
+        self.device_names[candidate.strip().casefold()] = device.id
+        placement_id = self.ident("dev", device.id)
+        self.renamed_devices[placement_id] = name
+        self.report.warn(
+            f"device {device.id} is named {name!r}, like another device in this import; Railyard needs device "
+            f"names to be unique across an estate, so it is imported as {candidate!r}"
+        )
+        return candidate
 
     def notes(self, value: str, what: str) -> str:
         value = (value or "").strip()
@@ -575,7 +608,9 @@ class _Builder:
 
             entry = self.device_type_entry(dt)
             if label:
-                placement["label"] = self.fit(label, MAX_IDENTIFIER, f"device {device.id} name")
+                placement["label"] = self.unique_device_name(
+                    device, self.fit(label, MAX_IDENTIFIER, f"device {device.id} name")
+                )
             placement["namingMode"] = "manual"
             if device.serial:
                 serial = device.serial.strip()
@@ -899,6 +934,7 @@ class _Builder:
             "prefix": self.prefix,
             "unmodelled": unmodelled,
             "deviceStatus": self.device_status,
+            "renamedDevices": self.renamed_devices,
         }
 
 

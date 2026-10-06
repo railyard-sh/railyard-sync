@@ -683,3 +683,60 @@ def test_patch_panel_type_with_an_unmapped_front_port_keeps_its_device_ports():
     assert "ports" not in odd
     assert [p["origin"] for p in result.project["racks"][0]["placements"][0]["ports"]] == ["custom", "custom"]
     assert any("no rear port mapping" in w for w in result.report.warnings)
+
+
+# ---- device names across sites -------------------------------------------------------------------
+
+
+def _two_sites_sharing_a_device_name():
+    from railyard_sync.dcim.snapshot import Device, Rack, Site
+
+    snap = ldn1.snapshot()
+    snap.sites.append(Site(id="2", name="MAN1", slug="man1"))
+    snap.racks.append(Rack(id="900", name="M01", site_id="2"))
+    leaf = next(d for d in snap.devices if d.rack_id and d.position)
+    # NetBox allows the same name at another site, and in another case.
+    snap.devices.append(
+        Device(
+            id="2001",
+            name=leaf.name.upper(),
+            device_type_id=leaf.device_type_id,
+            site_id="2",
+            rack_id="900",
+            position=10,
+            face="front",
+        )
+    )
+    snap.devices.append(
+        Device(
+            id="2002",
+            name=leaf.name,
+            device_type_id=leaf.device_type_id,
+            site_id="2",
+            rack_id="900",
+            position=20,
+            face="front",
+        )
+    )
+    return snap, leaf
+
+
+def test_device_names_are_unique_across_the_estate():
+    snap, leaf = _two_sites_sharing_a_device_name()
+    result = build(snap)
+    labels = {p["id"]: p.get("label") for r in result.project["racks"] for p in r["placements"]}
+    assert labels[f"nb-dev-{leaf.id}"] == leaf.name  # the older device keeps its name
+    assert labels["nb-dev-2001"] == f"{leaf.name.upper()} (man1)"
+    assert labels["nb-dev-2002"] == f"{leaf.name} #2002"  # "(man1)" is taken too
+    folded = [str(v).strip().casefold() for v in labels.values() if v]
+    assert len(folded) == len(set(folded))
+    renamed = result.project["meta"]["railyardSync"]["renamedDevices"]
+    assert renamed == {"nb-dev-2001": leaf.name.upper(), "nb-dev-2002": leaf.name}
+    assert sum("unique across an estate" in w for w in result.report.warnings) == 2
+
+
+def test_renamed_device_names_are_stable_across_imports():
+    snap, _ = _two_sites_sharing_a_device_name()
+    first = build(snap).project
+    again = build(copy.deepcopy(snap)).project
+    assert first["racks"] == again["racks"]

@@ -709,3 +709,32 @@ def test_summary_counts_each_kind():
 def test_every_ownership_table_uses_known_rules(kind):
     assert set(FIELD_OWNERSHIP[kind].values()) <= {"owned", "if-set", "union", "derived", "railyard"}
     assert kind in KINDS
+
+
+def test_an_imported_name_a_railyard_device_already_has_is_a_conflict():
+    existing = built()
+    existing["racks"][0]["placements"].append(
+        {"id": "my-switch", "startU": 30, "heightU": 1, "face": "front", "label": "LDN1-SW1 "}
+    )
+    result = merge(existing, built())
+    names = [c for c in result.diff.conflicts if c.kind == "device_name"]
+    assert len(names) == 1
+    assert set(names[0].ids) == {"nb-dev-1000", "my-switch"}
+    assert "Railyard-designed device my-switch" in names[0].message
+    assert "rename the Railyard device" in names[0].message
+
+
+def test_a_stale_device_keeping_a_name_the_dcim_reused_points_at_allow_deletes():
+    existing = built()
+    imported = built()
+    # The DCIM deleted device 1001 and created 1004 with its name.
+    rack = imported["racks"][0]
+    old = next(p for p in rack["placements"] if p["id"] == "nb-dev-1001")
+    rack["placements"].remove(old)
+    imported["powerLinks"] = []
+    # A new NetBox device has new component ids too.
+    rack["placements"].append(old | {"id": "nb-dev-1004", "startU": 20, "ports": [], "powerInlets": []})
+    result = merge(existing, imported)
+    names = [c for c in result.diff.conflicts if c.kind == "device_name"]
+    assert names and "--allow-deletes" in names[0].message
+    assert not [c for c in merge(existing, imported, allow_deletes=True).diff.conflicts if c.kind == "device_name"]

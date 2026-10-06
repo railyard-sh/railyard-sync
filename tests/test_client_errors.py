@@ -302,3 +302,13 @@ def test_requests_are_logged_with_status_time_size_and_request_id_but_no_token_o
     assert line.startswith(f"Railyard PUT {PATH} -> 200 in ")
     assert f"request id {RID}" in line and "sent " in line and 'If-Match "12"' in line and 'ETag "13"' in line
     assert PAT not in caplog.text and "nb-rack-100" not in caplog.text and "Bearer" not in caplog.text
+
+
+def test_400_device_name_collision_explains_the_estate_wide_rule():
+    body = {
+        "error": "device name collision: Device name ldn1-leaf1 collides with another placement",
+        "code": "device-naming.collision",
+    }
+    err, _, _ = save(answer(400, body))
+    out = text(err)
+    assert "device-naming.collision" in out and "unique within a site" in out and RID in out

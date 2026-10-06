@@ -332,6 +332,12 @@ class RailyardClient:
                 hints += [f"  - {line}" for line in listing(problems, namer)]
             if details.get("field"):
                 hints.append(f"Field: {details['field']}")
+            if code == "device-naming.collision":
+                hints.append(
+                    "Railyard needs every device name in an estate to be unique (ignoring case and spaces); NetBox "
+                    "only needs them unique within a site. Rename one of the two devices, in Railyard or in NetBox, "
+                    "or update railyard-sync: it keeps imported names apart and reports clashes before saving."
+                )
             if document:
                 hints.append(
                     "railyard-sync built this document from the DCIM: fix what is named in NetBox (or in Railyard, "
