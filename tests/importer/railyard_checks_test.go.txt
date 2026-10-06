@@ -1,0 +1,50 @@
+package model
+
+// Overlaid into railyard/backend/internal/model by tests/importer/test_railyard_go.py (go test
+// -overlay), so it runs Railyard's own save checks without changing the Railyard checkout. It loads
+// the document at RAILYARD_SYNC_PROJECT as the CLI does and applies every check a new project or a
+// replacement must pass on the server (store/projects_write.go, collab/stage.go).
+
+import (
+	"bytes"
+	"os"
+	"testing"
+)
+
+func TestRailyardSyncImport(t *testing.T) {
+	data, err := os.ReadFile(os.Getenv("RAILYARD_SYNC_PROJECT"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := LoadStandalone(bytes.NewReader(data))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	empty := &Project{SchemaVersion: SchemaVersion, ID: p.ID, Name: p.Name}
+	for _, check := range []struct {
+		name string
+		err  error
+	}{
+		{"display name", ValidateDisplayName("project", p.Name)},
+		{"schema bounds", ValidateSchemaBoundsMutation(nil, p)},
+		{"type references", ValidateTypeReferenceMutation(empty, p)},
+		{"rack names", ValidateRackNameMutation(empty, p)},
+		{"rack bounds", ValidateRackBoundsMutation(empty, p)},
+		{"free text", ValidateFreeTextMutation(empty, p)},
+		{"connections", ValidateConnectionMutation(nil, p)},
+		{"power", ValidatePowerMutation(nil, p)},
+		{"device naming", ValidateDeviceNamingMutation(nil, p)},
+	} {
+		if check.err != nil {
+			t.Errorf("%s: %v", check.name, check.err)
+		}
+	}
+	if marked := p.NormaliseLegacyPowerSources(); len(marked) != 0 {
+		t.Errorf("the server would rewrite the role of %d placements: %v", len(marked), marked)
+	}
+	for _, problem := range p.Validate() {
+		if problem.Severity == SeverityError {
+			t.Errorf("validate: %s: %s", problem.Code, problem.Message)
+		}
+	}
+}
