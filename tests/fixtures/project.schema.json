@@ -1,0 +1,329 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://railyard.dev/schema/project.schema.json",
+  "title": "Railyard Project",
+  "description": "The single source-of-truth serialisation for a Railyard rack-design project. This exact JSON is what the frontend holds in its store, what the API posts, what saves to disk, and what the `railyard` CLI reads. Placements are deliberately dumb: no referential integrity is enforced here — that only happens at export time.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "name"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "description": "Contract version. Bumped when the shape changes incompatibly.",
+      "const": "1"
+    },
+    "id": { "type": "string", "minLength": 1 },
+    "name": { "type": "string" },
+    "organisation": { "type": "string", "description": "The company at the root of the estate tree." },
+    "createdAt": { "type": "string", "description": "ISO-8601 timestamp; optional." },
+    "updatedAt": { "type": "string", "description": "ISO-8601 timestamp; optional." },
+    "locations": { "type": "array", "items": { "$ref": "#/$defs/Location" }, "default": [] },
+    "dataCentres": { "type": "array", "items": { "$ref": "#/$defs/DataCentre" }, "default": [] },
+    "rows": { "type": "array", "items": { "$ref": "#/$defs/Row" }, "default": [] },
+    "racks": { "type": "array", "items": { "$ref": "#/$defs/Rack" }, "default": [] },
+    "podPatterns": { "type": "array", "items": { "$ref": "#/$defs/PodPattern" }, "default": [] },
+    "namingRules": { "type": "array", "items": { "$ref": "#/$defs/NamingRule" }, "default": [] },
+    "naming": { "$ref": "#/$defs/NamingScheme" },
+    "catalogue": { "type": "array", "items": { "$ref": "#/$defs/DeviceType" }, "default": [] },
+    "rackTypes": { "type": "array", "items": { "$ref": "#/$defs/RackType" }, "default": [] },
+    "meetMeRooms": { "type": "array", "items": { "$ref": "#/$defs/MeetMeRoom" }, "default": [] },
+    "cables": { "type": "array", "items": { "$ref": "#/$defs/Cable" }, "default": [] },
+    "powerLinks": { "type": "array", "items": { "$ref": "#/$defs/PowerLink" }, "default": [] },
+    "meta": { "type": "object", "description": "Free-form extension bag; ignored by export.", "additionalProperties": true }
+  },
+  "$defs": {
+    "Location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name"],
+      "description": "A geographic site (city/campus). Exports as the parent Nautobot location of its data centres.",
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "facility": { "type": "string", "description": "Short code, e.g. 'LDN'. Used by naming templates as {site}." },
+        "status": { "type": "string", "description": "Export status name; defaults to 'Active' when empty." }
+      }
+    },
+    "DataCentre": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name"],
+      "description": "A hall/building within a Location. Racks live inside a data centre; it is the Nautobot 'location' at export time.",
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "locationId": { "type": "string", "description": "Back-reference to a Location.id." },
+        "status": { "type": "string", "description": "Export status name; defaults to 'Active' when empty." },
+        "naming": { "$ref": "#/$defs/NamingScheme", "description": "Optional per-DC override of the project naming scheme." },
+        "aisleMm": { "type": "integer", "description": "Clear aisle between rows (mm); feeds cable-length estimation." },
+        "rackGapMm": { "type": "integer", "description": "Gap between adjacent racks in a row (mm)." },
+        "trayHeightMm": { "type": "integer", "description": "Overhead cable-tray height above the floor (mm)." }
+      }
+    },
+    "CableEnd": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rackId", "placementId"],
+      "description": "One termination of a cable: a device (placement) in a rack, optionally at a structured port on a paneled device.",
+      "properties": {
+        "rackId": { "type": "string" },
+        "placementId": { "type": "string" },
+        "port": { "type": "string", "description": "Free-text port/interface label, e.g. 'Gi0/1' or 'NIC0'. Used when the device has no modelled ports." },
+        "side": { "type": "string", "enum": ["front", "rear"], "description": "Which face of a paneled device this end terminates on." },
+        "portIndex": { "type": "integer", "minimum": 1, "description": "1-based port number on that side; requires the DeviceType to declare ports." }
+      }
+    },
+    "Cable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "a", "b"],
+      "description": "A point-to-point cable between two devices. An optional layer over the rack layout; empty by default.",
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "a": { "$ref": "#/$defs/CableEnd" },
+        "b": { "$ref": "#/$defs/CableEnd" },
+        "media": { "type": "string", "description": "Cable media/type, e.g. 'Cat6', 'OM4 LC-LC', 'DAC'." },
+        "label": { "type": "string", "description": "Human cable id/label for the schedule." },
+        "colour": { "type": "string", "description": "CSS colour used when drawing the cable on the floor." },
+        "kind": { "type": "string", "enum": ["patch", "trunk"], "description": "patch cord (device ↔ panel front) vs trunk / permanent link (panel rear ↔ panel rear). Absent = patch." }
+      }
+    },
+    "MeetMeRoom": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "dcId"],
+      "description": "A meet-me room / cross-connect point on a data centre floor. Its physical position drives cab→MMR cross-connect length estimates.",
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "dcId": { "type": "string", "description": "Back-reference to a DataCentre.id." },
+        "xMm": { "type": "number", "description": "Position along the rows (mm from the floor's top-left origin)." },
+        "yMm": { "type": "number", "description": "Position across the rows (mm from the floor's top-left origin)." }
+      }
+    },
+    "Row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name"],
+      "description": "An ordered aisle of racks within a data centre. The naming-template token {row} derives from this.",
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "dcId": { "type": "string", "description": "Back-reference to a DataCentre.id." },
+        "rackIds": { "type": "array", "items": { "type": "string" }, "default": [] }
+      }
+    },
+    "Rack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "uHeight"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "uHeight": { "type": "integer", "minimum": 1, "maximum": 100, "default": 42 },
+        "widthMm": { "type": "integer", "description": "Rail width in millimetres (600/750...). Export maps to inches (19/23).", "default": 600 },
+        "depthMm": { "type": "integer", "description": "Floor footprint depth in millimetres; used by the floor plan.", "default": 1070 },
+        "startingUnit": { "type": "integer", "minimum": 1, "default": 1, "description": "U number of the lowest position." },
+        "descendingUnits": { "type": "boolean", "default": false, "description": "U1 at the top instead of the bottom." },
+        "rowId": { "type": "string" },
+        "dcId": { "type": "string", "description": "Denormalised convenience; export resolves rack.dcId then row.dcId." },
+        "rackTypeKey": { "type": "string", "description": "Optional reference to a RackType.key this rack was built from." },
+        "indexInRow": { "type": "integer", "minimum": 0, "default": 0 },
+        "status": { "type": "string", "description": "Export status name; defaults to 'Active' when empty." },
+        "role": { "type": "string" },
+        "powerCapacityW": { "type": "integer", "minimum": 0, "description": "Usable power budget for the rack in watts. 0/absent disables the power-budget check." },
+        "maxLoadKg": { "type": "number", "minimum": 0, "description": "Static load rating for the rack in kilograms. 0/absent disables the weight-limit check." },
+        "facing": { "type": "string", "enum": ["up", "down"], "default": "up", "description": "Which way the rack front points on the floor plan — 'up' = front at the top edge of its row band. Drives hot/cold-aisle airflow." },
+        "kind": { "type": "string", "enum": ["cabinet", "wall-mount"], "description": "Rack form factor. Absent = 'cabinet'. 'wall-mount' is a small floor-placed (usually rowless) rack of patch panels; reuses all placement/cabling/power machinery." },
+        "placements": { "type": "array", "items": { "$ref": "#/$defs/Placement" }, "default": [] }
+      }
+    },
+    "Placement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "startU", "heightU", "face"],
+      "description": "A block occupying whole-U positions on one or both faces of a rack. deviceTypeRef is an unresolved free string until export.",
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "startU": { "type": "integer", "minimum": 1, "description": "Lowest U occupied (1-based, in the rack's own numbering)." },
+        "heightU": { "type": "integer", "minimum": 1 },
+        "face": { "type": "string", "enum": ["front", "rear", "full"] },
+        "label": { "type": "string", "default": "" },
+        "deviceTypeRef": { "type": "string", "description": "Free text or a catalogue DeviceType.key. Resolved only at export." },
+        "role": { "type": "string" },
+        "powerW": { "type": "integer", "minimum": 0, "description": "Per-device power draw override in watts; falls back to the catalogue DeviceType.powerW when absent." },
+        "colour": { "type": "string", "description": "CSS colour used on the canvas; ignored by data exports." },
+        "notes": { "type": "string" },
+        "mount": { "type": "string", "enum": ["rack", "zeroU"], "description": "How the device mounts. Absent = 'rack' = the startU/heightU/face U-grid behaviour. 'zeroU' = a 0U side mount (e.g. a vertical PDU); startU/heightU/face are inert placeholders then." },
+        "side": { "type": "string", "enum": ["left", "right"], "description": "Which side rail a 0U device mounts on. Only meaningful when mount === 'zeroU'." }
+      }
+    },
+    "DeviceType": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "manufacturer", "model", "uHeight"],
+      "description": "A catalogue entry, typically seeded from netbox-community/devicetype-library.",
+      "properties": {
+        "key": { "type": "string", "minLength": 1, "description": "Stable catalogue key, usually the devicetype-library slug." },
+        "manufacturer": { "type": "string" },
+        "model": { "type": "string" },
+        "uHeight": { "type": "integer", "minimum": 0 },
+        "fullDepth": { "type": "boolean", "default": true },
+        "powerW": { "type": "integer", "minimum": 0, "description": "Typical power draw in watts, used by the rack power-budget check." },
+        "frontImage": { "type": "string" },
+        "rearImage": { "type": "string" },
+        "partNumber": { "type": "string" },
+        "ports": { "$ref": "#/$defs/PortSpec" },
+        "outlets": { "$ref": "#/$defs/OutletSpec" },
+        "weightKg": { "type": "number", "minimum": 0, "description": "Unit weight in kilograms, for rack weight roll-ups." },
+        "airflow": { "type": "string", "description": "Airflow direction: front-to-rear, rear-to-front, passive, side-to-rear, etc." }
+      }
+    },
+    "PortSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["front"],
+      "description": "Declares a paneled device's ports. passThrough=true means front[i] internally couples to rear[i] (a patch panel); a switch sets passThrough=false with front ports only. Ports are derived from the counts (1-based); usage is computed from cables.",
+      "properties": {
+        "front": { "type": "integer", "minimum": 0, "description": "Number of front ports." },
+        "rear": { "type": "integer", "minimum": 0, "description": "Number of rear ports; defaults to front for a pass-through panel, else 0." },
+        "passThrough": { "type": "boolean", "default": false, "description": "front[i] ↔ rear[i] internally (patch panel)." },
+        "media": { "type": "string", "description": "Default connector/media, e.g. 'LC', 'RJ45', 'MPO-12'." },
+        "perRow": { "type": "integer", "minimum": 1, "description": "Layout hint: ports per visual row in the port grid." },
+        "frontPorts": { "type": "array", "items": { "$ref": "#/$defs/PortDef" }, "description": "Explicit front port names/types; when absent ports are numbered 1..front." },
+        "rearPorts": { "type": "array", "items": { "$ref": "#/$defs/PortDef" }, "description": "Explicit rear port names/types." }
+      }
+    },
+    "PortDef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "description": "One real port: name, connector, and (for a pass-through panel) which rear port it internally couples to.",
+      "properties": {
+        "name": { "type": "string", "description": "Port name, e.g. 'Ethernet1/1', 'Port 12'." },
+        "type": { "type": "string", "description": "This port's connector/media." },
+        "rear": { "type": "string", "description": "Name of the rear port this front port couples to (default: same index)." },
+        "rearPos": { "type": "integer", "minimum": 1, "description": "1-based position within that rear port (MPO/breakout)." }
+      }
+    },
+    "OutletSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count"],
+      "description": "A PDU's output receptacles. Devices draw from them via PowerLinks; connected draw rolls up against capacityW.",
+      "properties": {
+        "count": { "type": "integer", "minimum": 0, "description": "Number of output receptacles." },
+        "type": { "type": "string", "description": "Receptacle type, e.g. 'C13', 'C19', 'C13/C19'." },
+        "feeds": { "type": "integer", "minimum": 1, "description": "1 = single feed; 2 = A/B redundant." },
+        "capacityW": { "type": "integer", "minimum": 0, "description": "Rated output capacity in watts (drives the load bar)." }
+      }
+    },
+    "PowerLink": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "device", "pdu"],
+      "description": "Plugs a device into a PDU outlet (power cabling).",
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "device": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rackId", "placementId"],
+          "properties": { "rackId": { "type": "string" }, "placementId": { "type": "string" } }
+        },
+        "pdu": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rackId", "placementId", "outlet"],
+          "properties": { "rackId": { "type": "string" }, "placementId": { "type": "string" }, "outlet": { "type": "integer", "minimum": 1 } }
+        }
+      }
+    },
+    "RackType": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "model", "uHeight"],
+      "description": "A vendor rack model — the 'rack template' a Rack is built from.",
+      "properties": {
+        "key": { "type": "string", "minLength": 1 },
+        "manufacturer": { "type": "string" },
+        "model": { "type": "string" },
+        "uHeight": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "widthMm": { "type": "integer", "default": 600 },
+        "depthMm": { "type": "integer", "default": 1070 },
+        "formFactor": { "type": "string", "description": "e.g. '4-post-cabinet'." }
+      }
+    },
+    "PodPattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name"],
+      "description": "A repeatable ordered set of rack templates, stamped N times with counter substitution.",
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "rackTemplates": { "type": "array", "items": { "$ref": "#/$defs/RackTemplate" }, "default": [] },
+        "substitutions": { "type": "array", "items": { "$ref": "#/$defs/Substitution" }, "default": [] }
+      }
+    },
+    "RackTemplate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nameTemplate"],
+      "properties": {
+        "nameTemplate": { "type": "string", "description": "e.g. '{site}-{row}{rack:02d}'." },
+        "uHeight": { "type": "integer", "minimum": 1, "default": 42 },
+        "widthMm": { "type": "integer", "default": 600 },
+        "depthMm": { "type": "integer", "default": 1070 },
+        "rackTypeKey": { "type": "string" },
+        "role": { "type": "string" },
+        "descendingUnits": { "type": "boolean", "default": false },
+        "startingUnit": { "type": "integer", "default": 1 },
+        "placements": { "type": "array", "items": { "$ref": "#/$defs/Placement" }, "default": [] }
+      }
+    },
+    "Substitution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["token", "values"],
+      "properties": {
+        "token": { "type": "string", "description": "Token replaced per stamp, e.g. 'rack' or 'pod'." },
+        "values": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "NamingRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "template"],
+      "properties": {
+        "target": { "type": "string", "enum": ["rack", "device"] },
+        "template": { "type": "string", "description": "e.g. '{site}-{row}{rack:02d}' or '{rack}-{role}-{index:02d}'." },
+        "counters": { "type": "array", "items": { "$ref": "#/$defs/Counter" }, "default": [] }
+      }
+    },
+    "Counter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "start": { "type": "integer", "default": 1 },
+        "step": { "type": "integer", "default": 1 },
+        "pad": { "type": "integer", "minimum": 0, "default": 0, "description": "Zero-pad width." }
+      }
+    },
+    "NamingScheme": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rowStyle", "rackTemplate"],
+      "description": "Drives generated row and rack names. Tokens in templates: {dc} {location} {row} {n}, with optional zero-pad e.g. {n:02}.",
+      "properties": {
+        "rowStyle": { "type": "string", "enum": ["alpha", "numeric"], "description": "Row identifiers as letters (A, B, C) or numbers (1, 2, 3)." },
+        "rowStart": { "type": "integer", "default": 1, "description": "First row index (1 → 'A' or '1')." },
+        "rowPad": { "type": "integer", "minimum": 0, "default": 0, "description": "Zero-pad width for numeric row identifiers." },
+        "rackTemplate": { "type": "string", "description": "e.g. '{dc}-{row}{n:02}' → 'LDN1-A01' or 'LDN1-101'." },
+        "deviceTemplate": { "type": "string", "description": "Optional device-name template, e.g. '{rack}-{role}-{index:02}'." }
+      }
+    }
+  }
+}

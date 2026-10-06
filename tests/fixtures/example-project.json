@@ -1,0 +1,122 @@
+{
+  "schemaVersion": "1",
+  "id": "prj_example",
+  "name": "Acme spine-leaf build",
+  "organisation": "Acme Corp",
+  "createdAt": "2026-08-03T00:00:00Z",
+  "locations": [
+    { "id": "loc_ldn", "name": "London", "facility": "LDN", "status": "Active" },
+    { "id": "loc_fra", "name": "Frankfurt", "facility": "FRA", "status": "Active" }
+  ],
+  "dataCentres": [
+    { "id": "dc_ldn1", "name": "LDN1", "locationId": "loc_ldn", "status": "Active" },
+    { "id": "dc_fra1", "name": "FRA1", "locationId": "loc_fra", "status": "Active" }
+  ],
+  "rows": [
+    { "id": "row_ldn_a", "name": "A", "dcId": "dc_ldn1", "rackIds": ["rack_ldn_a01", "rack_ldn_a02"] },
+    { "id": "row_fra_a", "name": "A", "dcId": "dc_fra1", "rackIds": ["rack_fra_a01"] }
+  ],
+  "racks": [
+    {
+      "id": "rack_ldn_a01",
+      "name": "LDN1-A01",
+      "uHeight": 42,
+      "widthMm": 600,
+      "depthMm": 1070,
+      "rowId": "row_ldn_a",
+      "dcId": "dc_ldn1",
+      "indexInRow": 0,
+      "status": "Active",
+      "role": "compute",
+      "placements": [
+        {
+          "id": "pl_ldn_a01_leaf1",
+          "startU": 41,
+          "heightU": 1,
+          "face": "front",
+          "label": "LDN1-A01-LEAF-01",
+          "deviceTypeRef": "cisco-nexus-93180yc-fx",
+          "role": "leaf",
+          "colour": "#3b82f6"
+        },
+        {
+          "id": "pl_ldn_a01_srv1",
+          "startU": 1,
+          "heightU": 2,
+          "face": "front",
+          "label": "LDN1-A01-SRV-01",
+          "deviceTypeRef": "some 2U server",
+          "role": "compute",
+          "colour": "#22c55e",
+          "notes": "Unresolved ref on purpose — demonstrates export placeholder reporting."
+        }
+      ]
+    },
+    {
+      "id": "rack_ldn_a02",
+      "name": "LDN1-A02",
+      "uHeight": 42,
+      "widthMm": 600,
+      "depthMm": 1070,
+      "rowId": "row_ldn_a",
+      "dcId": "dc_ldn1",
+      "indexInRow": 1,
+      "status": "Active",
+      "role": "compute",
+      "placements": [
+        {
+          "id": "pl_ldn_a02_leaf1",
+          "startU": 41,
+          "heightU": 1,
+          "face": "front",
+          "label": "LDN1-A02-LEAF-01",
+          "deviceTypeRef": "cisco-nexus-93180yc-fx",
+          "role": "leaf",
+          "colour": "#3b82f6"
+        }
+      ]
+    },
+    {
+      "id": "rack_fra_a01",
+      "name": "FRA1-A01",
+      "uHeight": 42,
+      "widthMm": 600,
+      "depthMm": 1070,
+      "rowId": "row_fra_a",
+      "dcId": "dc_fra1",
+      "indexInRow": 0,
+      "status": "Active",
+      "role": "compute",
+      "placements": [
+        {
+          "id": "pl_fra_a01_leaf1",
+          "startU": 41,
+          "heightU": 1,
+          "face": "front",
+          "label": "FRA1-A01-LEAF-01",
+          "deviceTypeRef": "cisco-nexus-93180yc-fx",
+          "role": "leaf",
+          "colour": "#3b82f6"
+        }
+      ]
+    }
+  ],
+  "podPatterns": [],
+  "namingRules": [],
+  "naming": {
+    "rowStyle": "alpha",
+    "rowStart": 1,
+    "rowPad": 0,
+    "rackTemplate": "{dc}-{row}{n:02}"
+  },
+  "catalogue": [
+    {
+      "key": "cisco-nexus-93180yc-fx",
+      "manufacturer": "Cisco",
+      "model": "Nexus 93180YC-FX",
+      "uHeight": 1,
+      "fullDepth": true,
+      "partNumber": "N9K-C93180YC-FX"
+    }
+  ]
+}
