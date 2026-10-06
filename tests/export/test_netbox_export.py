@@ -1,4 +1,4 @@
-"""sync_to_netbox against an in-memory NetBox (``fake_netbox.py``): the plugin's ownership rules, over REST.
+"""sync_to_netbox against an in-memory NetBox (``fake_netbox_rest.py``): the plugin's ownership rules, over REST.
 
 The documents are what Railyard's own exporter writes for a small cabled estate (a switch, a patch
 panel, a server and a 0U PDU in one rack); see ``tests/fixtures/sync/make_documents.py``.
@@ -9,7 +9,7 @@ import json
 import pathlib
 
 import pytest
-from fake_netbox import FakeNetBox, Response
+from fake_netbox_rest import FakeNetBox, Response
 
 from railyard_sync.export.netbox_rest import NetBoxAuthError, NetBoxClient, NetBoxConnectionError, NetBoxError
 from railyard_sync.export.policy import DEFAULT_RAILYARD_URL, ownership_tag
