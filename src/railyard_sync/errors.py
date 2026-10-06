@@ -5,11 +5,70 @@ from __future__ import annotations
 
 
 class RailyardAPIError(Exception):
-    """A Railyard API request failed. Carries the HTTP status when there was a response."""
+    """A Railyard API request failed. Carries the HTTP status when there was a response.
 
-    def __init__(self, message: str, *, status: int | None = None) -> None:
+    The context of a failed response is kept for callers and for the message: ``method`` and ``path``,
+    ``status``, the server's ``code`` and its ``error`` text (``server_message``), any structured
+    ``details`` it sent (``problems``, ``field``, ``limit``…), and the ``request_id`` from the
+    ``X-Request-ID`` response header (or the one the client sent). ``message`` is the first line;
+    ``hints`` are the lines that say what to do; ``str(error)`` is all of it, ending with the request id
+    to quote. A caller may append hints (the CLI adds where it kept the document that was sent).
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status: int | None = None,
+        method: str = "",
+        path: str = "",
+        code: str = "",
+        server_message: str = "",
+        request_id: str = "",
+        details: dict | None = None,
+        hints: list[str] | None = None,
+    ) -> None:
         super().__init__(message)
+        self.message = message
         self.status = status
+        self.method = method
+        self.path = path
+        self.code = code
+        self.server_message = server_message
+        self.request_id = request_id
+        self.details = dict(details or {})
+        self.hints = list(hints or [])
+
+    def __str__(self) -> str:
+        lines = [self.message, *self.hints]
+        if self.request_id:
+            lines.append(f"Quote request id {self.request_id} when reporting this.")
+        return "\n  ".join(lines)
+
+
+class RailyardConnectionError(RailyardAPIError):
+    """Railyard could not be reached (DNS, TLS, a refused connection or a timeout); no status."""
+
+
+class RailyardBadRequestError(RailyardAPIError):
+    """400 — Railyard refused the request or the document. ``problems`` are the objects the server named
+    (``/api/validate``'s shape: ``severity``, ``code``, ``message``, ``rackId``, ``placementId``)."""
+
+    @property
+    def problems(self) -> list[dict]:
+        return [p for p in self.details.get("problems") or [] if isinstance(p, dict)]
+
+
+class RailyardBusyError(RailyardAPIError):
+    """429/503 — Railyard is busy or rate-limiting; ``retry_after`` is the wait it asked for, in seconds."""
+
+    def __init__(self, message: str, *, retry_after: float | None = None, **context) -> None:
+        super().__init__(message, **context)
+        self.retry_after = retry_after
+
+
+class RailyardServerError(RailyardAPIError):
+    """5xx (other than 503) — Railyard failed while handling the request: a Railyard fault, not the caller's."""
 
 
 class RailyardAuthError(RailyardAPIError):
@@ -69,10 +128,9 @@ class RailyardPlanError(RailyardAPIError):
         project_pass: bool = False,
         feature: str = "",
         deliverable: str = "",
+        **context,
     ) -> None:
-        super().__init__(message, status=status)
-        self.message = message
-        self.code = self.code_name if code is None else code
+        super().__init__(message, status=status, code=self.code_name if code is None else code, **context)
         self.plan = plan
         self.resource = resource
         self.limit = limit
@@ -82,6 +140,10 @@ class RailyardPlanError(RailyardAPIError):
         self.project_pass = project_pass
         self.feature = feature
         self.deliverable = deliverable
+
+    def __str__(self) -> str:
+        # A plan refusal is a business answer, not a fault to report: the server's wording alone.
+        return "\n  ".join([self.message, *self.hints])
 
 
 class RailyardPlanLimitError(RailyardPlanError):
@@ -103,9 +165,8 @@ class RailyardConflictError(RailyardAPIError):
     project has the name), ``project_id_taken`` (the new id is in use anywhere on the platform),
     ``history_quota``, ``version_control_disabled``…; empty when the server sent none."""
 
-    def __init__(self, message: str, *, status: int | None = 409, code: str = "") -> None:
-        super().__init__(message, status=status)
-        self.code = code
+    def __init__(self, message: str, *, status: int | None = 409, code: str = "", **context) -> None:
+        super().__init__(message, status=status, code=code, **context)
 
 
 class RailyardPreconditionError(RailyardAPIError):
@@ -117,7 +178,9 @@ class RailyardTooLargeError(RailyardAPIError):
     """413 — the document is larger than the server accepts. ``limit`` and ``size`` are bytes, when
     the server reported them."""
 
-    def __init__(self, message: str, *, status: int | None = 413, limit: int | None = None, size: int | None = None):
-        super().__init__(message, status=status)
+    def __init__(
+        self, message: str, *, status: int | None = 413, limit: int | None = None, size: int | None = None, **context
+    ):
+        super().__init__(message, status=status, **context)
         self.limit = limit
         self.size = size

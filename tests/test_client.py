@@ -97,7 +97,7 @@ def test_401_says_the_token_was_rejected_and_how_to_rotate_it():
     with pytest.raises(RailyardTokenRejectedError) as exc:
         client.get_project("prj1")
     msg = str(exc.value)
-    assert "expired" in msg and "Personal access tokens" in msg
+    assert "expired" in msg and "User settings → API tokens" in msg
     assert "ry_secret" not in msg  # never echo the token
     assert isinstance(exc.value, RailyardAuthError)  # still catchable as the broad auth error
 

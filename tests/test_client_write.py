@@ -175,7 +175,7 @@ def test_403_on_a_write_says_change_and_includes_the_server_reason():
     with pytest.raises(RailyardForbiddenError) as exc:
         client.put_project(PROJECT, if_match=None)
     assert not isinstance(exc.value, RailyardTermsError)
-    assert "may not change" in str(exc.value) and "read-only" in str(exc.value)
+    assert "read-only role" in str(exc.value) and "make the user an editor" in str(exc.value)
 
 
 @pytest.mark.parametrize("status", [400, 402, 403, 409, 412, 413, 500])
