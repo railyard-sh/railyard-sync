@@ -206,7 +206,8 @@ def _parse_version(text: str) -> tuple[int, int, int]:
     return int(match.group(1)), int(match.group(2)), int(match.group(3) or 0)
 
 
-def _chunks(items: list[str], size: int = ID_CHUNK) -> Iterator[list[str]]:
+def _chunks(items: list[str], size: int | None = None) -> Iterator[list[str]]:
+    size = size or ID_CHUNK
     for start in range(0, len(items), size):
         yield items[start : start + size]
 
@@ -276,7 +277,11 @@ class NetBoxLoader:
     # -- HTTP ------------------------------------------------------------------------------------
 
     def _scrub(self, text: str) -> str:
-        return text.replace(self._token, "***") if self._token else text
+        """Remove the token from text that may echo it: the whole token, and a v2 token's secret half."""
+        for secret in (self._token, self._token.partition(".")[2]):
+            if len(secret) >= 8:
+                text = text.replace(secret, "***")
+        return text
 
     def _get(self, path: str, params: list[tuple[str, Any]] | None = None) -> Any:
         url = f"{self.url}{path}"
@@ -529,6 +534,12 @@ class NetBoxLoader:
                 weight_kg=_kg(item.get("weight"), item.get("weight_unit")),
                 airflow=_value(item.get("airflow")),
                 subdevice_role=_value(item.get("subdevice_role")),
+            )
+        missing = [i for i in ids if i not in types]
+        if missing:
+            warnings.append(
+                f"NetBox did not return device type(s) {', '.join(missing)} used by the loaded devices; "
+                "does the token lack permission to read device types?"
             )
         if not types:
             return []
