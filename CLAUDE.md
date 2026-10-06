@@ -18,6 +18,9 @@ reads its own ORM into a `Snapshot` and calls the same importer the CLI uses.
 |---|---|
 | `src/railyard_sync/client.py`, `errors.py`, `project.py` | Railyard REST client (`Authorization: Bearer ry_…`, `X-Org-Id`), typed errors, Project JSON wrapper |
 | `src/railyard_sync/export/` | Railyard → DCIM: canonical DiffSync models, source adapter, mappings and cabling plan (ports of the Go export) |
+| `src/railyard_sync/export/sync_document.py` | Source adapter over Railyard's `netbox-sync` deliverable (the NetBox bundle as JSON rows). **All knowledge of that document's shape lives here** |
+| `src/railyard_sync/export/netbox_rest.py`, `run.py`, `policy.py` | NetBox REST target (the plugin's ownership rules: tag-owned objects only, shared objects used as-is, conflicts skipped, guarded deletes) and `sync_to_netbox()`; `policy.py` is the plugin's ownership tag, byte for byte |
+| `src/railyard_sync/deliverables.py` | `deliverable_json()` / `netbox_sync_document()` and the 402 `plan_required`/`plan_limit` errors (to move onto the client and into `errors.py`) |
 | `src/railyard_sync/dcim/snapshot.py` | **The contract**: a DCIM site as plain dataclasses (sites, locations, racks, device types, devices, components, cables, power panels/feeds), source-neutral, mm/kg/W units |
 | `src/railyard_sync/dcim/netbox.py` | NetBox REST loader → `Snapshot` (one or more sites) |
 | `src/railyard_sync/importer/` | `build_project(snapshot)` → Railyard Project JSON; `merge(existing, imported)` for re-import; the import report |
@@ -56,6 +59,16 @@ suffixes. `project.meta.railyardSync` records the source (kind, URL, version, si
 time and what was not modelled (power panels and feeds, device statuses, skipped objects).
 
 Anything **without** that prefix was designed in Railyard and is never touched by a re-import.
+
+## Export (Railyard → NetBox, `sync_to_netbox`)
+
+Same rules as the plugin's target (`netbox_railyard/target.py`), over REST. The ownership tag is keyed
+by the Railyard URL + project id, so pass the same `railyard_url` the plugin uses. Order: renames, owned
+cable deletes, creates/updates in `TOP_LEVEL` order, other deletes in reverse; deletes only with
+`allow_deletes`, and never when NetBox would protect the object or cascade to, modify or disconnect
+untagged objects. Front ports: `rear_port` up to 4.4, a `rear_ports` list from 4.5. Fixtures in
+`tests/fixtures/sync/` come from `railyard export --format netbox-sync` (`make_documents.py`); tests run
+against `tests/export/fake_netbox.py`.
 
 ## Mapping (DCIM → Railyard)
 
