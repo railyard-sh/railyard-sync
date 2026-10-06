@@ -15,7 +15,7 @@ FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 collect_ignore = ["integration"]
 
 
-# ---- fake HTTP session for RailyardClient ---------------------------------
+# ---- fake HTTP session for RailyardClient and the DCIM loaders -------------
 
 
 class FakeResponse:
@@ -29,14 +29,21 @@ class FakeResponse:
 
 
 class FakeSession:
-    """Records requests and returns whatever ``handler(method, url, headers, params)`` yields."""
+    """Records requests and returns whatever ``handler(method, url, headers, params)`` yields.
 
-    def __init__(self, handler: Callable[[str, str, dict, dict | None], FakeResponse]):
+    ``params`` is passed through as given: a dict, or a list of ``(key, value)`` pairs when a filter
+    repeats (``site_id=1&site_id=2``), as ``requests`` accepts. Extra keyword arguments (``verify``)
+    are recorded too.
+    """
+
+    def __init__(self, handler: Callable[[str, str, dict, dict | list | None], FakeResponse]):
         self.handler = handler
         self.calls: list[dict] = []
 
-    def request(self, method, url, headers=None, params=None, timeout=None):
-        self.calls.append({"method": method, "url": url, "headers": headers or {}, "params": params})
+    def request(self, method, url, headers=None, params=None, timeout=None, **kwargs):
+        self.calls.append(
+            {"method": method, "url": url, "headers": headers or {}, "params": params, "timeout": timeout, **kwargs}
+        )
         return self.handler(method, url, headers or {}, params)
 
 

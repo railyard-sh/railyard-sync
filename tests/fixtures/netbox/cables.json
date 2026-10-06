@@ -1,0 +1,490 @@
+[
+  {
+    "id": 500,
+    "url": "https://netbox.example.com/api/dcim/cables/500/",
+    "display_url": "https://netbox.example.com/dcim/cables/500/",
+    "display": "LDN1-0500",
+    "type": "mmf-om4",
+    "a_terminations": [
+      {
+        "object_type": "dcim.interface",
+        "object_id": 100,
+        "object": {
+          "id": 100,
+          "url": "https://netbox.example.com/api/dcim/interfaces/100/",
+          "display": "Ethernet1",
+          "device": {
+            "id": 40,
+            "url": "https://netbox.example.com/api/dcim/devices/40/",
+            "display": "ldn1-leaf1",
+            "name": "ldn1-leaf1",
+            "description": ""
+          },
+          "name": "Ethernet1",
+          "description": "",
+          "cable": {
+            "id": 500,
+            "url": "https://netbox.example.com/api/dcim/cables/500/",
+            "display": "#500",
+            "label": "",
+            "description": ""
+          },
+          "_occupied": true
+        }
+      }
+    ],
+    "b_terminations": [
+      {
+        "object_type": "dcim.frontport",
+        "object_id": 210,
+        "object": {
+          "id": 210,
+          "url": "https://netbox.example.com/api/dcim/front-ports/210/",
+          "display": "Front1",
+          "device": {
+            "id": 41,
+            "url": "https://netbox.example.com/api/dcim/devices/41/",
+            "display": "ldn1-pp1",
+            "name": "ldn1-pp1",
+            "description": ""
+          },
+          "name": "Front1",
+          "description": "",
+          "cable": {
+            "id": 500,
+            "url": "https://netbox.example.com/api/dcim/cables/500/",
+            "display": "#500",
+            "label": "",
+            "description": ""
+          },
+          "_occupied": true
+        }
+      }
+    ],
+    "status": {
+      "value": "connected",
+      "label": "Connected"
+    },
+    "profile": null,
+    "tenant": null,
+    "bundle": null,
+    "label": "LDN1-0500",
+    "color": "00bcd4",
+    "length": 3,
+    "length_unit": {
+      "value": "m",
+      "label": "M"
+    },
+    "description": "",
+    "owner": null,
+    "comments": "",
+    "tags": [
+      {
+        "id": 1,
+        "url": "https://netbox.example.com/api/extras/tags/1/",
+        "display_url": "https://netbox.example.com/extras/tags/1/",
+        "display": "production",
+        "name": "production",
+        "slug": "production",
+        "color": "4caf50"
+      }
+    ],
+    "custom_fields": {},
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z"
+  },
+  {
+    "id": 501,
+    "url": "https://netbox.example.com/api/dcim/cables/501/",
+    "display_url": "https://netbox.example.com/dcim/cables/501/",
+    "display": "LDN1-0501",
+    "type": "dac-passive",
+    "a_terminations": [
+      {
+        "object_type": "dcim.interface",
+        "object_id": 110,
+        "object": {
+          "id": 110,
+          "url": "https://netbox.example.com/api/dcim/interfaces/110/",
+          "display": "NIC1",
+          "device": {
+            "id": 42,
+            "url": "https://netbox.example.com/api/dcim/devices/42/",
+            "display": "ldn1-srv1",
+            "name": "ldn1-srv1",
+            "description": ""
+          },
+          "name": "NIC1",
+          "description": "",
+          "cable": {
+            "id": 501,
+            "url": "https://netbox.example.com/api/dcim/cables/501/",
+            "display": "#501",
+            "label": "",
+            "description": ""
+          },
+          "_occupied": true
+        }
+      }
+    ],
+    "b_terminations": [
+      {
+        "object_type": "dcim.interface",
+        "object_id": 101,
+        "object": {
+          "id": 101,
+          "url": "https://netbox.example.com/api/dcim/interfaces/101/",
+          "display": "Ethernet2",
+          "device": {
+            "id": 40,
+            "url": "https://netbox.example.com/api/dcim/devices/40/",
+            "display": "ldn1-leaf1",
+            "name": "ldn1-leaf1",
+            "description": ""
+          },
+          "name": "Ethernet2",
+          "description": "",
+          "cable": {
+            "id": 501,
+            "url": "https://netbox.example.com/api/dcim/cables/501/",
+            "display": "#501",
+            "label": "",
+            "description": ""
+          },
+          "_occupied": true
+        }
+      }
+    ],
+    "status": {
+      "value": "connected",
+      "label": "Connected"
+    },
+    "profile": null,
+    "tenant": null,
+    "bundle": null,
+    "label": "LDN1-0501",
+    "color": "",
+    "length": 300,
+    "length_unit": {
+      "value": "cm",
+      "label": "Cm"
+    },
+    "description": "",
+    "owner": null,
+    "comments": "",
+    "tags": [],
+    "custom_fields": {},
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z"
+  },
+  {
+    "id": 502,
+    "url": "https://netbox.example.com/api/dcim/cables/502/",
+    "display_url": "https://netbox.example.com/dcim/cables/502/",
+    "display": "#502",
+    "type": "power",
+    "a_terminations": [
+      {
+        "object_type": "dcim.powerport",
+        "object_id": 310,
+        "object": {
+          "id": 310,
+          "url": "https://netbox.example.com/api/dcim/power-ports/310/",
+          "display": "PSU1",
+          "device": {
+            "id": 42,
+            "url": "https://netbox.example.com/api/dcim/devices/42/",
+            "display": "ldn1-srv1",
+            "name": "ldn1-srv1",
+            "description": ""
+          },
+          "name": "PSU1",
+          "description": "",
+          "cable": {
+            "id": 502,
+            "url": "https://netbox.example.com/api/dcim/cables/502/",
+            "display": "#502",
+            "label": "",
+            "description": ""
+          },
+          "_occupied": true
+        }
+      }
+    ],
+    "b_terminations": [
+      {
+        "object_type": "dcim.poweroutlet",
+        "object_id": 330,
+        "object": {
+          "id": 330,
+          "url": "https://netbox.example.com/api/dcim/power-outlets/330/",
+          "display": "Outlet 1",
+          "device": {
+            "id": 43,
+            "url": "https://netbox.example.com/api/dcim/devices/43/",
+            "display": "ldn1-pdu-a",
+            "name": "ldn1-pdu-a",
+            "description": ""
+          },
+          "name": "Outlet 1",
+          "description": "",
+          "cable": {
+            "id": 502,
+            "url": "https://netbox.example.com/api/dcim/cables/502/",
+            "display": "#502",
+            "label": "",
+            "description": ""
+          },
+          "_occupied": true
+        }
+      }
+    ],
+    "status": {
+      "value": "connected",
+      "label": "Connected"
+    },
+    "profile": null,
+    "tenant": null,
+    "bundle": null,
+    "label": "",
+    "color": "f44336",
+    "length": 6,
+    "length_unit": {
+      "value": "ft",
+      "label": "Ft"
+    },
+    "description": "",
+    "owner": null,
+    "comments": "",
+    "tags": [],
+    "custom_fields": {},
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z"
+  },
+  {
+    "id": 503,
+    "url": "https://netbox.example.com/api/dcim/cables/503/",
+    "display_url": "https://netbox.example.com/dcim/cables/503/",
+    "display": "#503",
+    "type": "power",
+    "a_terminations": [
+      {
+        "object_type": "dcim.powerport",
+        "object_id": 320,
+        "object": {
+          "id": 320,
+          "url": "https://netbox.example.com/api/dcim/power-ports/320/",
+          "display": "Input",
+          "device": {
+            "id": 43,
+            "url": "https://netbox.example.com/api/dcim/devices/43/",
+            "display": "ldn1-pdu-a",
+            "name": "ldn1-pdu-a",
+            "description": ""
+          },
+          "name": "Input",
+          "description": "",
+          "cable": {
+            "id": 503,
+            "url": "https://netbox.example.com/api/dcim/cables/503/",
+            "display": "#503",
+            "label": "",
+            "description": ""
+          },
+          "_occupied": true
+        }
+      }
+    ],
+    "b_terminations": [
+      {
+        "object_type": "dcim.powerfeed",
+        "object_id": 61,
+        "object": {
+          "id": 61,
+          "url": "https://netbox.example.com/api/dcim/power-feeds/61/",
+          "display": "LDN1-A01-Feed-A",
+          "name": "LDN1-A01-Feed-A",
+          "cable": null,
+          "_occupied": true
+        }
+      }
+    ],
+    "status": {
+      "value": "connected",
+      "label": "Connected"
+    },
+    "profile": null,
+    "tenant": null,
+    "bundle": null,
+    "label": "",
+    "color": "",
+    "length": null,
+    "length_unit": null,
+    "description": "",
+    "owner": null,
+    "comments": "",
+    "tags": [],
+    "custom_fields": {},
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z"
+  },
+  {
+    "id": 504,
+    "url": "https://netbox.example.com/api/dcim/cables/504/",
+    "display_url": "https://netbox.example.com/dcim/cables/504/",
+    "display": "LDN-MAN-DF1",
+    "type": "smf-os2",
+    "a_terminations": [
+      {
+        "object_type": "dcim.rearport",
+        "object_id": 200,
+        "object": {
+          "id": 200,
+          "url": "https://netbox.example.com/api/dcim/rear-ports/200/",
+          "display": "Rear",
+          "device": {
+            "id": 41,
+            "url": "https://netbox.example.com/api/dcim/devices/41/",
+            "display": "ldn1-pp1",
+            "name": "ldn1-pp1",
+            "description": ""
+          },
+          "name": "Rear",
+          "description": "",
+          "cable": {
+            "id": 504,
+            "url": "https://netbox.example.com/api/dcim/cables/504/",
+            "display": "#504",
+            "label": "",
+            "description": ""
+          },
+          "_occupied": true
+        }
+      }
+    ],
+    "b_terminations": [
+      {
+        "object_type": "circuits.circuittermination",
+        "object_id": 700,
+        "object": {
+          "id": 700,
+          "url": "https://netbox.example.com/api/circuits/circuit-terminations/700/",
+          "display": "LDN-MAN-DF1: Termination A",
+          "circuit": {
+            "id": 7,
+            "url": "https://netbox.example.com/api/circuits/circuits/7/",
+            "display": "LDN-MAN-DF1",
+            "cid": "LDN-MAN-DF1",
+            "description": ""
+          },
+          "term_side": "A",
+          "description": "",
+          "cable": null,
+          "_occupied": true
+        }
+      }
+    ],
+    "status": {
+      "value": "connected",
+      "label": "Connected"
+    },
+    "profile": null,
+    "tenant": null,
+    "bundle": null,
+    "label": "LDN-MAN-DF1",
+    "color": "ffeb3b",
+    "length": 0.05,
+    "length_unit": {
+      "value": "km",
+      "label": "Km"
+    },
+    "description": "",
+    "owner": null,
+    "comments": "",
+    "tags": [],
+    "custom_fields": {},
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z"
+  },
+  {
+    "id": 505,
+    "url": "https://netbox.example.com/api/dcim/cables/505/",
+    "display_url": "https://netbox.example.com/dcim/cables/505/",
+    "display": "OOB-MAN",
+    "type": "cat6",
+    "a_terminations": [
+      {
+        "object_type": "dcim.interface",
+        "object_id": 102,
+        "object": {
+          "id": 102,
+          "url": "https://netbox.example.com/api/dcim/interfaces/102/",
+          "display": "Management1",
+          "device": {
+            "id": 40,
+            "url": "https://netbox.example.com/api/dcim/devices/40/",
+            "display": "ldn1-leaf1",
+            "name": "ldn1-leaf1",
+            "description": ""
+          },
+          "name": "Management1",
+          "description": "",
+          "cable": {
+            "id": 505,
+            "url": "https://netbox.example.com/api/dcim/cables/505/",
+            "display": "#505",
+            "label": "",
+            "description": ""
+          },
+          "_occupied": true
+        }
+      }
+    ],
+    "b_terminations": [
+      {
+        "object_type": "dcim.interface",
+        "object_id": 900,
+        "object": {
+          "id": 900,
+          "url": "https://netbox.example.com/api/dcim/interfaces/900/",
+          "display": "Ethernet49",
+          "device": {
+            "id": 90,
+            "url": "https://netbox.example.com/api/dcim/devices/90/",
+            "display": "man1-core1",
+            "name": "man1-core1",
+            "description": ""
+          },
+          "name": "Ethernet49",
+          "description": "",
+          "cable": {
+            "id": 505,
+            "url": "https://netbox.example.com/api/dcim/cables/505/",
+            "display": "#505",
+            "label": "",
+            "description": ""
+          },
+          "_occupied": true
+        }
+      }
+    ],
+    "status": {
+      "value": "planned",
+      "label": "Planned"
+    },
+    "profile": null,
+    "tenant": null,
+    "bundle": null,
+    "label": "OOB-MAN",
+    "color": "",
+    "length": null,
+    "length_unit": null,
+    "description": "",
+    "owner": null,
+    "comments": "",
+    "tags": [],
+    "custom_fields": {},
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z"
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "id": 340,
+    "url": "https://netbox.example.com/api/dcim/console-ports/340/",
+    "display_url": "https://netbox.example.com/dcim/console-ports/340/",
+    "display": "Console",
+    "device": {
+      "id": 40,
+      "url": "https://netbox.example.com/api/dcim/devices/40/",
+      "display": "ldn1-leaf1",
+      "name": "ldn1-leaf1",
+      "description": ""
+    },
+    "module": null,
+    "name": "Console",
+    "label": "",
+    "type": {
+      "value": "rj-45",
+      "label": "RJ-45"
+    },
+    "speed": null,
+    "connected_endpoints": null,
+    "connected_endpoints_type": null,
+    "connected_endpoints_reachable": null,
+    "description": "",
+    "mark_connected": false,
+    "cable": null,
+    "cable_end": "",
+    "link_peers": [],
+    "link_peers_type": null,
+    "owner": null,
+    "tags": [],
+    "custom_fields": {},
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z",
+    "_occupied": false
+  }
+]

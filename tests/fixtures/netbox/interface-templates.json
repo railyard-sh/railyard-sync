@@ -1,0 +1,261 @@
+[
+  {
+    "id": 1000,
+    "url": "https://netbox.example.com/api/dcim/interface-templates/1000/",
+    "display": "Ethernet1",
+    "device_type": {
+      "id": 30,
+      "url": "https://netbox.example.com/api/dcim/device-types/30/",
+      "display": "DCS-7050SX3-48YC8",
+      "manufacturer": {
+        "id": 2,
+        "url": "https://netbox.example.com/api/dcim/manufacturers/2/",
+        "display": "Arista",
+        "name": "Arista",
+        "slug": "arista",
+        "description": ""
+      },
+      "model": "DCS-7050SX3-48YC8",
+      "slug": "arista-dcs-7050sx3-48yc8",
+      "description": ""
+    },
+    "module_type": null,
+    "name": "Ethernet1",
+    "label": "",
+    "type": {
+      "value": "25gbase-x-sfp28",
+      "label": "SFP28 (25GE)"
+    },
+    "enabled": true,
+    "mgmt_only": false,
+    "bridge": null,
+    "poe_mode": null,
+    "poe_type": null,
+    "rf_role": null,
+    "description": "",
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z"
+  },
+  {
+    "id": 1001,
+    "url": "https://netbox.example.com/api/dcim/interface-templates/1001/",
+    "display": "Ethernet2",
+    "device_type": {
+      "id": 30,
+      "url": "https://netbox.example.com/api/dcim/device-types/30/",
+      "display": "DCS-7050SX3-48YC8",
+      "manufacturer": {
+        "id": 2,
+        "url": "https://netbox.example.com/api/dcim/manufacturers/2/",
+        "display": "Arista",
+        "name": "Arista",
+        "slug": "arista",
+        "description": ""
+      },
+      "model": "DCS-7050SX3-48YC8",
+      "slug": "arista-dcs-7050sx3-48yc8",
+      "description": ""
+    },
+    "module_type": null,
+    "name": "Ethernet2",
+    "label": "",
+    "type": {
+      "value": "25gbase-x-sfp28",
+      "label": "SFP28 (25GE)"
+    },
+    "enabled": true,
+    "mgmt_only": false,
+    "bridge": null,
+    "poe_mode": null,
+    "poe_type": null,
+    "rf_role": null,
+    "description": "",
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z"
+  },
+  {
+    "id": 1002,
+    "url": "https://netbox.example.com/api/dcim/interface-templates/1002/",
+    "display": "Management1",
+    "device_type": {
+      "id": 30,
+      "url": "https://netbox.example.com/api/dcim/device-types/30/",
+      "display": "DCS-7050SX3-48YC8",
+      "manufacturer": {
+        "id": 2,
+        "url": "https://netbox.example.com/api/dcim/manufacturers/2/",
+        "display": "Arista",
+        "name": "Arista",
+        "slug": "arista",
+        "description": ""
+      },
+      "model": "DCS-7050SX3-48YC8",
+      "slug": "arista-dcs-7050sx3-48yc8",
+      "description": ""
+    },
+    "module_type": null,
+    "name": "Management1",
+    "label": "",
+    "type": {
+      "value": "1000base-t",
+      "label": "1000BASE-T (1GE)"
+    },
+    "enabled": true,
+    "mgmt_only": true,
+    "bridge": null,
+    "poe_mode": null,
+    "poe_type": null,
+    "rf_role": null,
+    "description": "",
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z"
+  },
+  {
+    "id": 1010,
+    "url": "https://netbox.example.com/api/dcim/interface-templates/1010/",
+    "display": "NIC1",
+    "device_type": {
+      "id": 32,
+      "url": "https://netbox.example.com/api/dcim/device-types/32/",
+      "display": "PowerEdge R760",
+      "manufacturer": {
+        "id": 4,
+        "url": "https://netbox.example.com/api/dcim/manufacturers/4/",
+        "display": "Dell",
+        "name": "Dell",
+        "slug": "dell",
+        "description": ""
+      },
+      "model": "PowerEdge R760",
+      "slug": "dell-poweredge-r760",
+      "description": ""
+    },
+    "module_type": null,
+    "name": "NIC1",
+    "label": "",
+    "type": {
+      "value": "25gbase-x-sfp28",
+      "label": "SFP28 (25GE)"
+    },
+    "enabled": true,
+    "mgmt_only": false,
+    "bridge": null,
+    "poe_mode": null,
+    "poe_type": null,
+    "rf_role": null,
+    "description": "",
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z"
+  },
+  {
+    "id": 1011,
+    "url": "https://netbox.example.com/api/dcim/interface-templates/1011/",
+    "display": "iDRAC",
+    "device_type": {
+      "id": 32,
+      "url": "https://netbox.example.com/api/dcim/device-types/32/",
+      "display": "PowerEdge R760",
+      "manufacturer": {
+        "id": 4,
+        "url": "https://netbox.example.com/api/dcim/manufacturers/4/",
+        "display": "Dell",
+        "name": "Dell",
+        "slug": "dell",
+        "description": ""
+      },
+      "model": "PowerEdge R760",
+      "slug": "dell-poweredge-r760",
+      "description": ""
+    },
+    "module_type": null,
+    "name": "iDRAC",
+    "label": "",
+    "type": {
+      "value": "1000base-t",
+      "label": "1000BASE-T (1GE)"
+    },
+    "enabled": true,
+    "mgmt_only": true,
+    "bridge": null,
+    "poe_mode": null,
+    "poe_type": null,
+    "rf_role": null,
+    "description": "",
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z"
+  },
+  {
+    "id": 1020,
+    "url": "https://netbox.example.com/api/dcim/interface-templates/1020/",
+    "display": "GigabitEthernet0/0/0",
+    "device_type": {
+      "id": 36,
+      "url": "https://netbox.example.com/api/dcim/device-types/36/",
+      "display": "ISR1111-4P",
+      "manufacturer": {
+        "id": 5,
+        "url": "https://netbox.example.com/api/dcim/manufacturers/5/",
+        "display": "Cisco",
+        "name": "Cisco",
+        "slug": "cisco",
+        "description": ""
+      },
+      "model": "ISR1111-4P",
+      "slug": "cisco-isr1111-4p",
+      "description": ""
+    },
+    "module_type": null,
+    "name": "GigabitEthernet0/0/0",
+    "label": "",
+    "type": {
+      "value": "1000base-t",
+      "label": "1000BASE-T (1GE)"
+    },
+    "enabled": true,
+    "mgmt_only": false,
+    "bridge": null,
+    "poe_mode": null,
+    "poe_type": null,
+    "rf_role": null,
+    "description": "",
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z"
+  },
+  {
+    "id": 1090,
+    "url": "https://netbox.example.com/api/dcim/interface-templates/1090/",
+    "display": "Ethernet49",
+    "device_type": {
+      "id": 39,
+      "url": "https://netbox.example.com/api/dcim/device-types/39/",
+      "display": "DCS-7280SR3-48YC8",
+      "manufacturer": {
+        "id": 2,
+        "url": "https://netbox.example.com/api/dcim/manufacturers/2/",
+        "display": "Arista",
+        "name": "Arista",
+        "slug": "arista",
+        "description": ""
+      },
+      "model": "DCS-7280SR3-48YC8",
+      "slug": "arista-dcs-7280sr3-48yc8",
+      "description": ""
+    },
+    "module_type": null,
+    "name": "Ethernet49",
+    "label": "",
+    "type": {
+      "value": "100gbase-x-qsfp28",
+      "label": "QSFP28 (100GE)"
+    },
+    "enabled": true,
+    "mgmt_only": false,
+    "bridge": null,
+    "poe_mode": null,
+    "poe_type": null,
+    "rf_role": null,
+    "description": "",
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z"
+  }
+]

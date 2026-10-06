@@ -1,0 +1,13 @@
+{
+  "django-version": "5.2.6",
+  "installed-apps": {
+    "django_filters": "25.1",
+    "django_prometheus": "2.4.1",
+    "rest_framework": "3.16.1"
+  },
+  "netbox-version": "4.6.2",
+  "netbox-full-version": "4.6.2-Docker-3.4.1",
+  "plugins": {},
+  "python-version": "3.12.3",
+  "rq-workers-running": 1
+}

@@ -1,0 +1,33 @@
+[
+  {
+    "id": 1400,
+    "url": "https://netbox.example.com/api/dcim/console-port-templates/1400/",
+    "display": "Console",
+    "device_type": {
+      "id": 30,
+      "url": "https://netbox.example.com/api/dcim/device-types/30/",
+      "display": "DCS-7050SX3-48YC8",
+      "manufacturer": {
+        "id": 2,
+        "url": "https://netbox.example.com/api/dcim/manufacturers/2/",
+        "display": "Arista",
+        "name": "Arista",
+        "slug": "arista",
+        "description": ""
+      },
+      "model": "DCS-7050SX3-48YC8",
+      "slug": "arista-dcs-7050sx3-48yc8",
+      "description": ""
+    },
+    "module_type": null,
+    "name": "Console",
+    "label": "",
+    "type": {
+      "value": "rj-45",
+      "label": "RJ-45"
+    },
+    "description": "",
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z"
+  }
+]

@@ -1,0 +1,77 @@
+[
+  {
+    "id": 10,
+    "url": "https://netbox.example.com/api/dcim/locations/10/",
+    "display_url": "https://netbox.example.com/dcim/locations/10/",
+    "display": "Building A",
+    "name": "Building A",
+    "slug": "building-a",
+    "site": {
+      "id": 1,
+      "url": "https://netbox.example.com/api/dcim/sites/1/",
+      "display": "LDN1",
+      "name": "LDN1",
+      "slug": "ldn1",
+      "description": ""
+    },
+    "parent": null,
+    "status": {
+      "value": "active",
+      "label": "Active"
+    },
+    "tenant": null,
+    "facility": "BLD-A",
+    "description": "",
+    "owner": null,
+    "comments": "",
+    "tags": [],
+    "custom_fields": {},
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z",
+    "rack_count": 0,
+    "device_count": 0,
+    "_depth": 0
+  },
+  {
+    "id": 11,
+    "url": "https://netbox.example.com/api/dcim/locations/11/",
+    "display_url": "https://netbox.example.com/dcim/locations/11/",
+    "display": "Data Hall 1",
+    "name": "Data Hall 1",
+    "slug": "data-hall-1",
+    "site": {
+      "id": 1,
+      "url": "https://netbox.example.com/api/dcim/sites/1/",
+      "display": "LDN1",
+      "name": "LDN1",
+      "slug": "ldn1",
+      "description": ""
+    },
+    "parent": {
+      "id": 10,
+      "url": "https://netbox.example.com/api/dcim/locations/10/",
+      "display": "Building A",
+      "name": "Building A",
+      "slug": "building-a",
+      "description": "",
+      "rack_count": 0,
+      "_depth": 0
+    },
+    "status": {
+      "value": "active",
+      "label": "Active"
+    },
+    "tenant": null,
+    "facility": "DH1",
+    "description": "",
+    "owner": null,
+    "comments": "",
+    "tags": [],
+    "custom_fields": {},
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z",
+    "rack_count": 0,
+    "device_count": 0,
+    "_depth": 1
+  }
+]

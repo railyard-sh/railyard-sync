@@ -1,0 +1,54 @@
+[
+  {
+    "id": 200,
+    "url": "https://netbox.example.com/api/dcim/rear-ports/200/",
+    "display_url": "https://netbox.example.com/dcim/rear-ports/200/",
+    "display": "Rear",
+    "device": {
+      "id": 41,
+      "url": "https://netbox.example.com/api/dcim/devices/41/",
+      "display": "ldn1-pp1",
+      "name": "ldn1-pp1",
+      "description": ""
+    },
+    "module": null,
+    "name": "Rear",
+    "label": "",
+    "type": {
+      "value": "mpo",
+      "label": "MPO"
+    },
+    "color": "",
+    "positions": 2,
+    "front_ports": [
+      {
+        "position": 1,
+        "front_port": 210,
+        "front_port_position": 1
+      },
+      {
+        "position": 2,
+        "front_port": 211,
+        "front_port_position": 1
+      }
+    ],
+    "description": "",
+    "mark_connected": false,
+    "cable": {
+      "id": 504,
+      "url": "https://netbox.example.com/api/dcim/cables/504/",
+      "display": "#504",
+      "label": "",
+      "description": ""
+    },
+    "cable_end": "A",
+    "link_peers": [],
+    "link_peers_type": null,
+    "owner": null,
+    "tags": [],
+    "custom_fields": {},
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z",
+    "_occupied": true
+  }
+]

@@ -1,0 +1,120 @@
+[
+  {
+    "id": 210,
+    "url": "https://netbox.example.com/api/dcim/front-ports/210/",
+    "display_url": "https://netbox.example.com/dcim/front-ports/210/",
+    "display": "Front1",
+    "device": {
+      "id": 41,
+      "url": "https://netbox.example.com/api/dcim/devices/41/",
+      "display": "ldn1-pp1",
+      "name": "ldn1-pp1",
+      "description": ""
+    },
+    "module": null,
+    "name": "Front1",
+    "label": "",
+    "type": {
+      "value": "lc",
+      "label": "LC"
+    },
+    "color": "",
+    "rear_port": {
+      "id": 200,
+      "url": "https://netbox.example.com/api/dcim/rear-ports/200/",
+      "display": "Rear",
+      "device": {
+        "id": 41,
+        "url": "https://netbox.example.com/api/dcim/devices/41/",
+        "display": "ldn1-pp1",
+        "name": "ldn1-pp1",
+        "description": ""
+      },
+      "name": "Rear",
+      "description": "",
+      "cable": {
+        "id": 504,
+        "url": "https://netbox.example.com/api/dcim/cables/504/",
+        "display": "#504",
+        "label": "",
+        "description": ""
+      },
+      "_occupied": true
+    },
+    "rear_port_position": 1,
+    "description": "",
+    "mark_connected": false,
+    "cable": {
+      "id": 500,
+      "url": "https://netbox.example.com/api/dcim/cables/500/",
+      "display": "#500",
+      "label": "",
+      "description": ""
+    },
+    "cable_end": "B",
+    "link_peers": [],
+    "link_peers_type": null,
+    "owner": null,
+    "tags": [],
+    "custom_fields": {},
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z",
+    "_occupied": true
+  },
+  {
+    "id": 211,
+    "url": "https://netbox.example.com/api/dcim/front-ports/211/",
+    "display_url": "https://netbox.example.com/dcim/front-ports/211/",
+    "display": "Front2",
+    "device": {
+      "id": 41,
+      "url": "https://netbox.example.com/api/dcim/devices/41/",
+      "display": "ldn1-pp1",
+      "name": "ldn1-pp1",
+      "description": ""
+    },
+    "module": null,
+    "name": "Front2",
+    "label": "",
+    "type": {
+      "value": "lc",
+      "label": "LC"
+    },
+    "color": "",
+    "rear_port": {
+      "id": 200,
+      "url": "https://netbox.example.com/api/dcim/rear-ports/200/",
+      "display": "Rear",
+      "device": {
+        "id": 41,
+        "url": "https://netbox.example.com/api/dcim/devices/41/",
+        "display": "ldn1-pp1",
+        "name": "ldn1-pp1",
+        "description": ""
+      },
+      "name": "Rear",
+      "description": "",
+      "cable": {
+        "id": 504,
+        "url": "https://netbox.example.com/api/dcim/cables/504/",
+        "display": "#504",
+        "label": "",
+        "description": ""
+      },
+      "_occupied": true
+    },
+    "rear_port_position": 2,
+    "description": "",
+    "mark_connected": false,
+    "cable": null,
+    "cable_end": "",
+    "link_peers": [],
+    "link_peers_type": null,
+    "owner": null,
+    "tags": [],
+    "custom_fields": {},
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z",
+    "_occupied": false
+  }
+]

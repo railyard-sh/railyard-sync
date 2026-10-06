@@ -1,0 +1,251 @@
+[
+  {
+    "id": 20,
+    "url": "https://netbox.example.com/api/dcim/racks/20/",
+    "display_url": "https://netbox.example.com/dcim/racks/20/",
+    "display": "A01",
+    "name": "A01",
+    "facility_id": "LD8-0401-A01",
+    "site": {
+      "id": 1,
+      "url": "https://netbox.example.com/api/dcim/sites/1/",
+      "display": "LDN1",
+      "name": "LDN1",
+      "slug": "ldn1",
+      "description": ""
+    },
+    "location": {
+      "id": 11,
+      "url": "https://netbox.example.com/api/dcim/locations/11/",
+      "display": "Data Hall 1",
+      "name": "Data Hall 1",
+      "slug": "data-hall-1",
+      "description": "",
+      "rack_count": 0,
+      "_depth": 1
+    },
+    "tenant": null,
+    "status": {
+      "value": "active",
+      "label": "Active"
+    },
+    "role": {
+      "id": 1,
+      "url": "https://netbox.example.com/api/dcim/rack-roles/1/",
+      "display": "Network",
+      "name": "Network",
+      "slug": "network",
+      "description": ""
+    },
+    "rack_type": {
+      "id": 5,
+      "url": "https://netbox.example.com/api/dcim/rack-types/5/",
+      "display": "NetShelter SX AR3300",
+      "manufacturer": {
+        "id": 1,
+        "url": "https://netbox.example.com/api/dcim/manufacturers/1/",
+        "display": "APC",
+        "name": "APC",
+        "slug": "apc",
+        "description": ""
+      },
+      "model": "NetShelter SX AR3300",
+      "slug": "apc-ar3300",
+      "description": ""
+    },
+    "form_factor": {
+      "value": "4-post-cabinet",
+      "label": "4 post cabinet"
+    },
+    "width": {
+      "value": 19,
+      "label": "19 inches"
+    },
+    "airflow": null,
+    "serial": "AR3300-0001",
+    "asset_tag": "LDN1-R-A01",
+    "u_height": 42,
+    "starting_unit": 1,
+    "weight": null,
+    "max_weight": 1361,
+    "weight_unit": {
+      "value": "kg",
+      "label": "Kg"
+    },
+    "desc_units": false,
+    "outer_width": 600,
+    "outer_height": null,
+    "outer_depth": 1070,
+    "outer_unit": {
+      "value": "mm",
+      "label": "Mm"
+    },
+    "mounting_depth": null,
+    "description": "",
+    "owner": null,
+    "comments": "",
+    "tags": [
+      {
+        "id": 1,
+        "url": "https://netbox.example.com/api/extras/tags/1/",
+        "display_url": "https://netbox.example.com/extras/tags/1/",
+        "display": "production",
+        "name": "production",
+        "slug": "production",
+        "color": "4caf50"
+      }
+    ],
+    "custom_fields": {
+      "power_budget_kw": 8
+    },
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z",
+    "device_count": 0,
+    "powerfeed_count": 0
+  },
+  {
+    "id": 21,
+    "url": "https://netbox.example.com/api/dcim/racks/21/",
+    "display_url": "https://netbox.example.com/dcim/racks/21/",
+    "display": "A02",
+    "name": "A02",
+    "facility_id": "",
+    "site": {
+      "id": 1,
+      "url": "https://netbox.example.com/api/dcim/sites/1/",
+      "display": "LDN1",
+      "name": "LDN1",
+      "slug": "ldn1",
+      "description": ""
+    },
+    "location": {
+      "id": 11,
+      "url": "https://netbox.example.com/api/dcim/locations/11/",
+      "display": "Data Hall 1",
+      "name": "Data Hall 1",
+      "slug": "data-hall-1",
+      "description": "",
+      "rack_count": 0,
+      "_depth": 1
+    },
+    "tenant": null,
+    "status": {
+      "value": "active",
+      "label": "Active"
+    },
+    "role": {
+      "id": 2,
+      "url": "https://netbox.example.com/api/dcim/rack-roles/2/",
+      "display": "Compute",
+      "name": "Compute",
+      "slug": "compute",
+      "description": ""
+    },
+    "rack_type": null,
+    "form_factor": {
+      "value": "4-post-cabinet",
+      "label": "4 post cabinet"
+    },
+    "width": {
+      "value": 19,
+      "label": "19 inches"
+    },
+    "airflow": null,
+    "serial": "",
+    "asset_tag": null,
+    "u_height": 42,
+    "starting_unit": 1,
+    "weight": null,
+    "max_weight": 3000,
+    "weight_unit": {
+      "value": "lb",
+      "label": "Lb"
+    },
+    "desc_units": true,
+    "outer_width": 24,
+    "outer_height": null,
+    "outer_depth": 42,
+    "outer_unit": {
+      "value": "in",
+      "label": "In"
+    },
+    "mounting_depth": null,
+    "description": "",
+    "owner": null,
+    "comments": "",
+    "tags": [],
+    "custom_fields": {
+      "power_budget_kw": null
+    },
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z",
+    "device_count": 0,
+    "powerfeed_count": 0
+  },
+  {
+    "id": 22,
+    "url": "https://netbox.example.com/api/dcim/racks/22/",
+    "display_url": "https://netbox.example.com/dcim/racks/22/",
+    "display": "B01",
+    "name": "B01",
+    "facility_id": "",
+    "site": {
+      "id": 1,
+      "url": "https://netbox.example.com/api/dcim/sites/1/",
+      "display": "LDN1",
+      "name": "LDN1",
+      "slug": "ldn1",
+      "description": ""
+    },
+    "location": {
+      "id": 10,
+      "url": "https://netbox.example.com/api/dcim/locations/10/",
+      "display": "Building A",
+      "name": "Building A",
+      "slug": "building-a",
+      "description": "",
+      "rack_count": 0,
+      "_depth": 0
+    },
+    "tenant": null,
+    "status": {
+      "value": "planned",
+      "label": "Planned"
+    },
+    "role": null,
+    "rack_type": null,
+    "form_factor": {
+      "value": "2-post-frame",
+      "label": "2 post frame"
+    },
+    "width": {
+      "value": 23,
+      "label": "23 inches"
+    },
+    "airflow": null,
+    "serial": "",
+    "asset_tag": null,
+    "u_height": 45,
+    "starting_unit": 1,
+    "weight": null,
+    "max_weight": null,
+    "weight_unit": null,
+    "desc_units": false,
+    "outer_width": null,
+    "outer_height": null,
+    "outer_depth": null,
+    "outer_unit": null,
+    "mounting_depth": null,
+    "description": "",
+    "owner": null,
+    "comments": "",
+    "tags": [],
+    "custom_fields": {
+      "power_budget_kw": null
+    },
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z",
+    "device_count": 0,
+    "powerfeed_count": 0
+  }
+]

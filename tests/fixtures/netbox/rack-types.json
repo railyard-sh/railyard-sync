@@ -1,0 +1,100 @@
+[
+  {
+    "id": 5,
+    "url": "https://netbox.example.com/api/dcim/rack-types/5/",
+    "display_url": "https://netbox.example.com/dcim/rack-types/5/",
+    "display": "NetShelter SX AR3300",
+    "manufacturer": {
+      "id": 1,
+      "url": "https://netbox.example.com/api/dcim/manufacturers/1/",
+      "display": "APC",
+      "name": "APC",
+      "slug": "apc",
+      "description": ""
+    },
+    "model": "NetShelter SX AR3300",
+    "slug": "apc-ar3300",
+    "description": "",
+    "form_factor": {
+      "value": "4-post-cabinet",
+      "label": "4-post cabinet"
+    },
+    "width": {
+      "value": 19,
+      "label": "19 inches"
+    },
+    "u_height": 42,
+    "starting_unit": 1,
+    "weight": 136.0,
+    "max_weight": 1361,
+    "weight_unit": {
+      "value": "kg",
+      "label": "Kilograms"
+    },
+    "desc_units": false,
+    "outer_width": 600,
+    "outer_height": 1991,
+    "outer_depth": 1070,
+    "outer_unit": {
+      "value": "mm",
+      "label": "Millimeters"
+    },
+    "mounting_depth": null,
+    "owner": null,
+    "comments": "",
+    "tags": [],
+    "custom_fields": {},
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z",
+    "rack_count": 1
+  },
+  {
+    "id": 6,
+    "url": "https://netbox.example.com/api/dcim/rack-types/6/",
+    "display_url": "https://netbox.example.com/dcim/rack-types/6/",
+    "display": "NetShelter SX AR3350",
+    "manufacturer": {
+      "id": 1,
+      "url": "https://netbox.example.com/api/dcim/manufacturers/1/",
+      "display": "APC",
+      "name": "APC",
+      "slug": "apc",
+      "description": ""
+    },
+    "model": "NetShelter SX AR3350",
+    "slug": "apc-ar3350",
+    "description": "",
+    "form_factor": {
+      "value": "4-post-cabinet",
+      "label": "4-post cabinet"
+    },
+    "width": {
+      "value": 19,
+      "label": "19 inches"
+    },
+    "u_height": 42,
+    "starting_unit": 1,
+    "weight": 136.0,
+    "max_weight": 1361,
+    "weight_unit": {
+      "value": "kg",
+      "label": "Kilograms"
+    },
+    "desc_units": false,
+    "outer_width": 750,
+    "outer_height": 1991,
+    "outer_depth": 1070,
+    "outer_unit": {
+      "value": "mm",
+      "label": "Millimeters"
+    },
+    "mounting_depth": null,
+    "owner": null,
+    "comments": "",
+    "tags": [],
+    "custom_fields": {},
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z",
+    "rack_count": 1
+  }
+]

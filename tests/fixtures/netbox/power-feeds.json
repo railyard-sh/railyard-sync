@@ -1,0 +1,124 @@
+[
+  {
+    "id": 61,
+    "url": "https://netbox.example.com/api/dcim/power-feeds/61/",
+    "display_url": "https://netbox.example.com/dcim/power-feeds/61/",
+    "display": "LDN1-A01-Feed-A",
+    "power_panel": {
+      "id": 60,
+      "url": "https://netbox.example.com/api/dcim/power-panels/60/",
+      "display": "PP-LDN1-A",
+      "name": "PP-LDN1-A",
+      "description": "",
+      "powerfeed_count": 2
+    },
+    "rack": {
+      "id": 20,
+      "url": "https://netbox.example.com/api/dcim/racks/20/",
+      "display": "A01",
+      "name": "A01",
+      "description": ""
+    },
+    "name": "LDN1-A01-Feed-A",
+    "status": {
+      "value": "active",
+      "label": "Active"
+    },
+    "type": {
+      "value": "primary",
+      "label": "Primary"
+    },
+    "supply": {
+      "value": "ac",
+      "label": "AC"
+    },
+    "phase": {
+      "value": "single-phase",
+      "label": "Single Phase"
+    },
+    "voltage": 230,
+    "amperage": 32,
+    "max_utilization": 80,
+    "mark_connected": false,
+    "cable": {
+      "id": 503,
+      "url": "https://netbox.example.com/api/dcim/cables/503/",
+      "display": "#503",
+      "label": "",
+      "description": ""
+    },
+    "cable_end": "B",
+    "link_peers": [],
+    "link_peers_type": null,
+    "connected_endpoints": null,
+    "connected_endpoints_type": null,
+    "connected_endpoints_reachable": null,
+    "description": "",
+    "tenant": null,
+    "owner": null,
+    "comments": "",
+    "tags": [],
+    "custom_fields": {},
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z",
+    "_occupied": true
+  },
+  {
+    "id": 62,
+    "url": "https://netbox.example.com/api/dcim/power-feeds/62/",
+    "display_url": "https://netbox.example.com/dcim/power-feeds/62/",
+    "display": "LDN1-A01-Feed-B",
+    "power_panel": {
+      "id": 60,
+      "url": "https://netbox.example.com/api/dcim/power-panels/60/",
+      "display": "PP-LDN1-A",
+      "name": "PP-LDN1-A",
+      "description": "",
+      "powerfeed_count": 2
+    },
+    "rack": {
+      "id": 20,
+      "url": "https://netbox.example.com/api/dcim/racks/20/",
+      "display": "A01",
+      "name": "A01",
+      "description": ""
+    },
+    "name": "LDN1-A01-Feed-B",
+    "status": {
+      "value": "active",
+      "label": "Active"
+    },
+    "type": {
+      "value": "redundant",
+      "label": "Redundant"
+    },
+    "supply": {
+      "value": "ac",
+      "label": "AC"
+    },
+    "phase": {
+      "value": "three-phase",
+      "label": "Three Phase"
+    },
+    "voltage": 400,
+    "amperage": 16,
+    "max_utilization": 80,
+    "mark_connected": false,
+    "cable": null,
+    "cable_end": "",
+    "link_peers": [],
+    "link_peers_type": null,
+    "connected_endpoints": null,
+    "connected_endpoints_type": null,
+    "connected_endpoints_reachable": null,
+    "description": "",
+    "tenant": null,
+    "owner": null,
+    "comments": "",
+    "tags": [],
+    "custom_fields": {},
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z",
+    "_occupied": false
+  }
+]

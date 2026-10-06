@@ -1,0 +1,131 @@
+[
+  {
+    "id": 1300,
+    "url": "https://netbox.example.com/api/dcim/power-outlet-templates/1300/",
+    "display": "Outlet 1",
+    "device_type": {
+      "id": 33,
+      "url": "https://netbox.example.com/api/dcim/device-types/33/",
+      "display": "AP8868",
+      "manufacturer": {
+        "id": 1,
+        "url": "https://netbox.example.com/api/dcim/manufacturers/1/",
+        "display": "APC",
+        "name": "APC",
+        "slug": "apc",
+        "description": ""
+      },
+      "model": "AP8868",
+      "slug": "apc-ap8868",
+      "description": ""
+    },
+    "module_type": null,
+    "name": "Outlet 1",
+    "label": "",
+    "type": {
+      "value": "iec-60320-c13",
+      "label": "C13"
+    },
+    "color": "",
+    "power_port": {
+      "id": 1220,
+      "url": "https://netbox.example.com/api/dcim/power-port-templates/1220/",
+      "display": "Input",
+      "name": "Input",
+      "description": ""
+    },
+    "feed_leg": {
+      "value": "A",
+      "label": "A"
+    },
+    "description": "",
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z"
+  },
+  {
+    "id": 1301,
+    "url": "https://netbox.example.com/api/dcim/power-outlet-templates/1301/",
+    "display": "Outlet 2",
+    "device_type": {
+      "id": 33,
+      "url": "https://netbox.example.com/api/dcim/device-types/33/",
+      "display": "AP8868",
+      "manufacturer": {
+        "id": 1,
+        "url": "https://netbox.example.com/api/dcim/manufacturers/1/",
+        "display": "APC",
+        "name": "APC",
+        "slug": "apc",
+        "description": ""
+      },
+      "model": "AP8868",
+      "slug": "apc-ap8868",
+      "description": ""
+    },
+    "module_type": null,
+    "name": "Outlet 2",
+    "label": "",
+    "type": {
+      "value": "iec-60320-c13",
+      "label": "C13"
+    },
+    "color": "",
+    "power_port": {
+      "id": 1220,
+      "url": "https://netbox.example.com/api/dcim/power-port-templates/1220/",
+      "display": "Input",
+      "name": "Input",
+      "description": ""
+    },
+    "feed_leg": {
+      "value": "A",
+      "label": "A"
+    },
+    "description": "",
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z"
+  },
+  {
+    "id": 1302,
+    "url": "https://netbox.example.com/api/dcim/power-outlet-templates/1302/",
+    "display": "Outlet 3",
+    "device_type": {
+      "id": 33,
+      "url": "https://netbox.example.com/api/dcim/device-types/33/",
+      "display": "AP8868",
+      "manufacturer": {
+        "id": 1,
+        "url": "https://netbox.example.com/api/dcim/manufacturers/1/",
+        "display": "APC",
+        "name": "APC",
+        "slug": "apc",
+        "description": ""
+      },
+      "model": "AP8868",
+      "slug": "apc-ap8868",
+      "description": ""
+    },
+    "module_type": null,
+    "name": "Outlet 3",
+    "label": "",
+    "type": {
+      "value": "iec-60320-c13",
+      "label": "C13"
+    },
+    "color": "",
+    "power_port": {
+      "id": 1220,
+      "url": "https://netbox.example.com/api/dcim/power-port-templates/1220/",
+      "display": "Input",
+      "name": "Input",
+      "description": ""
+    },
+    "feed_leg": {
+      "value": "A",
+      "label": "A"
+    },
+    "description": "",
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z"
+  }
+]

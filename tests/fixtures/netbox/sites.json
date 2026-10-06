@@ -1,0 +1,118 @@
+[
+  {
+    "id": 1,
+    "url": "https://netbox.example.com/api/dcim/sites/1/",
+    "display_url": "https://netbox.example.com/dcim/sites/1/",
+    "display": "LDN1",
+    "name": "LDN1",
+    "slug": "ldn1",
+    "status": {
+      "value": "active",
+      "label": "Active"
+    },
+    "region": {
+      "id": 3,
+      "url": "https://netbox.example.com/api/dcim/regions/3/",
+      "display": "London",
+      "name": "London",
+      "slug": "gb-ldn",
+      "description": "",
+      "site_count": 0,
+      "_depth": 2
+    },
+    "group": null,
+    "tenant": {
+      "id": 1,
+      "url": "https://netbox.example.com/api/tenancy/tenants/1/",
+      "display": "Acme Ltd",
+      "name": "Acme Ltd",
+      "slug": "acme",
+      "description": ""
+    },
+    "facility": "Equinix LD8",
+    "time_zone": "Europe/London",
+    "description": "LDN1 colocation",
+    "physical_address": "1 Example Street\nLondon",
+    "shipping_address": "",
+    "latitude": 51.5072,
+    "longitude": -0.1276,
+    "owner": null,
+    "comments": "Cage 4, suite 2.",
+    "asns": [],
+    "tags": [
+      {
+        "id": 1,
+        "url": "https://netbox.example.com/api/extras/tags/1/",
+        "display_url": "https://netbox.example.com/extras/tags/1/",
+        "display": "production",
+        "name": "production",
+        "slug": "production",
+        "color": "4caf50"
+      }
+    ],
+    "custom_fields": {
+      "site_code": "LDN1"
+    },
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z",
+    "circuit_count": 1,
+    "device_count": 0,
+    "prefix_count": 0,
+    "rack_count": 3,
+    "virtualmachine_count": 0,
+    "vlan_count": 0
+  },
+  {
+    "id": 2,
+    "url": "https://netbox.example.com/api/dcim/sites/2/",
+    "display_url": "https://netbox.example.com/dcim/sites/2/",
+    "display": "MAN1",
+    "name": "MAN1",
+    "slug": "man1",
+    "status": {
+      "value": "active",
+      "label": "Active"
+    },
+    "region": {
+      "id": 2,
+      "url": "https://netbox.example.com/api/dcim/regions/2/",
+      "display": "United Kingdom",
+      "name": "United Kingdom",
+      "slug": "gb",
+      "description": "",
+      "site_count": 0,
+      "_depth": 1
+    },
+    "group": null,
+    "tenant": {
+      "id": 1,
+      "url": "https://netbox.example.com/api/tenancy/tenants/1/",
+      "display": "Acme Ltd",
+      "name": "Acme Ltd",
+      "slug": "acme",
+      "description": ""
+    },
+    "facility": "Manchester DC",
+    "time_zone": "Europe/London",
+    "description": "MAN1 colocation",
+    "physical_address": "1 Example Street\nLondon",
+    "shipping_address": "",
+    "latitude": 51.5072,
+    "longitude": -0.1276,
+    "owner": null,
+    "comments": "Cage 4, suite 2.",
+    "asns": [],
+    "tags": [],
+    "custom_fields": {
+      "site_code": "MAN1"
+    },
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z",
+    "circuit_count": 1,
+    "device_count": 0,
+    "prefix_count": 0,
+    "rack_count": 3,
+    "virtualmachine_count": 0,
+    "vlan_count": 0
+  }
+]

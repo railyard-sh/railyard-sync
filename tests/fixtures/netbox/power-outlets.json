@@ -1,0 +1,188 @@
+[
+  {
+    "id": 330,
+    "url": "https://netbox.example.com/api/dcim/power-outlets/330/",
+    "display_url": "https://netbox.example.com/dcim/power-outlets/330/",
+    "display": "Outlet 1",
+    "device": {
+      "id": 43,
+      "url": "https://netbox.example.com/api/dcim/devices/43/",
+      "display": "ldn1-pdu-a",
+      "name": "ldn1-pdu-a",
+      "description": ""
+    },
+    "module": null,
+    "name": "Outlet 1",
+    "label": "",
+    "type": {
+      "value": "iec-60320-c13",
+      "label": "C13"
+    },
+    "color": "",
+    "power_port": {
+      "id": 320,
+      "url": "https://netbox.example.com/api/dcim/power-ports/320/",
+      "display": "Input",
+      "device": {
+        "id": 43,
+        "url": "https://netbox.example.com/api/dcim/devices/43/",
+        "display": "ldn1-pdu-a",
+        "name": "ldn1-pdu-a",
+        "description": ""
+      },
+      "name": "Input",
+      "description": "",
+      "cable": null,
+      "_occupied": true
+    },
+    "feed_leg": {
+      "value": "A",
+      "label": "A"
+    },
+    "status": {
+      "value": "enabled",
+      "label": "Enabled"
+    },
+    "connected_endpoints": null,
+    "connected_endpoints_type": null,
+    "connected_endpoints_reachable": null,
+    "description": "",
+    "mark_connected": false,
+    "cable": {
+      "id": 502,
+      "url": "https://netbox.example.com/api/dcim/cables/502/",
+      "display": "#502",
+      "label": "",
+      "description": ""
+    },
+    "cable_end": "B",
+    "link_peers": [],
+    "link_peers_type": null,
+    "owner": null,
+    "tags": [],
+    "custom_fields": {},
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z",
+    "_occupied": true
+  },
+  {
+    "id": 331,
+    "url": "https://netbox.example.com/api/dcim/power-outlets/331/",
+    "display_url": "https://netbox.example.com/dcim/power-outlets/331/",
+    "display": "Outlet 2",
+    "device": {
+      "id": 43,
+      "url": "https://netbox.example.com/api/dcim/devices/43/",
+      "display": "ldn1-pdu-a",
+      "name": "ldn1-pdu-a",
+      "description": ""
+    },
+    "module": null,
+    "name": "Outlet 2",
+    "label": "",
+    "type": {
+      "value": "iec-60320-c13",
+      "label": "C13"
+    },
+    "color": "",
+    "power_port": {
+      "id": 320,
+      "url": "https://netbox.example.com/api/dcim/power-ports/320/",
+      "display": "Input",
+      "device": {
+        "id": 43,
+        "url": "https://netbox.example.com/api/dcim/devices/43/",
+        "display": "ldn1-pdu-a",
+        "name": "ldn1-pdu-a",
+        "description": ""
+      },
+      "name": "Input",
+      "description": "",
+      "cable": null,
+      "_occupied": true
+    },
+    "feed_leg": {
+      "value": "A",
+      "label": "A"
+    },
+    "status": {
+      "value": "enabled",
+      "label": "Enabled"
+    },
+    "connected_endpoints": null,
+    "connected_endpoints_type": null,
+    "connected_endpoints_reachable": null,
+    "description": "",
+    "mark_connected": false,
+    "cable": null,
+    "cable_end": "",
+    "link_peers": [],
+    "link_peers_type": null,
+    "owner": null,
+    "tags": [],
+    "custom_fields": {},
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z",
+    "_occupied": false
+  },
+  {
+    "id": 332,
+    "url": "https://netbox.example.com/api/dcim/power-outlets/332/",
+    "display_url": "https://netbox.example.com/dcim/power-outlets/332/",
+    "display": "Outlet 3",
+    "device": {
+      "id": 43,
+      "url": "https://netbox.example.com/api/dcim/devices/43/",
+      "display": "ldn1-pdu-a",
+      "name": "ldn1-pdu-a",
+      "description": ""
+    },
+    "module": null,
+    "name": "Outlet 3",
+    "label": "",
+    "type": {
+      "value": "iec-60320-c13",
+      "label": "C13"
+    },
+    "color": "",
+    "power_port": {
+      "id": 320,
+      "url": "https://netbox.example.com/api/dcim/power-ports/320/",
+      "display": "Input",
+      "device": {
+        "id": 43,
+        "url": "https://netbox.example.com/api/dcim/devices/43/",
+        "display": "ldn1-pdu-a",
+        "name": "ldn1-pdu-a",
+        "description": ""
+      },
+      "name": "Input",
+      "description": "",
+      "cable": null,
+      "_occupied": true
+    },
+    "feed_leg": {
+      "value": "A",
+      "label": "A"
+    },
+    "status": {
+      "value": "enabled",
+      "label": "Enabled"
+    },
+    "connected_endpoints": null,
+    "connected_endpoints_type": null,
+    "connected_endpoints_reachable": null,
+    "description": "",
+    "mark_connected": false,
+    "cable": null,
+    "cable_end": "",
+    "link_peers": [],
+    "link_peers_type": null,
+    "owner": null,
+    "tags": [],
+    "custom_fields": {},
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z",
+    "_occupied": false
+  }
+]

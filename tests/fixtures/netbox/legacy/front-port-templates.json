@@ -1,0 +1,82 @@
+[
+  {
+    "id": 1110,
+    "url": "https://netbox.example.com/api/dcim/front-port-templates/1110/",
+    "display": "Front1",
+    "device_type": {
+      "id": 31,
+      "url": "https://netbox.example.com/api/dcim/device-types/31/",
+      "display": "LC Patch Panel 2-port",
+      "manufacturer": {
+        "id": 3,
+        "url": "https://netbox.example.com/api/dcim/manufacturers/3/",
+        "display": "Generic",
+        "name": "Generic",
+        "slug": "generic",
+        "description": ""
+      },
+      "model": "LC Patch Panel 2-port",
+      "slug": "generic-lc-patch-panel-2",
+      "description": ""
+    },
+    "module_type": null,
+    "name": "Front1",
+    "label": "",
+    "type": {
+      "value": "lc",
+      "label": "LC"
+    },
+    "color": "",
+    "rear_port": {
+      "id": 1100,
+      "url": "https://netbox.example.com/api/dcim/rear-port-templates/1100/",
+      "display": "Rear",
+      "name": "Rear",
+      "description": ""
+    },
+    "rear_port_position": 1,
+    "description": "",
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z"
+  },
+  {
+    "id": 1111,
+    "url": "https://netbox.example.com/api/dcim/front-port-templates/1111/",
+    "display": "Front2",
+    "device_type": {
+      "id": 31,
+      "url": "https://netbox.example.com/api/dcim/device-types/31/",
+      "display": "LC Patch Panel 2-port",
+      "manufacturer": {
+        "id": 3,
+        "url": "https://netbox.example.com/api/dcim/manufacturers/3/",
+        "display": "Generic",
+        "name": "Generic",
+        "slug": "generic",
+        "description": ""
+      },
+      "model": "LC Patch Panel 2-port",
+      "slug": "generic-lc-patch-panel-2",
+      "description": ""
+    },
+    "module_type": null,
+    "name": "Front2",
+    "label": "",
+    "type": {
+      "value": "lc",
+      "label": "LC"
+    },
+    "color": "",
+    "rear_port": {
+      "id": 1100,
+      "url": "https://netbox.example.com/api/dcim/rear-port-templates/1100/",
+      "display": "Rear",
+      "name": "Rear",
+      "description": ""
+    },
+    "rear_port_position": 2,
+    "description": "",
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z"
+  }
+]

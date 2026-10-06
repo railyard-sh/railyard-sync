@@ -1,0 +1,47 @@
+[
+  {
+    "id": 1100,
+    "url": "https://netbox.example.com/api/dcim/rear-port-templates/1100/",
+    "display": "Rear",
+    "device_type": {
+      "id": 31,
+      "url": "https://netbox.example.com/api/dcim/device-types/31/",
+      "display": "LC Patch Panel 2-port",
+      "manufacturer": {
+        "id": 3,
+        "url": "https://netbox.example.com/api/dcim/manufacturers/3/",
+        "display": "Generic",
+        "name": "Generic",
+        "slug": "generic",
+        "description": ""
+      },
+      "model": "LC Patch Panel 2-port",
+      "slug": "generic-lc-patch-panel-2",
+      "description": ""
+    },
+    "module_type": null,
+    "name": "Rear",
+    "label": "",
+    "type": {
+      "value": "mpo",
+      "label": "MPO"
+    },
+    "color": "",
+    "positions": 2,
+    "front_ports": [
+      {
+        "position": 1,
+        "front_port": 1110,
+        "front_port_position": 1
+      },
+      {
+        "position": 2,
+        "front_port": 1111,
+        "front_port_position": 1
+      }
+    ],
+    "description": "",
+    "created": "2025-11-03T10:12:44.118204Z",
+    "last_updated": "2026-08-21T14:02:09.501337Z"
+  }
+]
