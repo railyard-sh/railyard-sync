@@ -7,17 +7,28 @@
         [--dry-run] [--allow-deletes] [--out FILE] [--snapshot-out FILE] [--from-snapshot FILE]
         [--insecure] [--name-version]
 
-The flow: read the NetBox sites into a :class:`~railyard_sync.dcim.snapshot.Snapshot` (or replay one
-saved with ``--snapshot-out``), build a Railyard project from it (device types matched against
-Railyard's catalogue), and then either create a new estate (``--name``) or refresh an existing one
+    railyard-sync export netbox --railyard-url URL --org ORG --project REF [--change-request ID]
+        --netbox-url URL [--netbox-version X.Y] [--apply] [--allow-deletes] [--import-components]
+        [--insecure] [--json]
+
+**Import** reads the NetBox sites into a :class:`~railyard_sync.dcim.snapshot.Snapshot` (or replays one
+saved with ``--snapshot-out``), builds a Railyard project from it (device types matched against
+Railyard's catalogue), and then either creates a new estate (``--name``) or refreshes an existing one
 (``--project``) by merging the import into it with :func:`railyard_sync.importer.merge.merge` and saving
 it with ``If-Match``, so a change made in Railyard meanwhile is never overwritten. ``--dry-run`` shows
 what would happen and saves nothing.
 
+**Export** fetches the estate's NetBox sync document from Railyard (a paid deliverable on hosted
+Railyard; a self-hosted server with billing off allows it) for the NetBox release it reads from
+``/api/status/`` (or ``--netbox-version``), and syncs it into NetBox with
+:func:`railyard_sync.export.run.sync_to_netbox`, under the ownership tag keyed by ``--railyard-url`` and
+the project id. It is a dry run that prints the planned changes unless ``--apply`` is given.
+
 Tokens come from the environment only (``NETBOX_TOKEN``, ``RAILYARD_TOKEN``): a token on the command
 line would sit in shell history and the process list, so one is refused.
 
-Exit codes: 0 success, 1 error, 2 usage, 3 refused by the Railyard plan (for example its rack limit).
+Exit codes: 0 success, 1 error (an export with errors or conflicts too), 2 usage, 3 refused by the
+Railyard plan (its rack limit, or a deliverable the plan does not include).
 """
 
 from __future__ import annotations
@@ -25,6 +36,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import uuid
 from datetime import UTC, datetime
@@ -37,8 +49,11 @@ from .errors import (
     RailyardConflictError,
     RailyardPlanError,
     RailyardPlanLimitError,
+    RailyardPlanRequiredError,
     RailyardPreconditionError,
 )
+from .export.netbox_rest import ENDPOINT, MIN_VERSION, NetBoxClient, NetBoxError, NetBoxVersionError, parse_version
+from .export.run import SyncRefused, SyncResult, sync_to_netbox
 from .importer.merge import MergeDiff, merge
 
 EXIT_OK, EXIT_ERROR, EXIT_USAGE, EXIT_PLAN = 0, 1, 2, 3
@@ -105,7 +120,9 @@ def today() -> str:
     return datetime.now(UTC).date().isoformat()
 
 
-# ---- arguments ------------------------------------------------------------------------------------------
+# ---- arguments (shared by import and export) ----------------------------------------------------------
+
+NETBOX_VERSION = re.compile(r"v?(\d+)\.(\d+)(\.\d+)?")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -115,6 +132,25 @@ def build_parser() -> argparse.ArgumentParser:
         f"({NETBOX_TOKEN_ENV}, {RAILYARD_TOKEN_ENV}), never from the command line.",
     )
     commands = parser.add_subparsers(dest="command", metavar="COMMAND", required=True)
+    _add_import(commands)
+    _add_export(commands)
+    return parser
+
+
+def _add_netbox_url(group: Any, *, required: bool, what: str) -> None:
+    help_ = f"NetBox base URL (token from ${NETBOX_TOKEN_ENV}: {what})"
+    group.add_argument("--netbox-url", metavar="URL", required=required, help=help_)
+    group.add_argument("--insecure", action="store_true", help="do not verify NetBox's TLS certificate")
+
+
+def _add_railyard(group: Any) -> None:
+    group.add_argument(
+        "--railyard-url", metavar="URL", required=True, help=f"Railyard URL (token from ${RAILYARD_TOKEN_ENV})"
+    )
+    group.add_argument("--org", required=True, help="organisation id, slug or name")
+
+
+def _add_import(commands: Any) -> None:
     imp = commands.add_parser("import", help="import DCIM sites into a Railyard estate")
     sources = imp.add_subparsers(dest="source", metavar="SOURCE", required=True)
     nb = sources.add_parser(
@@ -125,14 +161,12 @@ def build_parser() -> argparse.ArgumentParser:
         "and removed only with --allow-deletes.",
     )
     src = nb.add_argument_group("NetBox")
-    src.add_argument("--netbox-url", metavar="URL", help="NetBox base URL (token from $NETBOX_TOKEN)")
+    _add_netbox_url(src, required=False, what="read-only is enough")
     src.add_argument("--site", metavar="SLUG", action="append", default=[], help="site slug; repeat for more")
-    src.add_argument("--insecure", action="store_true", help="do not verify NetBox's TLS certificate")
     src.add_argument("--from-snapshot", metavar="FILE", help="replay a snapshot saved with --snapshot-out")
     src.add_argument("--snapshot-out", metavar="FILE", help="save what was read from NetBox as JSON")
     dst = nb.add_argument_group("Railyard")
-    dst.add_argument("--railyard-url", metavar="URL", required=True, help="Railyard URL (token from $RAILYARD_TOKEN)")
-    dst.add_argument("--org", required=True, help="organisation id, slug or name")
+    _add_railyard(dst)
     target = dst.add_mutually_exclusive_group(required=True)
     target.add_argument("--project", metavar="REF", help="refresh this estate (id or URL slug)")
     target.add_argument("--name", help="create a new estate with this name")
@@ -141,7 +175,39 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--allow-deletes", action="store_true", help="remove objects deleted in NetBox")
     run.add_argument("--out", metavar="FILE", help="also write the Railyard project JSON to FILE")
     run.add_argument("--name-version", action="store_true", help='name the saved version "NetBox import <date>"')
-    return parser
+
+
+def _add_export(commands: Any) -> None:
+    exp = commands.add_parser("export", help="export a Railyard estate into a DCIM")
+    targets = exp.add_subparsers(dest="target", metavar="TARGET", required=True)
+    nb = targets.add_parser(
+        "netbox",
+        help="sync a Railyard estate into NetBox",
+        description="Sync a Railyard estate into NetBox over its REST API. A dry run by default: it prints the "
+        "planned changes and writes nothing; --apply writes them. Every object the sync creates carries the "
+        "project's ownership tag, and only tagged objects are ever updated or deleted. The NetBox sync document "
+        "is a paid deliverable on hosted Railyard.",
+    )
+    src = nb.add_argument_group("Railyard")
+    _add_railyard(src)
+    src.add_argument("--project", metavar="REF", required=True, help="the estate to export (id or URL slug)")
+    src.add_argument("--change-request", metavar="ID", help="export a merge request's draft instead of main")
+    dst = nb.add_argument_group("NetBox")
+    _add_netbox_url(dst, required=True, what="it must be allowed to write what the sync creates")
+    dst.add_argument(
+        "--netbox-version",
+        metavar="X.Y",
+        help="the NetBox release to write for (default: read from NetBox's /api/status/)",
+    )
+    run = nb.add_argument_group("run")
+    run.add_argument("--apply", action="store_true", help="write the changes (default: a dry run)")
+    run.add_argument("--allow-deletes", action="store_true", help="delete owned objects gone from Railyard")
+    run.add_argument(
+        "--import-components",
+        action="store_true",
+        help="give new device types their component templates from the netbox-community devicetype-library",
+    )
+    run.add_argument("--json", action="store_true", help="print the result as JSON")
 
 
 def _refuse_tokens_on_argv(argv: list[str]) -> None:
@@ -156,6 +222,14 @@ def _refuse_tokens_on_argv(argv: list[str]) -> None:
 
 
 def _validate(args: argparse.Namespace) -> None:
+    if args.command == "export":
+        if args.netbox_version is not None:
+            match = NETBOX_VERSION.fullmatch(args.netbox_version.strip())
+            if not match or (int(match.group(1)), int(match.group(2))) < MIN_VERSION:
+                raise UsageError("--netbox-version must be a NetBox release from 4.0 on, such as 4.4 or 4.5")
+        if args.change_request is not None and not args.change_request.strip():
+            raise UsageError("--change-request must not be empty")
+        return
     if args.from_snapshot is None:
         if not args.netbox_url:
             raise UsageError("--netbox-url is required (or replay a saved snapshot with --from-snapshot)")
@@ -172,7 +246,39 @@ def _env_token(name: str, what: str) -> str:
     return token
 
 
-# ---- the import -------------------------------------------------------------------------------------------
+def _railyard_client(args: argparse.Namespace, token: str) -> RailyardClient:
+    """A client for ``--railyard-url`` with ``--org`` resolved now, so a wrong org fails before any work."""
+    try:
+        client = RailyardClient(args.railyard_url, token, org=args.org)
+    except ValueError as e:
+        raise UsageError(str(e)) from None
+    client.org_id()
+    return client
+
+
+def _configure_logging() -> None:
+    """Keep library logging off stdout, which carries only the CLI's own output (``--json`` must parse).
+
+    diffsync logs every diff and write through structlog, whose default configuration prints to stdout.
+    Route it through the standard library instead, like this package's own loggers: with no handlers
+    configured only warnings and errors are shown, on stderr, and the chatter is dropped. An application
+    that configures logging itself keeps its configuration.
+    """
+    import structlog
+
+    structlog.configure(
+        processors=[
+            structlog.stdlib.filter_by_level,
+            structlog.stdlib.add_log_level,
+            structlog.dev.ConsoleRenderer(colors=False),
+        ],
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=False,
+    )
+
+
+# ---- the commands -----------------------------------------------------------------------------------------
 
 
 def main(argv: list[str] | None = None, *, stdout: TextIO | None = None, stderr: TextIO | None = None) -> int:
@@ -186,22 +292,20 @@ def main(argv: list[str] | None = None, *, stdout: TextIO | None = None, stderr:
         except SystemExit as exit_:  # argparse already printed the usage message
             return int(exit_.code or 0)
         _validate(args)
+        _configure_logging()
+        if args.command == "export":
+            return _export_netbox(args, out, err)
         return _import_netbox(args, out, err)
     except UsageError as e:
         print(f"railyard-sync: error: {e}", file=err)
         return EXIT_USAGE
-    except RailyardPlanLimitError as e:
-        refreshing = bool(args is not None and args.project)
-        print(f"railyard-sync: {plan_limit_message(e, refreshing=refreshing)}", file=err)
-        return EXIT_PLAN
     except RailyardPlanError as e:
-        options = _upgrade_options(e.required_plans, e.project_pass)
-        print(f"railyard-sync: {e}" + (f". {_sentence(options)}" if options else ""), file=err)
+        print(f"railyard-sync: {plan_message(e, args)}", file=err)
         return EXIT_PLAN
-    except (CommandError, RailyardAPIError, *dcim_errors()) as e:
+    except (CommandError, RailyardAPIError, NetBoxError, SyncRefused, *dcim_errors()) as e:
         print(f"railyard-sync: error: {e}", file=err)
         return EXIT_ERROR
-    except (OSError, ValueError) as e:  # unreadable/unwritable files, a malformed snapshot
+    except (OSError, ValueError) as e:  # unreadable/unwritable files, a malformed snapshot or sync document
         print(f"railyard-sync: error: {e}", file=err)
         return EXIT_ERROR
 
@@ -220,11 +324,7 @@ def _import_netbox(args: argparse.Namespace, out: TextIO, err: TextIO) -> int:
         _write_json(args.snapshot_out, snapshot.to_dict())
         print(f"Snapshot written to {args.snapshot_out}", file=out)
 
-    try:
-        client = RailyardClient(args.railyard_url, railyard_token, org=args.org)
-    except ValueError as e:
-        raise UsageError(str(e)) from None
-    client.org_id()  # resolve the org now: a wrong --org fails before any work
+    client = _railyard_client(args, railyard_token)
 
     existing: dict | None = None
     revision: int | None = None
@@ -303,6 +403,61 @@ def _name_version(client: RailyardClient, project_id: str, revision: int, out: T
         print(f"warning: the import was saved, but naming the version failed: {e}{hint}", file=err)
         return
     print(f"Named the version {title!r}.", file=out)
+
+
+def _export_netbox(args: argparse.Namespace, out: TextIO, err: TextIO) -> int:
+    railyard_token = _env_token(RAILYARD_TOKEN_ENV, "a Railyard personal access token (ry_…)")
+    netbox_token = _env_token(NETBOX_TOKEN_ENV, "a NetBox API token that may write what the sync creates")
+    verify = not args.insecure
+    if args.insecure:
+        print("warning: not verifying NetBox's TLS certificate (--insecure)", file=err)
+    try:
+        netbox = NetBoxClient(args.netbox_url, netbox_token, verify=verify)
+    except ValueError as e:
+        raise UsageError(str(e)) from None
+
+    version = args.netbox_version.strip() if args.netbox_version else _netbox_release(netbox, err)
+    client = _railyard_client(args, railyard_token)
+    document = client.netbox_sync_document(
+        args.project, netbox_version=version, change_request_id=args.change_request or None
+    )
+    result = sync_to_netbox(
+        document,
+        args.netbox_url,
+        netbox_token,
+        dry_run=not args.apply,
+        allow_deletes=args.allow_deletes,
+        railyard_url=args.railyard_url,
+        verify=verify,
+        import_components=args.import_components,
+    )
+    if version and parse_version(version) != parse_version(result.netbox_version):
+        result.warnings.append(
+            f"The document was written for NetBox {version}, but {result.netbox_url} runs NetBox "
+            f"{result.netbox_version}; leave out --netbox-version to match it."
+        )
+    if args.json:
+        json.dump(result.as_dict(), out, indent=2, ensure_ascii=False)
+        out.write("\n")
+    else:
+        print(export_report(result), file=out)
+    return EXIT_ERROR if result.errors or result.conflicts else EXIT_OK
+
+
+def _netbox_release(netbox: NetBoxClient, err: TextIO) -> str | None:
+    """The connected NetBox's release line (``"4.5"``), read from ``/api/status/``, for the document."""
+    netbox.status()
+    major, minor = parse_version(netbox.version)
+    if (major, minor) == (0, 0):
+        print(
+            f"warning: NetBox did not report a readable version ({netbox.version!r}); asking Railyard for its "
+            "default. Pass --netbox-version to choose one.",
+            file=err,
+        )
+        return None
+    if (major, minor) < MIN_VERSION:
+        raise NetBoxVersionError(f"NetBox {netbox.version} is not supported: 4.0 or later.")
+    return f"{major}.{minor}"
 
 
 # ---- checks and reporting -----------------------------------------------------------------------------------
@@ -397,6 +552,74 @@ def _report_text(report: Any) -> str:
     return str(text).strip()
 
 
+# ---- export report ------------------------------------------------------------------------------------------
+
+#: Object types in the order a sync creates them (``netbox_rest.ENDPOINT``).
+OBJECT_TYPES = tuple(ENDPOINT)
+
+
+def _type_counts(counts: dict[str, dict[str, int]], verbs: tuple[str, str, str]) -> list[str]:
+    """``device: 4 created, 1 updated`` per object type, in creation order, for the types that change."""
+    actions = ("create", "update", "delete")
+    seen = {t for action in actions for t in (counts.get(action) or {})}
+    lines = []
+    for type_name in [*OBJECT_TYPES, *sorted(seen - set(OBJECT_TYPES))]:
+        parts = [
+            f"{counts[action][type_name]} {verb}"
+            for action, verb in zip(actions, verbs, strict=True)
+            if (counts.get(action) or {}).get(type_name)
+        ]
+        if parts:
+            lines.append(f"  {type_name.replace('_', ' ')}: {', '.join(parts)}")
+    return lines
+
+
+def _section(title: str, items: list[str], hint: str = "") -> list[str]:
+    if not items:
+        return []
+    return [f"{title} ({len(items)}){': ' + hint if hint else ''}:", *(f"  - {item}" for item in items)]
+
+
+def export_report(result: SyncResult) -> str:
+    """A sync's result as text: what changes (or would) per object type, then everything the operator should
+    know — conflicts, adopted and renamed objects, refused and stale deletes, warnings and errors."""
+    lines = [
+        f"Railyard estate {result.project_name!r} ({result.project_id}) → NetBox {result.netbox_version} "
+        f"at {result.netbox_url}",
+        f"Ownership tag: {result.tag} (slug {result.tag_slug})",
+    ]
+    diff = result.diff
+    if result.dry_run:
+        lines.append(
+            f"Dry run, planned: {diff.get('create', 0)} to create, {diff.get('update', 0)} to update, "
+            f"{diff.get('delete', 0)} to delete, {diff.get('no-change', 0)} unchanged."
+        )
+        lines += _type_counts(result.planned, ("to create", "to update", "to delete"))
+        lines += _section("Changes", result.changes)
+    else:
+        lines.append(
+            f"Applied: {result.created} created, {result.updated} updated, {result.deleted} deleted, "
+            f"{diff.get('no-change', 0)} unchanged."
+        )
+        lines += _type_counts(result.applied, ("created", "updated", "deleted"))
+    skipped = f"skipped, with {result.dependents_skipped} dependent object(s)" if result.dependents_skipped else ""
+    lines += _section("Conflicts", result.conflicts, skipped or "skipped; resolve them in NetBox")
+    lines += _section("Used as they are", result.referenced, "existing shared objects, never changed")
+    lines += _section("Adopted", result.adopted, "existing components of owned devices, now tagged")
+    lines += _section("Renamed", result.renamed)
+    lines += _section("Deletes refused", result.kept, "kept, as they reach objects the sync does not own")
+    lines += _section("Stale", result.stale, "owned objects gone from Railyard, kept; --allow-deletes removes them")
+    lines += _section("Warnings", result.warnings)
+    lines += _section("Errors", result.errors, "writes NetBox refused; run the export again once fixed")
+    if result.dry_run:
+        lines.append("Dry run: nothing was written to NetBox. Re-run with --apply to write these changes.")
+    elif result.errors or result.conflicts:
+        lines.append("Finished with errors or conflicts (listed above).")
+    else:
+        lines.append("NetBox is in step with the Railyard estate.")
+    return "\n".join(lines)
+
+
 def _plan_name(plan_id: str) -> str:
     return PLAN_NAMES.get(plan_id, plan_id.replace("-", " ").title() if plan_id else "current")
 
@@ -418,6 +641,38 @@ def _sentence(options: list[str]) -> str:
     """['a', 'b', 'c'] -> 'A, b, or c.'"""
     text = options[0] if len(options) == 1 else ", ".join(options[:-1]) + ", or " + options[-1]
     return text[:1].upper() + text[1:] + "."
+
+
+def plan_message(e: RailyardPlanError, args: argparse.Namespace | None) -> str:
+    """The upgrade message for a plan refusal, worded for the command that met it."""
+    if args is not None and args.command == "export":
+        return deliverable_plan_message(e)
+    if isinstance(e, RailyardPlanLimitError):
+        return plan_limit_message(e, refreshing=bool(args is not None and args.project))
+    options = _upgrade_options(e.required_plans, e.project_pass)
+    return f"{e}" + (f". {_sentence(options)}" if options else "")
+
+
+def deliverable_plan_message(e: RailyardPlanError) -> str:
+    """'Exporting to NetBox needs a plan with deliverables: the Community plan does not include them. Upgrade to
+    Pro or Team, or buy a Project Pass for this estate. Nothing was written to NetBox.'"""
+    plan = _plan_name(e.plan)
+    plan = plan if plan == "Project Pass" else f"the {plan} plan"
+    if isinstance(e, RailyardPlanLimitError) and e.current is not None and e.limit is not None:
+        resource = e.resource or "racks"
+        head = (
+            f"This estate has {e.current} {resource}; {plan} exports deliverables for estates of up to "
+            f"{e.limit} {resource}."
+        )
+        extra = [f"remove {resource}"]
+    elif isinstance(e, RailyardPlanRequiredError):
+        head = f"Exporting to NetBox needs a plan with deliverables: {plan} does not include them."
+        extra = []
+    else:
+        head = f"Railyard refused the NetBox sync document: {e}."
+        extra = []
+    options = _upgrade_options(e.required_plans, e.project_pass) or ["contact Railyard about an Enterprise plan"]
+    return f"{head} {_sentence(options + extra)} Nothing was written to NetBox."
 
 
 def plan_limit_message(e: RailyardPlanLimitError, *, refreshing: bool = False) -> str:

@@ -60,19 +60,25 @@ class Report:
 
 
 class FakeRailyard:
-    """Just enough of the Railyard API: orgs, one project with a revision, saves and named versions."""
+    """Just enough of the Railyard API: orgs, one project with a revision, saves, named versions and, when
+    ``deliverable`` is set, deliverables (``deliverable(project, request body)`` answers each POST)."""
 
     def __init__(self, project: dict | None = None, revision: int = 7):
         self.project = project
         self.revision = revision
         self.put_response: FakeResponse | None = None
         self.version_response: FakeResponse | None = None
+        self.deliverable = None
         self.session = FakeSession(self.handle)
 
     def handle(self, method, url, headers, params):
         path = url.removeprefix("https://railyard.sh")
         if path == "/api/orgs":
             return FakeResponse(200, ORGS)
+        if "/deliverables/" in path and method == "POST":
+            if self.deliverable is None:
+                return FakeResponse(404, {"error": "unknown deliverable"})
+            return self.deliverable(self.project, self.session.calls[-1]["json"])
         if path.endswith("/versions") and method == "POST":
             return self.version_response or FakeResponse(201, {"id": "v1"})
         if path.startswith("/api/projects/") and method == "GET":

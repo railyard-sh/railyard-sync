@@ -20,11 +20,14 @@ classifiers = [
 # - requests 2.32.4 fixes CVE-2024-35195 and CVE-2024-47081.
 # - diffsync 2.x is the API the export adapter is written against (Adapter, DiffSyncFlags).
 # - pydantic is imported directly by the DiffSync models, so it is declared rather than inherited.
+# - structlog (diffsync's logger) is configured by the CLI, so it is declared too; its versions are
+#   calendar-based, so only diffsync's own floor applies.
 # - PyYAML 6 removed unsafe default loaders; only yaml.safe_load is used.
 dependencies = [
   "diffsync>=2.2,<3",
   "pydantic>=2,<3",
   "requests>=2.32.4,<3",
+  "structlog>=20.1.0",
   "PyYAML>=6,<7",
 ]
 
