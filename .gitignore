@@ -6,3 +6,6 @@ __pycache__/
 dist/
 build/
 *.snapshot.json
+
+# documents a refused save kept (railyard-sync-failed-<project>-<time>.json)
+railyard-sync-failed-*.json

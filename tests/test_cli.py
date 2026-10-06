@@ -6,6 +6,7 @@ from __future__ import annotations
 import io
 import json
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from conftest import FakeResponse, FakeSession
@@ -69,12 +70,19 @@ class FakeRailyard:
         self.put_response: FakeResponse | None = None
         self.version_response: FakeResponse | None = None
         self.deliverable = None
+        # /api/validate's answer for a document: a FakeResponse, or a callable taking the document.
+        self.validate: Any = None
         self.session = FakeSession(self.handle)
 
     def handle(self, method, url, headers, params):
         path = url.removeprefix("https://railyard.sh")
         if path == "/api/orgs":
             return FakeResponse(200, ORGS)
+        if path == "/api/validate" and method == "POST":
+            answer = self.validate
+            if callable(answer):
+                answer = answer(self.session.calls[-1]["json"])
+            return answer or FakeResponse(200, {"problems": []})
         if "/deliverables/" in path and method == "POST":
             if self.deliverable is None:
                 return FakeResponse(404, {"error": "unknown deliverable"})
@@ -94,7 +102,15 @@ class FakeRailyard:
         return FakeResponse(404, {"error": "no route"})
 
     def calls(self, method: str) -> list[dict]:
-        return [c for c in self.session.calls if c["method"] == method and "/api/orgs" not in c["url"]]
+        """The calls with ``method``, leaving out the org lookup and the (read-only) document check."""
+        return [
+            c
+            for c in self.session.calls
+            if c["method"] == method and "/api/orgs" not in c["url"] and not c["url"].endswith("/api/validate")
+        ]
+
+    def validations(self) -> list[dict]:
+        return [c for c in self.session.calls if c["url"].endswith("/api/validate")]
 
 
 @pytest.fixture
@@ -104,8 +120,10 @@ def env(monkeypatch):
 
 
 @pytest.fixture
-def stubs(monkeypatch, env):
-    """Stub the loader and builder; returns a namespace recording their calls and the fake Railyard."""
+def stubs(monkeypatch, env, tmp_path):
+    """Stub the loader and builder; returns a namespace recording their calls and the fake Railyard. Runs in a
+    temporary directory, where a refused save keeps its document."""
+    monkeypatch.chdir(tmp_path)
     state = SimpleNamespace(loads=[], builds=[], railyard=FakeRailyard(), catalogue_clients=[])
 
     def load(url, token, sites, *, verify=True):

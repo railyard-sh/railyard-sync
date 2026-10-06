@@ -194,6 +194,33 @@ def test_json_output_is_the_sync_result(world, capsys):
     assert capsys.readouterr().out == ""  # no library logging reached the real stdout
 
 
+def test_progress_and_verbose_requests_go_to_stderr_and_json_stays_clean(world, tmp_path):
+    netbox, _ = world
+    log_file = tmp_path / "export.log"
+    code, out, err = run([*ARGS, "--apply", "--json", "-v", "--log-file", str(log_file)], netbox)
+    assert code == cli.EXIT_OK
+    assert json.loads(out)["created"] == OBJECTS
+    assert f"Reading NetBox {FakeNetBox.URL}…" in err
+    assert "Fetching the NetBox sync document for cabled from Railyard…" in err
+    assert "Writing to NetBox…" in err and f"{OBJECTS} created" in err
+    assert "  NetBox GET /api/status/ -> 200 in " in err and "  NetBox POST /api/dcim/devices/ -> 201 in " in err
+    assert "Railyard POST /api/projects/cabled/deliverables/netbox-sync -> 200 in " in err
+    text = log_file.read_text()
+    assert "NetBox POST /api/dcim/devices/" in text
+    for part in [PAT, *netbox.token.split(".")]:
+        assert part not in text
+
+
+def test_a_netbox_failure_says_how_far_the_export_got(world):
+    netbox, railyard = world
+    railyard.deliverable = lambda project, body: FakeResponse(500, {"error": "internal server error"})
+    code, _, err = run(ARGS, netbox)
+    assert code == cli.EXIT_ERROR
+    assert "Railyard failed while generating the netbox-sync deliverable (HTTP 500" in err
+    assert "Before the failure, railyard-sync had:" in err and f"- read NetBox {FakeNetBox.URL}" in err
+    assert "Quote request id rys-" in err
+
+
 def test_netbox_write_errors_exit_1(world):
     netbox, _ = world
     netbox.forbid.add(("POST", "dcim/cables"))
