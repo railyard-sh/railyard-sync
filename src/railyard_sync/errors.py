@@ -35,34 +35,31 @@ class RailyardTermsError(RailyardForbiddenError):
 
 
 class RailyardPlanError(RailyardAPIError):
-    """402 — the organisation's plan does not allow the change. Carries the plan the server reported
-    and the purchasable plans that would (``required_plans``, in catalogue order)."""
+    """402 — the estate's plan does not allow the request. The one family for every plan refusal,
+    whether a project save past the rack cap or a paid deliverable; ``RailyardClient`` parses each 402
+    into it in one place.
+
+    Every field the server may send is carried (empty or ``None`` when it did not send it):
+
+    - ``code``: ``plan_limit`` or ``plan_required`` (empty for a bare 402).
+    - ``plan``: the plan the estate is on (``community``, ``pro``…, or ``project-pass``).
+    - ``resource``, ``limit``, ``current``, ``scope``: for ``plan_limit``, the change would take
+      ``resource`` (``racks``) to ``current`` where the plan allows ``limit`` per ``scope`` (``estate``).
+    - ``feature``, ``deliverable``: for ``plan_required``, what the plan lacks (``deliverables``,
+      ``branches``…) and, for a deliverable, which one (``netbox-sync``…).
+    - ``required_plans``: the purchasable plans that would allow it, in catalogue order.
+    - ``project_pass``: whether a Project Pass for this estate would also allow it.
+    - ``message``: the server's own wording (also ``str(error)``).
+    """
+
+    code_name = ""
 
     def __init__(
         self,
         message: str,
         *,
         status: int | None = 402,
-        plan: str = "",
-        required_plans: list[str] | None = None,
-        project_pass: bool = False,
-    ) -> None:
-        super().__init__(message, status=status)
-        self.plan = plan
-        self.required_plans = list(required_plans or [])
-        self.project_pass = project_pass
-
-
-class RailyardPlanLimitError(RailyardPlanError):
-    """402 ``plan_limit`` — a scale limit, such as racks per estate: the change would take
-    ``resource`` to ``current`` where the plan allows ``limit``. ``message`` is the server's own
-    wording; ``project_pass`` reports that a Project Pass for this estate would also allow it."""
-
-    def __init__(
-        self,
-        message: str,
-        *,
-        status: int | None = 402,
+        code: str | None = None,
         plan: str = "",
         resource: str = "",
         limit: int | None = None,
@@ -70,33 +67,35 @@ class RailyardPlanLimitError(RailyardPlanError):
         scope: str = "",
         required_plans: list[str] | None = None,
         project_pass: bool = False,
+        feature: str = "",
+        deliverable: str = "",
     ) -> None:
-        super().__init__(message, status=status, plan=plan, required_plans=required_plans, project_pass=project_pass)
+        super().__init__(message, status=status)
+        self.message = message
+        self.code = self.code_name if code is None else code
+        self.plan = plan
         self.resource = resource
         self.limit = limit
         self.current = current
         self.scope = scope
+        self.required_plans = list(required_plans or [])
+        self.project_pass = project_pass
+        self.feature = feature
+        self.deliverable = deliverable
 
-    @property
-    def message(self) -> str:
-        return str(self)
+
+class RailyardPlanLimitError(RailyardPlanError):
+    """402 ``plan_limit`` — a scale limit, such as racks per estate: the change (or the estate a
+    deliverable is generated for) takes ``resource`` to ``current`` where the plan allows ``limit``."""
+
+    code_name = "plan_limit"
 
 
 class RailyardPlanRequiredError(RailyardPlanError):
-    """402 ``plan_required`` — the plan does not include a feature (``feature``), such as branches."""
+    """402 ``plan_required`` — the plan does not include a feature (``feature``), such as branches or
+    deliverables (``deliverable`` names which one was asked for)."""
 
-    def __init__(
-        self,
-        message: str,
-        *,
-        status: int | None = 402,
-        plan: str = "",
-        feature: str = "",
-        required_plans: list[str] | None = None,
-        project_pass: bool = False,
-    ) -> None:
-        super().__init__(message, status=status, plan=plan, required_plans=required_plans, project_pass=project_pass)
-        self.feature = feature
+    code_name = "plan_required"
 
 
 class RailyardConflictError(RailyardAPIError):

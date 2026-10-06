@@ -12,10 +12,15 @@ header (its value is the org **id**). The endpoints used:
                                          -> {id, slug, orgId}; ETag: the revision written
     POST /api/projects/{id}/versions  -> a named version of the current revision
                                          body {title, expectedCurrentRevision}
+    POST /api/projects/{id}/deliverables/{kind}
+                                      -> a deliverable generated from the stored design (JSON for
+                                         ``netbox-sync``); body {changeRequestId?, options?}
 
 Failures map to the typed errors in :mod:`railyard_sync.errors`, keyed on the HTTP status and, where
 the server sends one, its stable ``code`` (``plan_limit``, ``plan_required``, ``name_taken``,
-``project_id_taken``, ``terms_not_accepted``…). The token never appears in an error message.
+``project_id_taken``, ``terms_not_accepted``…). Every 402 is parsed in one place (:func:`_plan_error`) into
+the :class:`~railyard_sync.errors.RailyardPlanError` family, whether a save went past the rack cap or a paid
+deliverable was refused. The token never appears in an error message.
 
 A ``session`` (anything exposing ``request(method, url, headers=, params=, timeout=, json=)`` and
 returning an object with ``status_code``/``json()``/``text``/``headers``, i.e. a ``requests.Session``) can be
@@ -42,6 +47,7 @@ from .errors import (
 )
 
 TOKEN_PREFIX = "ry_"
+NETBOX_SYNC = "netbox-sync"  # the deliverable kind of the NetBox sync document
 
 
 class _Response(Protocol):  # the subset of requests.Response we rely on
@@ -169,29 +175,9 @@ class RailyardClient:
                 status=status,
             )
         if status == 404:
-            return RailyardNotFoundError(f"Not found (HTTP 404): {path}", status=status)
+            return RailyardNotFoundError(f"Not found (HTTP 404): {path}{suffix}", status=status)
         if status == 402:
-            plans = [str(p) for p in payload.get("requiredPlans") or []]
-            if code == "plan_limit":
-                return RailyardPlanLimitError(
-                    said or "Railyard refused the change: it goes past the plan's limit (HTTP 402).",
-                    plan=str(payload.get("plan") or ""),
-                    resource=str(payload.get("resource") or ""),
-                    limit=_int_or_none(payload.get("limit")),
-                    current=_int_or_none(payload.get("current")),
-                    scope=str(payload.get("scope") or ""),
-                    required_plans=plans,
-                    project_pass=bool(payload.get("projectPass")),
-                )
-            if code == "plan_required":
-                return RailyardPlanRequiredError(
-                    said or "Railyard refused the request: the plan does not include it (HTTP 402).",
-                    plan=str(payload.get("plan") or ""),
-                    feature=str(payload.get("feature") or ""),
-                    required_plans=plans,
-                    project_pass=bool(payload.get("projectPass")),
-                )
-            return RailyardPlanError(f"Railyard refused the request (HTTP 402){suffix}", required_plans=plans)
+            return _plan_error(payload, said)
         if status == 409:
             return RailyardConflictError(f"Railyard refused the change (HTTP 409){suffix}", code=code)
         if status in (412, 428):
@@ -296,6 +282,61 @@ class RailyardClient:
         )
         return resp.json()
 
+    # -- deliverables -------------------------------------------------------
+
+    def deliverable_json(
+        self,
+        project_ref: str,
+        kind: str,
+        *,
+        options: dict | None = None,
+        change_request_id: str | None = None,
+        org_id: str | None = None,
+    ) -> Any:
+        """Generate a JSON deliverable for a project (by id or URL slug) and return the decoded document.
+
+        ``options`` are the generator's (for example ``{"netboxVersion": "4.4"}``); ``change_request_id``
+        generates it from a merge request's draft instead of main. Deliverables are paid on hosted
+        Railyard: a plan without them is refused with :class:`RailyardPlanRequiredError`, an estate past
+        the plan's rack cap with :class:`RailyardPlanLimitError` (a self-hosted server with billing off
+        allows every deliverable). Other failures are the client's usual typed errors."""
+        if not project_ref:
+            raise ValueError("project ref is required")
+        if not kind:
+            raise ValueError("deliverable kind is required")
+        body: dict[str, Any] = {}
+        if change_request_id:
+            body["changeRequestId"] = change_request_id
+        if options:
+            body["options"] = dict(options)
+        path = f"/api/projects/{quote(str(project_ref), safe='')}/deliverables/{quote(kind, safe='')}"
+        resp = self._send("POST", path, org_id=org_id or self.org_id(), body=body)
+        try:
+            return resp.json()
+        except ValueError:
+            raise RailyardAPIError(
+                f"Railyard returned a {kind} deliverable that is not JSON.", status=resp.status_code
+            ) from None
+
+    def netbox_sync_document(
+        self,
+        project_ref: str,
+        *,
+        netbox_version: str | None = None,
+        change_request_id: str | None = None,
+        org_id: str | None = None,
+    ) -> dict:
+        """The project's NetBox sync document (``POST …/deliverables/netbox-sync``), the source of
+        :func:`railyard_sync.export.run.sync_to_netbox`. ``netbox_version`` is the NetBox release the
+        document is written for (``"4.4"``; Railyard's default line otherwise)."""
+        options = {"netboxVersion": netbox_version} if netbox_version else None
+        doc = self.deliverable_json(
+            project_ref, NETBOX_SYNC, options=options, change_request_id=change_request_id, org_id=org_id
+        )
+        if not isinstance(doc, dict):
+            raise RailyardAPIError("Railyard returned a NetBox sync document that is not a JSON object.")
+        return doc
+
     def get_json(self, path: str, params: dict | None = None) -> Any:
         """GET any Railyard API path (``/api/…``) in the client's org and return the decoded JSON.
         The importer's catalogue lookup (``/api/catalogue/search``) goes through this."""
@@ -311,6 +352,34 @@ def _json_body(resp: _Response) -> dict:
     except Exception:
         return {}
     return payload if isinstance(payload, dict) else {}
+
+
+def _plan_error(payload: dict, said: str) -> RailyardPlanError:
+    """The typed error for a 402: every plan refusal the server sends, saves and deliverables alike."""
+    code = str(payload.get("code") or "")
+    fields: dict[str, Any] = {
+        "plan": str(payload.get("plan") or ""),
+        "resource": str(payload.get("resource") or ""),
+        "limit": _int_or_none(payload.get("limit")),
+        "current": _int_or_none(payload.get("current")),
+        "scope": str(payload.get("scope") or ""),
+        "required_plans": [str(p) for p in payload.get("requiredPlans") or []],
+        "project_pass": bool(payload.get("projectPass")),
+        "feature": str(payload.get("feature") or ""),
+        "deliverable": str(payload.get("deliverable") or ""),
+    }
+    if code == "plan_limit":
+        return RailyardPlanLimitError(
+            said or "Railyard refused the request: it goes past the plan's limit (HTTP 402).", **fields
+        )
+    if code == "plan_required":
+        what = f"the {fields['deliverable']} deliverable" if fields["deliverable"] else "it"
+        return RailyardPlanRequiredError(
+            said or f"Railyard refused the request: the plan does not include {what} (HTTP 402).", **fields
+        )
+    return RailyardPlanError(
+        "Railyard refused the request (HTTP 402)" + (f": {said}" if said else ""), code=code, **fields
+    )
 
 
 def _int_or_none(value: Any) -> int | None:

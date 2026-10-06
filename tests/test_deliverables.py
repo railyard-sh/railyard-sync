@@ -1,17 +1,19 @@
-"""deliverable_json POSTs to the deliverables route and maps the plan refusals to typed errors."""
+"""RailyardClient.deliverable_json POSTs to the deliverables route, and its plan refusals are the same typed
+errors as a save's (one 402 family, parsed in one place)."""
 
 import json
 
 import pytest
 
 from railyard_sync.client import RailyardClient
-from railyard_sync.deliverables import (
+from railyard_sync.errors import (
+    RailyardAPIError,
+    RailyardNotFoundError,
+    RailyardPlanError,
     RailyardPlanLimitError,
     RailyardPlanRequiredError,
-    deliverable_json,
-    netbox_sync_document,
+    RailyardTokenRejectedError,
 )
-from railyard_sync.errors import RailyardAPIError, RailyardNotFoundError, RailyardTokenRejectedError
 
 ORGS = [{"id": "org_acme", "name": "Acme Corp", "slug": "acme"}]
 
@@ -48,7 +50,7 @@ def client(answer, **kw):
 def test_posts_options_and_change_request_with_the_org_header():
     doc = {"format": "railyard-netbox-sync", "version": 1}
     c, session = client(Response(200, doc), org="acme")
-    got = deliverable_json(c, "prj 1", "netbox-sync", options={"netboxVersion": "4.4"}, change_request_id="cr_1")
+    got = c.deliverable_json("prj 1", "netbox-sync", options={"netboxVersion": "4.4"}, change_request_id="cr_1")
     assert got == doc
     call = session.calls[-1]
     assert call["method"] == "POST"
@@ -60,7 +62,7 @@ def test_posts_options_and_change_request_with_the_org_header():
 
 def test_empty_body_when_nothing_is_chosen():
     c, session = client(Response(200, {"format": "railyard-netbox-sync"}))
-    netbox_sync_document(c, "prj1")
+    c.netbox_sync_document("prj1")
     assert session.calls[-1]["json"] == {}
 
 
@@ -76,11 +78,12 @@ def test_plan_required_is_typed():
     }
     c, _ = client(Response(402, body))
     with pytest.raises(RailyardPlanRequiredError) as exc:
-        netbox_sync_document(c, "prj1")
+        c.netbox_sync_document("prj1")
     err = exc.value
     assert (err.status, err.code, err.feature, err.deliverable) == (402, "plan_required", "deliverables", "netbox-sync")
-    assert err.required_plans == ["pro", "team"] and err.project_pass
-    assert "does not include deliverable exports" in str(err) and "pro, team" in str(err)
+    assert err.required_plans == ["pro", "team"] and err.project_pass and err.plan == "community"
+    assert err.message == str(err) == "the Community plan does not include deliverable exports"
+    assert isinstance(err, RailyardPlanError)
 
 
 def test_plan_limit_is_typed():
@@ -97,9 +100,32 @@ def test_plan_limit_is_typed():
     }
     c, _ = client(Response(402, body))
     with pytest.raises(RailyardPlanLimitError) as exc:
-        netbox_sync_document(c, "prj1")
-    assert (exc.value.resource, exc.value.limit, exc.value.current) == ("racks", 100, 120)
-    assert "up to 100 racks" in str(exc.value)
+        c.netbox_sync_document("prj1")
+    err = exc.value
+    assert (err.code, err.resource, err.limit, err.current, err.scope) == ("plan_limit", "racks", 100, 120, "estate")
+    assert (err.required_plans, err.project_pass) == (["team"], False)
+    assert "up to 100 racks" in str(err)
+
+
+def test_a_bare_402_is_still_a_plan_error():
+    c, _ = client(Response(402, {"error": "payment required"}))
+    with pytest.raises(RailyardPlanError) as exc:
+        c.netbox_sync_document("prj1")
+    assert not isinstance(exc.value, RailyardPlanLimitError | RailyardPlanRequiredError)
+    assert exc.value.code == "" and "payment required" in str(exc.value)
+
+
+def test_netbox_version_is_sent_as_an_option():
+    c, session = client(Response(200, {"format": "railyard-netbox-sync"}))
+    c.netbox_sync_document("prj1", netbox_version="4.4")
+    assert session.calls[-1]["json"] == {"options": {"netboxVersion": "4.4"}}
+
+
+@pytest.mark.parametrize("answer", [Response(200, ["not", "an", "object"]), Response(200, None, text="<html>")])
+def test_a_document_that_is_not_a_json_object_is_refused(answer):
+    c, _ = client(answer)
+    with pytest.raises(RailyardAPIError, match="not"):
+        c.netbox_sync_document("prj1")
 
 
 @pytest.mark.parametrize(
@@ -113,11 +139,11 @@ def test_plan_limit_is_typed():
 def test_other_failures_are_the_clients_errors(answer, error):
     c, _ = client(answer)
     with pytest.raises(error) as exc:
-        netbox_sync_document(c, "prj1")
+        c.netbox_sync_document("prj1")
     assert "ry_secret" not in str(exc.value)
 
 
 def test_unknown_deliverable_message_is_kept():
     c, _ = client(Response(404, {"error": 'unknown deliverable "netbox-sync"; known: [cable-schedule]'}))
     with pytest.raises(RailyardNotFoundError, match="unknown deliverable"):
-        netbox_sync_document(c, "prj1")
+        c.netbox_sync_document("prj1")

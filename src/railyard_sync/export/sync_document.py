@@ -1,7 +1,7 @@
 """``SyncDocumentAdapter`` — the DiffSync *source* adapter over Railyard's NetBox sync document.
 
 Railyard generates the document server-side, as a deliverable:
-``POST /api/projects/{id}/deliverables/netbox-sync`` (see ``railyard_sync.deliverables``). It holds
+``POST /api/projects/{id}/deliverables/netbox-sync`` (``RailyardClient.netbox_sync_document``). It holds
 the same objects as Railyard's NetBox CSV bundle (``backend/internal/export/netbox.go``), one JSON
 row per CSV row with the bundle's column names, so a sync creates exactly what an import of the bundle
 would, without porting Railyard's mapping (naming, slugs, statuses, cabling plan) to Python:
