@@ -11,7 +11,7 @@ import pathlib
 import pytest
 from fake_netbox_rest import FakeNetBox, Response
 
-from railyard_sync.export.netbox_rest import NetBoxAuthError, NetBoxClient, NetBoxConnectionError, NetBoxError
+from railyard_sync.export.netbox_rest import ENDPOINT, NetBoxAuthError, NetBoxClient, NetBoxConnectionError, NetBoxError
 from railyard_sync.export.policy import DEFAULT_RAILYARD_URL, ownership_tag
 from railyard_sync.export.run import SyncRefused, sync_to_netbox
 
@@ -155,6 +155,8 @@ def test_dry_run_makes_no_writes():
     first = sync(nb, dry_run=True)
     assert nb.writes == []
     assert first.diff["create"] == sum(OBJECT_COUNTS.values()) and first.created == 0
+    by_type = {model: OBJECT_COUNTS[endpoint] for model, endpoint in ENDPOINT.items()}
+    assert first.planned == {"create": by_type, "update": {}, "delete": {}}
     assert any("doesn't exist yet" in w for w in first.warnings)
 
     sync(nb)
@@ -165,6 +167,8 @@ def test_dry_run_makes_no_writes():
     assert preview.renamed == ["device SW-1 → SW-1A"]
     assert any(line.startswith("delete: device [SRV-1]") for line in preview.changes)
     assert preview.diff["delete"] > 0 and preview.deleted == 0
+    assert preview.planned["update"]["device"] == 1 and preview.planned["delete"]["device"] == 1
+    assert sum(preview.planned["delete"].values()) == preview.diff["delete"]
     assert nb.one("dcim/devices", name="SW-1")  # still under its old name
 
 

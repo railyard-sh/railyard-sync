@@ -20,6 +20,7 @@ Nothing here prints; the caller (the CLI) reports the returned :class:`SyncResul
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -62,6 +63,8 @@ class SyncResult:
     #: Planned changes: create / update (renames included) / delete (0 unless deletes are allowed)
     #: / no-change, as counted before anything is written.
     diff: dict[str, int] = field(default_factory=dict)
+    #: The same plan per object type: {"create"|"update"|"delete": {"device": 4, …}}.
+    planned: dict[str, dict[str, int]] = field(default_factory=dict)
     changes: list[str] = field(default_factory=list)  # each planned change, one line per object
     #: Applied changes (all 0 for a dry run), in total and per object type.
     created: int = 0
@@ -176,6 +179,7 @@ def sync_to_netbox(
             "delete": len(candidates) if allow_deletes else 0,
             "no-change": summary.get("no-change", 0),
         },
+        planned=_planned(diff, len(target.renames), candidates if allow_deletes else []),
         changes=[f"rename: device {old} → {new}" for old, new, _ in target.renames] + _changes(diff),
         warnings=warnings,
     )
@@ -219,6 +223,24 @@ def _finish(result: SyncResult, target: NetBoxRESTAdapter) -> SyncResult:
     result.updated = sum(target.counts["update"].values())
     result.deleted = sum(target.counts["delete"].values())
     return result
+
+
+def _planned(diff, renames: int, deletes: list) -> dict[str, dict[str, int]]:
+    """The planned creates, updates (renames included, as device updates) and deletes per object type."""
+    planned: dict[str, Counter] = {"create": Counter(), "update": Counter(), "delete": Counter()}
+
+    def walk(elements) -> None:
+        for el in elements:
+            if el.action in ("create", "update"):
+                planned[el.action][el.type] += 1
+            walk(el.get_children())
+
+    walk(diff.get_children())
+    if renames:
+        planned["update"]["device"] += renames
+    for model in deletes:
+        planned["delete"][model.get_type()] += 1
+    return {action: dict(counts) for action, counts in planned.items()}
 
 
 def _changes(diff) -> list[str]:
