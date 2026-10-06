@@ -16,15 +16,14 @@ reads its own ORM into a `Snapshot` and calls the same importer the CLI uses.
 
 | Path | What |
 |---|---|
-| `src/railyard_sync/client.py`, `errors.py`, `project.py` | Railyard REST client (`Authorization: Bearer ry_…`, `X-Org-Id`), typed errors, Project JSON wrapper |
+| `src/railyard_sync/client.py`, `errors.py`, `project.py` | Railyard REST client (`Authorization: Bearer ry_…`, `X-Org-Id`; projects, named versions, `deliverable_json()` / `netbox_sync_document()`), typed errors, Project JSON wrapper. Every 402 is parsed in one place (`client._plan_error`) into the one `RailyardPlanError` family (`RailyardPlanLimitError` / `RailyardPlanRequiredError`), carrying plan, resource, limit, current, scope, required plans, Project Pass, feature and deliverable |
 | `src/railyard_sync/export/` | Railyard → DCIM: canonical DiffSync models, source adapter, mappings and cabling plan (ports of the Go export) |
 | `src/railyard_sync/export/sync_document.py` | Source adapter over Railyard's `netbox-sync` deliverable (the NetBox bundle as JSON rows). **All knowledge of that document's shape lives here** |
 | `src/railyard_sync/export/netbox_rest.py`, `run.py`, `policy.py` | NetBox REST target (the plugin's ownership rules: tag-owned objects only, shared objects used as-is, conflicts skipped, guarded deletes) and `sync_to_netbox()`; `policy.py` is the plugin's ownership tag, byte for byte |
-| `src/railyard_sync/deliverables.py` | `deliverable_json()` / `netbox_sync_document()` and the 402 `plan_required`/`plan_limit` errors (to move onto the client and into `errors.py`) |
 | `src/railyard_sync/dcim/snapshot.py` | **The contract**: a DCIM site as plain dataclasses (sites, locations, racks, device types, devices, components, cables, power panels/feeds), source-neutral, mm/kg/W units |
 | `src/railyard_sync/dcim/netbox.py` | NetBox REST loader → `Snapshot` (one or more sites) |
 | `src/railyard_sync/importer/` | `build_project(snapshot)` → Railyard Project JSON; `merge(existing, imported)` for re-import; the import report |
-| `src/railyard_sync/cli.py` | `railyard-sync import netbox …` (exit codes: 0 ok, 1 error, 2 usage, 3 plan limit) |
+| `src/railyard_sync/cli.py` | `railyard-sync import netbox …` and `railyard-sync export netbox …` (shared argument, token and client helpers; exit codes: 0 ok, 1 error — for export also conflicts — 2 usage, 3 plan) |
 
 ## The Railyard side (facts the importer depends on)
 
@@ -68,7 +67,15 @@ cable deletes, creates/updates in `TOP_LEVEL` order, other deletes in reverse; d
 `allow_deletes`, and never when NetBox would protect the object or cascade to, modify or disconnect
 untagged objects. Front ports: `rear_port` up to 4.4, a `rear_ports` list from 4.5. Fixtures in
 `tests/fixtures/sync/` come from `railyard export --format netbox-sync` (`make_documents.py`); tests run
-against `tests/export/fake_netbox.py`.
+against `tests/export/fake_netbox_rest.py`.
+
+`railyard-sync export netbox` reads NetBox's release from `/api/status/` (unless `--netbox-version`),
+fetches `client.netbox_sync_document()` for it, and calls `sync_to_netbox(…, railyard_url=--railyard-url)`.
+Dry run unless `--apply`; `--json` prints `SyncResult.as_dict()`. The document is a paid deliverable on
+hosted Railyard (402 `plan_required` / `plan_limit` → exit 3; a billing-off server allows it). diffsync logs
+through structlog, which prints to stdout by default: the CLI routes it through the standard library
+(`_configure_logging`) so stdout carries only its own output. `tests/test_cli_export.py` covers the CLI;
+`tests/test_end_to_end.py` round-trips an imported site back out when `RAILYARD_BIN` is set.
 
 ## Mapping (DCIM → Railyard)
 
@@ -126,4 +133,6 @@ Decisions the merge (`importer/merge.py`, whose docstring is the full statement)
 
 `.venv/bin/ruff check . && .venv/bin/ruff format --check . && .venv/bin/pytest`. Tests never touch the
 network: the Railyard client and the NetBox loader take an injected session (`tests/conftest.py`).
-British spelling in user-facing text.
+British spelling in user-facing text. With `RAILYARD_BIN` set to a built Railyard CLI
+(`cd ../railyard/backend && go build -o /tmp/railyard ./cmd/railyard`) the end-to-end tests also check the
+saved estate with Railyard's loader and export it back out through the real `netbox-sync` document.
