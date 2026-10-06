@@ -48,6 +48,11 @@ railyard-sync import netbox --netbox-url https://netbox.example.com --site ldn1 
   --org my-org --project ldn1-baseline --dry-run
 ```
 
+Repeat `--site` to bring several sites into one estate, or pass `--all-sites` for every site the
+NetBox token can see. They all become one estate, so the plan's rack limit applies to the total (a
+refresh with `--all-sites` also picks up sites added in NetBox since). For one estate per site, run the
+import once per site with its own `--name`.
+
 Railyard is `https://railyard.sh` unless you pass `--railyard-url` (a self-hosted Railyard, say).
 Tokens are read from the environment, never from the command line. `--snapshot-out`/`--from-snapshot`
 save and replay what was read from NetBox, and `--dry-run --out project.json` writes the Railyard

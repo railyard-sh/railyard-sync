@@ -450,3 +450,15 @@ def test_railyard_url_defaults_to_railyard_sh():
     assert args.railyard_url == "https://railyard.example.com"
     args = parser.parse_args(["export", "netbox", "--org", "acme", "--project", "p", "--netbox-url", NETBOX])
     assert args.railyard_url == "https://railyard.sh"
+
+
+def test_all_sites_loads_every_site(stubs):
+    argv = [a for a in BASE if a not in ("--site", "ldn1")] + ["--all-sites", "--name", "Everything"]
+    code, _, err = run(argv)
+    assert code == 0, err
+    assert stubs.loads[-1]["sites"] is None
+
+
+def test_site_and_all_sites_together_is_a_usage_error(stubs):
+    code, _, err = run([*BASE, "--all-sites", "--name", "x"])
+    assert code == 2 and "--site or --all-sites" in err

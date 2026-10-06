@@ -556,3 +556,10 @@ def test_missing_values_and_units():
     assert netbox._mm("1070", None) == 1070  # no unit: NetBox's default (mm)
     with pytest.raises(DCIMError, match="Unknown unit 'furlong'"):
         netbox._metres(1, {"value": "furlong"})
+
+
+def test_none_loads_every_site_the_token_can_see():
+    netbox = FakeNetBox()
+    snap = load_netbox_snapshot(BASE, V2_TOKEN, None, session=netbox.session)
+    assert sorted(s.slug for s in snap.sites) == ["ldn1", "man1"]
+    assert {d.site_id for d in snap.devices} == {s.id for s in snap.sites}

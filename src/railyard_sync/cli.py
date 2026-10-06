@@ -2,7 +2,7 @@
 
 ::
 
-    railyard-sync import netbox --netbox-url URL --site SLUG [--site SLUG …]
+    railyard-sync import netbox --netbox-url URL (--site SLUG [--site SLUG …] | --all-sites)
         [--railyard-url URL] --org ORG (--project REF | --name NAME)
         [--dry-run] [--allow-deletes] [--out FILE] [--snapshot-out FILE] [--from-snapshot FILE]
         [--insecure] [--name-version]
@@ -87,7 +87,7 @@ class CommandError(Exception):
 # ---- seams to the loader and the builder (imported lazily; the tests replace them) ----------------------
 
 
-def load_netbox_snapshot(url: str, token: str, sites: list[str], *, verify: bool = True) -> Snapshot:
+def load_netbox_snapshot(url: str, token: str, sites: list[str] | None, *, verify: bool = True) -> Snapshot:
     from .dcim.netbox import load_netbox_snapshot as load
 
     return load(url, token, sites, verify=verify)
@@ -167,6 +167,7 @@ def _add_import(commands: Any) -> None:
     src = nb.add_argument_group("NetBox")
     _add_netbox_url(src, required=False, what="read-only is enough")
     src.add_argument("--site", metavar="SLUG", action="append", default=[], help="site slug; repeat for more")
+    src.add_argument("--all-sites", action="store_true", help="every site the NetBox token can see, into one estate")
     src.add_argument("--from-snapshot", metavar="FILE", help="replay a snapshot saved with --snapshot-out")
     src.add_argument("--snapshot-out", metavar="FILE", help="save what was read from NetBox as JSON")
     dst = nb.add_argument_group("Railyard")
@@ -237,8 +238,10 @@ def _validate(args: argparse.Namespace) -> None:
     if args.from_snapshot is None:
         if not args.netbox_url:
             raise UsageError("--netbox-url is required (or replay a saved snapshot with --from-snapshot)")
-        if not args.site:
-            raise UsageError("name at least one site with --site")
+        if args.site and args.all_sites:
+            raise UsageError("use --site or --all-sites, not both")
+        if not args.site and not args.all_sites:
+            raise UsageError("name at least one site with --site, or import every site with --all-sites")
     if args.name is not None and not args.name.strip():
         raise UsageError("--name must not be empty")
 
@@ -323,7 +326,8 @@ def _import_netbox(args: argparse.Namespace, out: TextIO, err: TextIO) -> int:
         netbox_token = _env_token(NETBOX_TOKEN_ENV, "a NetBox API token (read-only is enough)")
         if args.insecure:
             print("warning: not verifying NetBox's TLS certificate (--insecure)", file=err)
-        snapshot = load_netbox_snapshot(args.netbox_url, netbox_token, list(args.site), verify=not args.insecure)
+        sites = None if args.all_sites else list(args.site)
+        snapshot = load_netbox_snapshot(args.netbox_url, netbox_token, sites, verify=not args.insecure)
     if args.snapshot_out:
         _write_json(args.snapshot_out, snapshot.to_dict())
         print(f"Snapshot written to {args.snapshot_out}", file=out)

@@ -358,11 +358,13 @@ class NetBoxLoader:
         self.version = text
         return text
 
-    def load(self, sites: list[str]) -> Snapshot:
-        """Read the given sites (each a slug, name or numeric id) and everything inside them."""
+    def load(self, sites: list[str] | None) -> Snapshot:
+        """Read the given sites (each a slug, name or numeric id) and everything inside them.
+
+        ``None`` reads every site the token can see."""
         if isinstance(sites, str):
             sites = [sites]
-        if not sites:
+        if sites is not None and not sites:
             raise ValueError("at least one site is required")
         version = self.check_version()
         major_minor = _parse_version(version)[:2]
@@ -373,7 +375,7 @@ class NetBoxLoader:
                 f"({MAX_TESTED_VERSION[0]}.{MAX_TESTED_VERSION[1]}); check the import report carefully."
             )
 
-        raw_sites = self._find_sites(sites)
+        raw_sites = self._find_sites(sites) if sites is not None else self._all_sites()
         site_ids = [str(s["id"]) for s in raw_sites]
         by_site = [("site_id", i) for i in site_ids]
 
@@ -405,6 +407,13 @@ class NetBoxLoader:
         return snap
 
     # -- sites and regions -----------------------------------------------------------------------
+
+    def _all_sites(self) -> list[dict]:
+        """Every site the token can see, in NetBox's order."""
+        sites = list(self._list("/api/dcim/sites/"))
+        if not sites:
+            raise DCIMNotFoundError("This NetBox has no sites the token can see.")
+        return sites
 
     def _find_sites(self, refs: list[str]) -> list[dict]:
         found: dict[str, dict] = {}
@@ -741,10 +750,10 @@ class NetBoxLoader:
 def load_netbox_snapshot(
     url: str,
     token: str,
-    sites: list[str],
+    sites: list[str] | None,
     *,
     session: _Session | None = None,
     verify: bool | str = True,
 ) -> Snapshot:
-    """Read ``sites`` (slugs, names or numeric ids) from the NetBox at ``url`` into a snapshot."""
+    """Read ``sites`` (slugs, names or numeric ids; ``None`` for every site) from the NetBox at ``url``."""
     return NetBoxLoader(url, token, session=session, verify=verify).load(sites)
