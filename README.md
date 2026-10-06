@@ -44,8 +44,13 @@ railyard-sync import netbox --netbox-url https://netbox.example.com --site ldn1 
 ```
 
 Tokens are read from the environment, never from the command line. `--snapshot-out`/`--from-snapshot`
-save and replay what was read from NetBox, and `--out project.json` writes the Railyard document
-without uploading it (open it in Railyard with **Open project file**).
+save and replay what was read from NetBox, and `--dry-run --out project.json` writes the Railyard
+document without uploading it (open it in Railyard with **Open project file**). A refresh is saved
+with the revision it was merged into, so a change made in Railyard meanwhile is never overwritten;
+`--name-version` names the saved version "NetBox import <date>" (estates with version control on).
+
+Exit codes: `0` done, `1` error (including conflicts between NetBox and the Railyard design, which
+are listed and must be resolved in Railyard first), `2` usage, `3` refused by the plan's rack limit.
 
 ## Development
 

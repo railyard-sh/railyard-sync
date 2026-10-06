@@ -19,17 +19,21 @@ collect_ignore = ["integration"]
 
 
 class FakeResponse:
-    def __init__(self, status: int, payload=None, text: str = ""):
+    def __init__(self, status: int, payload=None, text: str = "", headers: dict | None = None):
         self.status_code = status
         self._payload = payload
         self.text = text or (json.dumps(payload) if payload is not None else "")
+        self.headers = dict(headers or {})
 
     def json(self):
+        if self._payload is None:
+            raise ValueError("no JSON body")
         return self._payload
 
 
 class FakeSession:
-    """Records requests and returns whatever ``handler(method, url, headers, params)`` yields.
+    """Records requests (with any JSON body) and returns whatever ``handler(method, url, headers, params)``
+    yields.
 
     ``params`` is passed through as given: a dict, or a list of ``(key, value)`` pairs when a filter
     repeats (``site_id=1&site_id=2``), as ``requests`` accepts. Extra keyword arguments (``verify``)
@@ -40,9 +44,17 @@ class FakeSession:
         self.handler = handler
         self.calls: list[dict] = []
 
-    def request(self, method, url, headers=None, params=None, timeout=None, **kwargs):
+    def request(self, method, url, headers=None, params=None, timeout=None, json=None, **kwargs):
         self.calls.append(
-            {"method": method, "url": url, "headers": headers or {}, "params": params, "timeout": timeout, **kwargs}
+            {
+                "method": method,
+                "url": url,
+                "headers": headers or {},
+                "params": params,
+                "timeout": timeout,
+                "json": json,
+                **kwargs,
+            }
         )
         return self.handler(method, url, headers or {}, params)
 

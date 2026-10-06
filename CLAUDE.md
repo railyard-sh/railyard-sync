@@ -21,7 +21,7 @@ reads its own ORM into a `Snapshot` and calls the same importer the CLI uses.
 | `src/railyard_sync/dcim/snapshot.py` | **The contract**: a DCIM site as plain dataclasses (sites, locations, racks, device types, devices, components, cables, power panels/feeds), source-neutral, mm/kg/W units |
 | `src/railyard_sync/dcim/netbox.py` | NetBox REST loader → `Snapshot` (one or more sites) |
 | `src/railyard_sync/importer/` | `build_project(snapshot)` → Railyard Project JSON; `merge(existing, imported)` for re-import; the import report |
-| `src/railyard_sync/cli.py` | `railyard-sync import netbox …` |
+| `src/railyard_sync/cli.py` | `railyard-sync import netbox …` (exit codes: 0 ok, 1 error, 2 usage, 3 plan limit) |
 
 ## The Railyard side (facts the importer depends on)
 
@@ -88,6 +88,26 @@ Anything **without** that prefix was designed in Railyard and is never touched b
 - Railyard-only objects are never modified. A conflict the server would refuse (a Railyard device now
   overlapping an imported one) is reported, not silently resolved.
 - The merge returns the new document plus a diff summary (added / updated / stale / removed per kind).
+
+Decisions the merge (`importer/merge.py`, whose docstring is the full statement) makes:
+
+- **Field ownership** is a per-entity table, `FIELD_OWNERSHIP`: `owned` (the DCIM's value, removed when
+  the DCIM clears it), `if-set` (the DCIM's when it has one: rack power capacity, max load, width/depth,
+  roles, cable colour), `union` (tags), `derived` (space projections) and `railyard` (everything
+  unlisted; the import only seeds it). Notes are Railyard's once set. A device's label is the DCIM's only
+  while it is named manually.
+- A rack or space Railyard filed in its **own space below the DCIM's parent** (a Railyard row inside the
+  imported location) stays there. Devices are matched across racks, so a DCIM move keeps Railyard's fields.
+- **Catalogue copies** (unprefixed library keys) are added when missing and never changed.
+- **`allow_deletes` never breaks Railyard's design:** a stale object that a Railyard object depends on (a
+  Railyard device in its rack, a Railyard cable or power link on it or its port, a topology node or edge,
+  a meet-me room, a pod pattern) is kept and reported as retained, and retention propagates upwards.
+- The space projections (locations, data centres, rows, rack `dcId`/`rowId`) are re-derived from the
+  tree as the server's `ProjectContainerLayout` does, keeping existing record order. Cable and power-link
+  ends follow a device that moved rack (Railyard's too: a reference repair, noted in the diff).
+- The CLI does not save while there are conflicts, and does not save a refresh that changes nothing but
+  `meta.railyardSync`. It refuses to refresh from another source URL or from a subset of the sites the
+  estate was imported from (ids would collide, or the other sites would all read as deleted).
 
 ## Validate
 
