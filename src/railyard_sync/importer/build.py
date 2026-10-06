@@ -476,7 +476,7 @@ class _Builder:
             device_outlets = max(
                 (
                     [c.type for c in self.components_by_device.get(d.id, []) if c.kind == "power-outlet"]
-                    for d in self.s.devices
+                    for d in sorted(self.s.devices, key=_by_id)
                     if d.device_type_id == dt.id
                 ),
                 key=len,
