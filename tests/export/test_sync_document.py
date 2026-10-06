@@ -1,7 +1,7 @@
 """SyncDocumentAdapter loads the canonical models from Railyard's NetBox sync document.
 
-The fixtures are Railyard's real NetBox CSV bundle for two projects, converted row for row by
-``tests/fixtures/sync/make_documents.py``.
+The fixtures are the documents Railyard's own exporter writes for two projects
+(``railyard export --format netbox-sync``, via ``tests/fixtures/sync/make_documents.py``).
 """
 
 import copy
@@ -135,3 +135,56 @@ def test_unknown_kinds_and_bad_rows_are_warnings_not_failures():
     assert any("console-ports" in w for w in a.warnings)
     assert any("devices row 5 skipped: no name" in w for w in a.warnings)
     assert len(a.get_all(models.Device)) == 4
+
+
+# ---- the contract's identities and extras ---------------------------------------------------------
+
+
+def test_identities_are_kept_and_the_device_id_is_its_placement():
+    a = load(document())
+    assert a.identities[("device", "SRV-1")] == ("device", "p_srv")
+    assert a.get(models.Device, "SRV-1").railyard_id == "p_srv"
+    assert a.get(models.DeviceType, {"manufacturer": "Acme", "model": "PP24"}).library_slug == "pp"
+    power = next(c for c in a.get_all(models.Cable) if c.is_power)
+    assert a.identities[("cable", power.get_unique_id())] == ("power-link", "pw1")
+
+
+def test_a_device_without_a_device_identity_gets_no_railyard_id():
+    doc = document()
+    doc["objects"]["devices"][0]["railyard"] = {"kind": "container", "id": "dc1"}
+    assert load(doc).get(models.Device, "SW-1").railyard_id == ""
+
+
+def test_unresolved_placements_are_reported():
+    a = load(document("example"))
+    assert a.document.unresolved[0]["placementId"] == "pl_ldn_a01_srv1"
+    assert any(
+        "placement LDN1-A01-SRV-01 in rack LDN1-A01: device type 'some 2U server' is not in the catalogue; not synced"
+        in w
+        for w in a.warnings
+    )
+
+
+def test_placeholder_device_types_have_no_library_slug():
+    doc = document("example")
+    doc["objects"]["device-types"].append(
+        {
+            "manufacturer": "Placeholder",
+            "model": "some 2U server",
+            "slug": "placeholder-some-2u-server",
+            "u_height": "2",
+            "is_full_depth": "true",
+            "railyard": {"kind": "device-type", "placeholder": True},
+        }
+    )
+    doc["unresolved"][0]["placeheld"] = True
+    a = load(doc)
+    assert a.get(models.DeviceType, {"manufacturer": "Placeholder", "model": "some 2U server"}).library_slug == ""
+    assert any(w.endswith("synced as a placeholder") for w in a.warnings)
+
+
+def test_a_merge_request_draft_says_so():
+    doc = document()
+    doc["project"]["changeRequestId"] = "cr_42"
+    assert parse_document(doc).change_request_id == "cr_42"
+    assert parse_document(document()).change_request_id == ""

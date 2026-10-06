@@ -1,7 +1,7 @@
 """sync_to_netbox against an in-memory NetBox (``fake_netbox.py``): the plugin's ownership rules, over REST.
 
-The documents are Railyard's real NetBox bundle for a small cabled estate (a switch, a patch panel, a
-server and a 0U PDU in one rack), converted by ``tests/fixtures/sync/make_documents.py``.
+The documents are what Railyard's own exporter writes for a small cabled estate (a switch, a patch
+panel, a server and a 0U PDU in one rack); see ``tests/fixtures/sync/make_documents.py``.
 """
 
 import copy

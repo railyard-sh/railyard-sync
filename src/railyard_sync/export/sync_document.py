@@ -7,19 +7,34 @@ row per CSV row with the bundle's column names, so a sync creates exactly what a
 would, without porting Railyard's mapping (naming, slugs, statuses, cabling plan) to Python:
 
     {"format": "railyard-netbox-sync", "version": 1, "netboxVersion": "4.5",
-     "project": {"id", "name", "revision"},
+     "project": {"id", "name", "revision", "changeRequestId"?},
      "objects": {"tags", "manufacturers", "device-types", "device-roles", "sites", "locations",
                  "racks", "devices", "interfaces", "rear-ports", "front-ports", "power-outlets",
                  "power-ports", "cables"},
+     "unresolved": [{"rackName", "placementId", "label", "ref", "heightU", "placeheld"}],
      "warnings": [...]}
 
-Each row also carries ``"railyard": {"kind", "id"}``, the Railyard object it came from. A device's id
-(its placement id) is stamped on the NetBox device as the ``railyard_id`` custom field.
+Every section is present, in import order (locations parents first). A row's keys are the bundle's
+CSV columns, its values the CSV cells (``"42"``, ``"true"``, comma-joined tag slugs; a front port has
+``positions`` only for NetBox 4.5 and later), plus ``"railyard"``, the Railyard object it came from:
 
-The document's contract is new, so **everything that knows its shape is in this module**: the
-format/version check in :func:`parse_document` and one row reader per object kind (``_READERS``).
-Values may arrive as CSV strings (``"42"``, ``"true"``, ``""``) or as JSON numbers, booleans and
-nulls; the readers accept either.
+    tag / manufacturer / role               {kind}                 (the name is the key)
+    container (sites, locations)            {kind, id} | {kind, fallback: true}
+    rack                                    {kind, id}
+    device                                  {kind, id}             (the placement id)
+    device-type                             {kind, id, keys} | {kind, placeholder: true}
+    interface / rear-port / front-port      {kind, placementId, portId} | {kind, placementId, synthesized}
+    power-outlet                            {kind, placementId, outlet}
+    power-port                              {kind, placementId, powerLinkId, inputId?}
+    cable / power-link                      {kind, id}
+
+A device's id (its placement id) is stamped on the NetBox device as the ``railyard_id`` custom field,
+which is how a device renamed in Railyard is renamed in NetBox rather than recreated. A device type's
+id is its catalogue key, the netbox-community devicetype-library slug.
+
+**Everything that knows the document's shape is in this module**: the envelope check in
+:func:`parse_document` and one row reader per object kind (``_READERS``). The readers also accept
+JSON numbers, booleans and nulls in place of CSV strings.
 """
 
 from __future__ import annotations
@@ -83,6 +98,8 @@ class SyncDocument:
     revision: Any
     netbox_version: str
     objects: dict[str, list[dict]]
+    change_request_id: str = ""  # set when the document is a merge request's draft, not main
+    unresolved: list[dict] = field(default_factory=list)  # placements with no device type
     warnings: list[str] = field(default_factory=list)
 
 
@@ -168,12 +185,23 @@ def parse_document(document: Any) -> SyncDocument:
         rows[kind] = value
     for kind in sorted(set(objects) - set(OBJECT_KINDS)):
         warnings.append(f"The sync document's {kind!r} objects are not synced by this railyard-sync; ignored.")
+    unresolved = [u for u in document.get("unresolved") or [] if isinstance(u, dict)]
+    for u in unresolved:
+        what = f"placement {_text(u.get('label')) or _text(u.get('placementId'))} in rack {_text(u.get('rackName'))}"
+        if u.get("placeheld"):
+            warnings.append(
+                f"{what}: device type {_text(u.get('ref'))!r} is not in the catalogue; synced as a placeholder"
+            )
+        else:
+            warnings.append(f"{what}: device type {_text(u.get('ref'))!r} is not in the catalogue; not synced")
     return SyncDocument(
         project_id=_text(project.get("id")),
         project_name=_text(project.get("name")),
         revision=project.get("revision"),
         netbox_version=_text(document.get("netboxVersion")),
         objects=rows,
+        change_request_id=_text(project.get("changeRequestId")),
+        unresolved=unresolved,
         warnings=warnings,
     )
 
@@ -269,8 +297,9 @@ def _read_device_type(a: SyncDocumentAdapter, row: dict) -> None:
             u_height=_int(row.get("u_height"), 1),
             is_full_depth=_bool(row.get("is_full_depth"), True),
             part_number=_text(row.get("part_number")),
-            # A catalogue entry's key is its devicetype-library slug (see devicetype_library.py).
-            library_slug=rid if kind in ("catalogue", "device-type", "deviceType") else "",
+            # A catalogue entry's key is its devicetype-library slug (see devicetype_library.py); a
+            # placeholder type ({"placeholder": true}) has none.
+            library_slug=rid if kind == "device-type" else "",
         ),
         row,
     )
@@ -342,7 +371,7 @@ def _read_device(a: SyncDocumentAdapter, row: dict) -> None:
             # writes "front" for it, which NetBox would keep but a re-read could not tell apart.
             face=(_text(row.get("face")) or "front") if position else "",
             status=_text(row.get("status")) or "active",
-            railyard_id=rid if kind in ("", "placement", "device") else "",
+            railyard_id=rid if kind == "device" else "",
             serial=_text(row.get("serial")),
             location=_text(row.get("location")),
             comments=_text(row.get("comments")),

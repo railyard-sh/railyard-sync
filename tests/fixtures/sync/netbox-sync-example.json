@@ -14,8 +14,7 @@
         "name": "Cisco",
         "slug": "cisco",
         "railyard": {
-          "kind": "manufacturer",
-          "id": "Cisco"
+          "kind": "manufacturer"
         }
       }
     ],
@@ -27,8 +26,11 @@
         "u_height": "1",
         "is_full_depth": "true",
         "railyard": {
-          "kind": "catalogue",
-          "id": "cisco-nexus-93180yc-fx"
+          "kind": "device-type",
+          "id": "cisco-nexus-93180yc-fx",
+          "keys": [
+            "cisco-nexus-93180yc-fx"
+          ]
         }
       }
     ],
@@ -38,8 +40,7 @@
         "slug": "leaf",
         "color": "9e9e9e",
         "railyard": {
-          "kind": "role",
-          "id": "leaf"
+          "kind": "role"
         }
       }
     ],
@@ -154,7 +155,7 @@
         "tags": "",
         "location": "A [a559f3df2a]",
         "railyard": {
-          "kind": "placement",
+          "kind": "device",
           "id": "pl_ldn_a01_leaf1"
         }
       },
@@ -173,7 +174,7 @@
         "tags": "",
         "location": "A [a559f3df2a]",
         "railyard": {
-          "kind": "placement",
+          "kind": "device",
           "id": "pl_ldn_a02_leaf1"
         }
       },
@@ -192,7 +193,7 @@
         "tags": "",
         "location": "A [ea30999eaa]",
         "railyard": {
-          "kind": "placement",
+          "kind": "device",
           "id": "pl_fra_a01_leaf1"
         }
       }
@@ -204,6 +205,16 @@
     "power-ports": [],
     "cables": []
   },
+  "unresolved": [
+    {
+      "rackName": "LDN1-A01",
+      "placementId": "pl_ldn_a01_srv1",
+      "label": "LDN1-A01-SRV-01",
+      "ref": "some 2U server",
+      "heightU": 2,
+      "placeheld": false
+    }
+  ],
   "warnings": [
     "Export container \"A\" as \"A [a559f3df2a]\" to keep import references unambiguous; original names and IDs remain in project.json.",
     "Export container \"A\" as \"A [ea30999eaa]\" to keep import references unambiguous; original names and IDs remain in project.json.",

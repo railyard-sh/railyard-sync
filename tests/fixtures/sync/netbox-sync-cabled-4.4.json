@@ -14,8 +14,7 @@
         "slug": "build-1",
         "color": "9e9e9e",
         "railyard": {
-          "kind": "tag",
-          "id": "Build 1"
+          "kind": "tag"
         }
       }
     ],
@@ -24,8 +23,7 @@
         "name": "Acme",
         "slug": "acme",
         "railyard": {
-          "kind": "manufacturer",
-          "id": "Acme"
+          "kind": "manufacturer"
         }
       }
     ],
@@ -37,8 +35,11 @@
         "u_height": "0",
         "is_full_depth": "false",
         "railyard": {
-          "kind": "catalogue",
-          "id": "pdu"
+          "kind": "device-type",
+          "id": "pdu",
+          "keys": [
+            "pdu"
+          ]
         }
       },
       {
@@ -48,8 +49,11 @@
         "u_height": "1",
         "is_full_depth": "false",
         "railyard": {
-          "kind": "catalogue",
-          "id": "pp"
+          "kind": "device-type",
+          "id": "pp",
+          "keys": [
+            "pp"
+          ]
         }
       },
       {
@@ -59,8 +63,11 @@
         "u_height": "2",
         "is_full_depth": "true",
         "railyard": {
-          "kind": "catalogue",
-          "id": "srv"
+          "kind": "device-type",
+          "id": "srv",
+          "keys": [
+            "srv"
+          ]
         }
       },
       {
@@ -70,8 +77,11 @@
         "u_height": "1",
         "is_full_depth": "true",
         "railyard": {
-          "kind": "catalogue",
-          "id": "sw"
+          "kind": "device-type",
+          "id": "sw",
+          "keys": [
+            "sw"
+          ]
         }
       }
     ],
@@ -81,8 +91,7 @@
         "slug": "compute",
         "color": "9e9e9e",
         "railyard": {
-          "kind": "role",
-          "id": "compute"
+          "kind": "role"
         }
       },
       {
@@ -90,8 +99,7 @@
         "slug": "leaf",
         "color": "9e9e9e",
         "railyard": {
-          "kind": "role",
-          "id": "leaf"
+          "kind": "role"
         }
       },
       {
@@ -99,8 +107,7 @@
         "slug": "patch",
         "color": "9e9e9e",
         "railyard": {
-          "kind": "role",
-          "id": "patch"
+          "kind": "role"
         }
       },
       {
@@ -108,8 +115,7 @@
         "slug": "power",
         "color": "9e9e9e",
         "railyard": {
-          "kind": "role",
-          "id": "power"
+          "kind": "role"
         }
       }
     ],
@@ -184,7 +190,7 @@
         "tags": "build-1",
         "location": "A",
         "railyard": {
-          "kind": "placement",
+          "kind": "device",
           "id": "p_sw"
         }
       },
@@ -203,7 +209,7 @@
         "tags": "",
         "location": "A",
         "railyard": {
-          "kind": "placement",
+          "kind": "device",
           "id": "p_pp"
         }
       },
@@ -222,7 +228,7 @@
         "tags": "",
         "location": "A",
         "railyard": {
-          "kind": "placement",
+          "kind": "device",
           "id": "p_srv"
         }
       },
@@ -241,7 +247,7 @@
         "tags": "",
         "location": "A",
         "railyard": {
-          "kind": "placement",
+          "kind": "device",
           "id": "p_pdu"
         }
       }
@@ -252,8 +258,9 @@
         "name": "Eth1",
         "type": "10gbase-x-sfpp",
         "railyard": {
-          "kind": "port",
-          "id": "p_sw:Eth1"
+          "kind": "interface",
+          "placementId": "p_sw",
+          "portId": "template:front:1"
         }
       },
       {
@@ -261,8 +268,9 @@
         "name": "iface1",
         "type": "other",
         "railyard": {
-          "kind": "port",
-          "id": "p_srv:iface1"
+          "kind": "interface",
+          "placementId": "p_srv",
+          "synthesized": true
         }
       }
     ],
@@ -273,8 +281,9 @@
         "type": "lc",
         "positions": "1",
         "railyard": {
-          "kind": "port",
-          "id": "p_pp:1"
+          "kind": "rear-port",
+          "placementId": "p_pp",
+          "portId": "template:rear:1"
         }
       },
       {
@@ -283,8 +292,9 @@
         "type": "lc",
         "positions": "1",
         "railyard": {
-          "kind": "port",
-          "id": "p_pp:2"
+          "kind": "rear-port",
+          "placementId": "p_pp",
+          "portId": "template:rear:2"
         }
       }
     ],
@@ -296,8 +306,9 @@
         "rear_port": "1",
         "rear_port_position": "1",
         "railyard": {
-          "kind": "port",
-          "id": "p_pp:1"
+          "kind": "front-port",
+          "placementId": "p_pp",
+          "portId": "template:front:1"
         }
       },
       {
@@ -307,8 +318,9 @@
         "rear_port": "2",
         "rear_port_position": "1",
         "railyard": {
-          "kind": "port",
-          "id": "p_pp:2"
+          "kind": "front-port",
+          "placementId": "p_pp",
+          "portId": "template:front:2"
         }
       }
     ],
@@ -318,8 +330,9 @@
         "name": "OUT1",
         "type": "iec-60320-c13",
         "railyard": {
-          "kind": "port",
-          "id": "p_pdu:OUT1"
+          "kind": "power-outlet",
+          "placementId": "p_pdu",
+          "outlet": 1
         }
       },
       {
@@ -327,8 +340,9 @@
         "name": "OUT2",
         "type": "iec-60320-c13",
         "railyard": {
-          "kind": "port",
-          "id": "p_pdu:OUT2"
+          "kind": "power-outlet",
+          "placementId": "p_pdu",
+          "outlet": 2
         }
       }
     ],
@@ -338,8 +352,10 @@
         "name": "PSU1",
         "type": "iec-60320-c14",
         "railyard": {
-          "kind": "port",
-          "id": "p_srv:PSU1"
+          "kind": "power-port",
+          "placementId": "p_srv",
+          "powerLinkId": "pw1",
+          "inputId": "template:power:1"
         }
       }
     ],
@@ -388,11 +404,12 @@
         "label": "",
         "color": "",
         "railyard": {
-          "kind": "powerLink",
+          "kind": "power-link",
           "id": "pw1"
         }
       }
     ]
   },
+  "unresolved": [],
   "warnings": []
 }
