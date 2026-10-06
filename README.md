@@ -102,11 +102,55 @@ railyard-sync export netbox --org my-org --project ldn1-design \
 Exit codes: `0` done, `1` NetBox refused writes or there are conflicts (both listed; the rest is
 written, and running the export again converges), `2` usage, `3` refused by the Railyard plan.
 
+## Troubleshooting
+
+Results (the import summary, the re-import diff, the export report, `--json`) go to **stdout**; progress,
+warnings and errors go to **stderr**, so `--json` output and redirected results stay clean.
+
+| Flag | What it does |
+|---|---|
+| *(none)* | One progress line per step, with counts and timings: reading NetBox, fetching the estate, building, merging, checking, saving. |
+| `-v`, `--verbose` | Also every HTTP request: method, path, status, time, sizes and the request id (Railyard's or NetBox's). |
+| `-q`, `--quiet` | Errors only. |
+| `--debug` | `--verbose`, plus a traceback for an error. |
+| `--log-file FILE` | Everything at debug level, with timestamps, appended to `FILE` (readable only by you), whatever the console shows. |
+| `--no-validate` | Save without checking the document with Railyard first (import). |
+| `--save-document FILE` | Keep a copy of the document sent to Railyard, also when the save succeeds (import; readable only by you). |
+| `--failed-dir DIR` | Where a refused save keeps its document (import; default: the current directory). |
+
+No log, at any level, contains a token, an `Authorization` header or a request or response body; they hold
+sizes instead. Logs do name hosts, estate ids, site slugs and API paths.
+
+**Errors say what to do.** A Railyard error names the request (`PUT /api/projects/…`), the status, Railyard's
+message and code, the problems it listed (by rack and device name) and the request id to quote, then the fix:
+an expired token (401: create a new one under **User settings → API tokens**), a missing role or terms
+acceptance (403), a taken name (409), an estate that changed meanwhile (412: run the import again, it merges
+onto the latest revision), a document too large (413: its size and the limit; import sites into separate
+estates), or a Railyard fault (5xx: a Railyard bug, not your data). NetBox errors name the endpoint, NetBox's
+`detail` and request id, and for a 403 the permission to grant (such as `view` on `dcim.rack`). A busy
+Railyard (429/503) is retried, after the wait it asks for and at most three times, for reads and for saves
+that name the revision they replace.
+
+**Railyard's check.** Before saving, the import sends the document to Railyard's `/api/validate`. Errors stop
+it, listed by rack and device, and nothing is saved; warnings are reported and the import goes ahead. An
+error the estate already had before the import does not stop a refresh, and a Railyard that cannot run the
+check only warns. `--dry-run` runs the check too; `--no-validate` skips it.
+
+**Failed documents.** When Railyard refuses a save, the document that was sent is written to
+`railyard-sync-failed-<project id>-<UTC time>.json` in the current directory (or `--failed-dir`), with mode
+`0600`, and the error says where. It holds your estate's design: share it only with Railyard support.
+
+**Reporting a problem.** Run the command again with `-v --log-file railyard-sync.log` and send:
+
+1. the complete error from stderr, which ends with how far the run got and the request id to quote;
+2. `railyard-sync.log`;
+3. the `railyard-sync-failed-….json` it names, privately and only if Railyard support asks for it.
+
 ## Development
 
 ```bash
 python3.12 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-.venv/bin/ruff check . && .venv/bin/pytest
+.venv/bin/ruff check . && .venv/bin/ruff format --check . && .venv/bin/pytest
 ```
 
 See `CLAUDE.md` for the design: the snapshot contract, the identity scheme and the re-import policy.
