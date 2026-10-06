@@ -1,0 +1,400 @@
+{
+  "format": "railyard-netbox-sync",
+  "version": 1,
+  "netboxVersion": "4.5",
+  "project": {
+    "id": "prj_sync_fixture",
+    "name": "Sync fixture",
+    "revision": 1
+  },
+  "objects": {
+    "tags": [
+      {
+        "name": "Build 1",
+        "slug": "build-1",
+        "color": "9e9e9e",
+        "railyard": {
+          "kind": "tag",
+          "id": "Build 1"
+        }
+      }
+    ],
+    "manufacturers": [
+      {
+        "name": "Acme",
+        "slug": "acme",
+        "railyard": {
+          "kind": "manufacturer",
+          "id": "Acme"
+        }
+      }
+    ],
+    "device-types": [
+      {
+        "manufacturer": "Acme",
+        "model": "PDU1",
+        "slug": "acme-pdu1",
+        "u_height": "0",
+        "is_full_depth": "false",
+        "railyard": {
+          "kind": "catalogue",
+          "id": "pdu"
+        }
+      },
+      {
+        "manufacturer": "Acme",
+        "model": "PP24",
+        "slug": "acme-pp24",
+        "u_height": "1",
+        "is_full_depth": "false",
+        "railyard": {
+          "kind": "catalogue",
+          "id": "pp"
+        }
+      },
+      {
+        "manufacturer": "Acme",
+        "model": "SRV1",
+        "slug": "acme-srv1",
+        "u_height": "2",
+        "is_full_depth": "true",
+        "railyard": {
+          "kind": "catalogue",
+          "id": "srv"
+        }
+      },
+      {
+        "manufacturer": "Acme",
+        "model": "SW1",
+        "slug": "acme-sw1",
+        "u_height": "1",
+        "is_full_depth": "true",
+        "railyard": {
+          "kind": "catalogue",
+          "id": "sw"
+        }
+      }
+    ],
+    "device-roles": [
+      {
+        "name": "compute",
+        "slug": "compute",
+        "color": "9e9e9e",
+        "railyard": {
+          "kind": "role",
+          "id": "compute"
+        }
+      },
+      {
+        "name": "leaf",
+        "slug": "leaf",
+        "color": "9e9e9e",
+        "railyard": {
+          "kind": "role",
+          "id": "leaf"
+        }
+      },
+      {
+        "name": "patch",
+        "slug": "patch",
+        "color": "9e9e9e",
+        "railyard": {
+          "kind": "role",
+          "id": "patch"
+        }
+      },
+      {
+        "name": "power",
+        "slug": "power",
+        "color": "9e9e9e",
+        "railyard": {
+          "kind": "role",
+          "id": "power"
+        }
+      }
+    ],
+    "sites": [
+      {
+        "name": "DC1",
+        "slug": "dc1-66a9ee1b16",
+        "status": "active",
+        "facility": "",
+        "railyard": {
+          "kind": "container",
+          "id": "dc1"
+        }
+      }
+    ],
+    "locations": [
+      {
+        "name": "Hall 1",
+        "slug": "hall-1-355f02669b",
+        "site": "DC1",
+        "parent": "",
+        "status": "active",
+        "facility": "",
+        "railyard": {
+          "kind": "container",
+          "id": "hall1"
+        }
+      },
+      {
+        "name": "A",
+        "slug": "a-33b8a4c258",
+        "site": "DC1",
+        "parent": "Hall 1",
+        "status": "active",
+        "facility": "",
+        "railyard": {
+          "kind": "container",
+          "id": "row1"
+        }
+      }
+    ],
+    "racks": [
+      {
+        "name": "R1",
+        "site": "DC1",
+        "status": "planned",
+        "width": "23",
+        "u_height": "42",
+        "desc_units": "false",
+        "comments": "Cold aisle A",
+        "tags": "build-1",
+        "location": "A",
+        "railyard": {
+          "kind": "rack",
+          "id": "r1"
+        }
+      }
+    ],
+    "devices": [
+      {
+        "name": "SW-1",
+        "serial": "",
+        "manufacturer": "Acme",
+        "device_type": "SW1",
+        "role": "leaf",
+        "site": "DC1",
+        "rack": "R1",
+        "position": "40",
+        "face": "front",
+        "status": "active",
+        "comments": "",
+        "tags": "build-1",
+        "location": "A",
+        "railyard": {
+          "kind": "placement",
+          "id": "p_sw"
+        }
+      },
+      {
+        "name": "PP-1",
+        "serial": "",
+        "manufacturer": "Acme",
+        "device_type": "PP24",
+        "role": "patch",
+        "site": "DC1",
+        "rack": "R1",
+        "position": "42",
+        "face": "front",
+        "status": "active",
+        "comments": "",
+        "tags": "",
+        "location": "A",
+        "railyard": {
+          "kind": "placement",
+          "id": "p_pp"
+        }
+      },
+      {
+        "name": "SRV-1",
+        "serial": "SN-0001",
+        "manufacturer": "Acme",
+        "device_type": "SRV1",
+        "role": "compute",
+        "site": "DC1",
+        "rack": "R1",
+        "position": "1",
+        "face": "rear",
+        "status": "active",
+        "comments": "Database host",
+        "tags": "",
+        "location": "A",
+        "railyard": {
+          "kind": "placement",
+          "id": "p_srv"
+        }
+      },
+      {
+        "name": "PDU-1",
+        "serial": "",
+        "manufacturer": "Acme",
+        "device_type": "PDU1",
+        "role": "power",
+        "site": "DC1",
+        "rack": "R1",
+        "position": "",
+        "face": "front",
+        "status": "active",
+        "comments": "",
+        "tags": "",
+        "location": "A",
+        "railyard": {
+          "kind": "placement",
+          "id": "p_pdu"
+        }
+      }
+    ],
+    "interfaces": [
+      {
+        "device": "SW-1",
+        "name": "Eth1",
+        "type": "10gbase-x-sfpp",
+        "railyard": {
+          "kind": "port",
+          "id": "p_sw:Eth1"
+        }
+      },
+      {
+        "device": "SRV-1",
+        "name": "iface1",
+        "type": "other",
+        "railyard": {
+          "kind": "port",
+          "id": "p_srv:iface1"
+        }
+      }
+    ],
+    "rear-ports": [
+      {
+        "device": "PP-1",
+        "name": "1",
+        "type": "lc",
+        "positions": "1",
+        "railyard": {
+          "kind": "port",
+          "id": "p_pp:1"
+        }
+      },
+      {
+        "device": "PP-1",
+        "name": "2",
+        "type": "lc",
+        "positions": "1",
+        "railyard": {
+          "kind": "port",
+          "id": "p_pp:2"
+        }
+      }
+    ],
+    "front-ports": [
+      {
+        "device": "PP-1",
+        "name": "1",
+        "type": "lc",
+        "positions": "1",
+        "rear_port": "1",
+        "rear_port_position": "1",
+        "railyard": {
+          "kind": "port",
+          "id": "p_pp:1"
+        }
+      },
+      {
+        "device": "PP-1",
+        "name": "2",
+        "type": "lc",
+        "positions": "1",
+        "rear_port": "2",
+        "rear_port_position": "1",
+        "railyard": {
+          "kind": "port",
+          "id": "p_pp:2"
+        }
+      }
+    ],
+    "power-outlets": [
+      {
+        "device": "PDU-1",
+        "name": "OUT1",
+        "type": "iec-60320-c13",
+        "railyard": {
+          "kind": "port",
+          "id": "p_pdu:OUT1"
+        }
+      },
+      {
+        "device": "PDU-1",
+        "name": "OUT2",
+        "type": "iec-60320-c13",
+        "railyard": {
+          "kind": "port",
+          "id": "p_pdu:OUT2"
+        }
+      }
+    ],
+    "power-ports": [
+      {
+        "device": "SRV-1",
+        "name": "PSU1",
+        "type": "iec-60320-c14",
+        "railyard": {
+          "kind": "port",
+          "id": "p_srv:PSU1"
+        }
+      }
+    ],
+    "cables": [
+      {
+        "side_a_device": "SW-1",
+        "side_a_type": "dcim.interface",
+        "side_a_name": "Eth1",
+        "side_b_device": "PP-1",
+        "side_b_type": "dcim.frontport",
+        "side_b_name": "1",
+        "type": "",
+        "status": "connected",
+        "label": "L1",
+        "color": "ff0000",
+        "railyard": {
+          "kind": "cable",
+          "id": "c1"
+        }
+      },
+      {
+        "side_a_device": "PP-1",
+        "side_a_type": "dcim.rearport",
+        "side_a_name": "1",
+        "side_b_device": "SRV-1",
+        "side_b_type": "dcim.interface",
+        "side_b_name": "iface1",
+        "type": "",
+        "status": "connected",
+        "label": "L2",
+        "color": "",
+        "railyard": {
+          "kind": "cable",
+          "id": "c2"
+        }
+      },
+      {
+        "side_a_device": "SRV-1",
+        "side_a_type": "dcim.powerport",
+        "side_a_name": "PSU1",
+        "side_b_device": "PDU-1",
+        "side_b_type": "dcim.poweroutlet",
+        "side_b_name": "OUT1",
+        "type": "power",
+        "status": "connected",
+        "label": "",
+        "color": "",
+        "railyard": {
+          "kind": "powerLink",
+          "id": "pw1"
+        }
+      }
+    ]
+  },
+  "warnings": []
+}

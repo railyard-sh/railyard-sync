@@ -54,22 +54,40 @@ class DeviceRole(DiffSyncModel):
 class Site(DiffSyncModel):
     _modelname = "site"
     _identifiers = ("name",)
-    _attributes = ("slug", "status")
+    _attributes = ("slug", "status", "facility")
     name: str
     slug: str
     status: str = "active"
+    facility: str = ""
+
+
+class Location(DiffSyncModel):
+    """A NetBox location (a space below a site). Railyard's export makes names unique within a site."""
+
+    _modelname = "location"
+    _identifiers = ("site", "name")
+    _attributes = ("slug", "parent", "status", "facility")
+    site: str
+    name: str
+    slug: str
+    parent: str = ""  # the parent location's name within the same site; blank directly under the site
+    status: str = "active"
+    facility: str = ""
 
 
 class Rack(DiffSyncModel):
     _modelname = "rack"
     _identifiers = ("site", "name")
-    _attributes = ("status", "width", "u_height", "desc_units")
+    _attributes = ("status", "width", "u_height", "desc_units", "location", "comments", "tags")
     site: str
     name: str
     status: str = "active"
     width: int = 19
     u_height: int = 42
     desc_units: bool = False
+    location: str = ""  # location name within the site; blank when the rack sits directly in the site
+    comments: str = ""
+    tags: list[str] = Field(default_factory=list)  # user tag slugs, sorted (never the ownership tag)
 
 
 class Device(DiffSyncModel):
@@ -85,6 +103,10 @@ class Device(DiffSyncModel):
         "face",
         "status",
         "railyard_id",
+        "serial",
+        "location",
+        "comments",
+        "tags",
     )
     name: str
     device_type: str  # the device-type *model* (its natural key on a device)
@@ -96,6 +118,10 @@ class Device(DiffSyncModel):
     face: str = "front"
     status: str = "active"
     railyard_id: str = ""  # Railyard placement id, stamped as a custom field for stable identity
+    serial: str = ""
+    location: str = ""
+    comments: str = ""
+    tags: list[str] = Field(default_factory=list)  # user tag slugs, sorted (never the ownership tag)
 
 
 class Interface(DiffSyncModel):
@@ -152,7 +178,7 @@ class Cable(DiffSyncModel):
     # planner emits them. ``a_type``/``b_type`` are DCIM content types (dcim.interface, dcim.frontport,
     # dcim.rearport, dcim.powerport, dcim.poweroutlet).
     _identifiers = ("a_device", "a_type", "a_name", "b_device", "b_type", "b_name")
-    _attributes = ("is_power", "label")
+    _attributes = ("is_power", "label", "type", "status", "color")
     a_device: str
     a_type: str
     a_name: str
@@ -161,6 +187,9 @@ class Cable(DiffSyncModel):
     b_name: str
     is_power: bool = False
     label: str = ""
+    type: str = ""  # DCIM cable type ("power", "cat6a", "mmf-om4", …); blank when unknown
+    status: str = "connected"
+    color: str = ""  # six hex digits, no leading "#"; blank when unset
 
 
 # Create-dependency order for the adapters' ``top_level``.
@@ -169,6 +198,7 @@ TOP_LEVEL = [
     "device_type",
     "device_role",
     "site",
+    "location",
     "rack",
     "device",
     "rear_port",
@@ -184,6 +214,7 @@ __all__ = [
     "DeviceType",
     "DeviceRole",
     "Site",
+    "Location",
     "Rack",
     "Device",
     "Interface",
