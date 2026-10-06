@@ -37,6 +37,7 @@ class RailyardAdapter(Adapter):
     device_type = models.DeviceType
     device_role = models.DeviceRole
     site = models.Site
+    location = models.Location  # never loaded from Project JSON; declared because TOP_LEVEL names it
     rack = models.Rack
     device = models.Device
     interface = models.Interface

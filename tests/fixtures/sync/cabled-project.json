@@ -1,0 +1,226 @@
+{
+  "schemaVersion": "1",
+  "id": "prj_sync_fixture",
+  "name": "Sync fixture",
+  "containers": [
+    {
+      "id": "dc1",
+      "name": "DC1",
+      "type": "Data centre",
+      "layout": "floor",
+      "status": "Active",
+      "exportSite": true
+    },
+    {
+      "id": "hall1",
+      "name": "Hall 1",
+      "type": "Hall",
+      "parentId": "dc1",
+      "layout": "group",
+      "status": "Active"
+    },
+    {
+      "id": "row1",
+      "name": "A",
+      "type": "Row",
+      "parentId": "hall1",
+      "layout": "row"
+    }
+  ],
+  "locations": [
+    {
+      "id": "hall1",
+      "name": "Hall 1",
+      "status": "Active"
+    }
+  ],
+  "dataCentres": [
+    {
+      "id": "dc1",
+      "name": "DC1",
+      "status": "Active"
+    }
+  ],
+  "rows": [
+    {
+      "id": "row1",
+      "name": "A",
+      "dcId": "dc1",
+      "rackIds": [
+        "r1"
+      ]
+    }
+  ],
+  "racks": [
+    {
+      "id": "r1",
+      "name": "R1",
+      "uHeight": 42,
+      "widthMm": 800,
+      "containerId": "row1",
+      "rowId": "row1",
+      "dcId": "dc1",
+      "status": "Planned",
+      "notes": "Cold aisle A",
+      "tags": [
+        "Build 1"
+      ],
+      "placements": [
+        {
+          "id": "p_sw",
+          "startU": 40,
+          "heightU": 1,
+          "face": "front",
+          "label": "SW-1",
+          "deviceTypeRef": "sw",
+          "role": "leaf",
+          "tags": [
+            "Build 1"
+          ]
+        },
+        {
+          "id": "p_pp",
+          "startU": 42,
+          "heightU": 1,
+          "face": "front",
+          "label": "PP-1",
+          "deviceTypeRef": "pp",
+          "role": "patch"
+        },
+        {
+          "id": "p_srv",
+          "startU": 1,
+          "heightU": 2,
+          "face": "rear",
+          "label": "SRV-1",
+          "deviceTypeRef": "srv",
+          "role": "compute",
+          "serial": "SN-0001",
+          "notes": "Database host"
+        },
+        {
+          "id": "p_pdu",
+          "startU": 0,
+          "heightU": 0,
+          "face": "front",
+          "mount": "zeroU",
+          "side": "left",
+          "label": "PDU-1",
+          "deviceTypeRef": "pdu",
+          "role": "power"
+        }
+      ]
+    }
+  ],
+  "catalogue": [
+    {
+      "key": "sw",
+      "manufacturer": "Acme",
+      "model": "SW1",
+      "uHeight": 1,
+      "fullDepth": true,
+      "ports": {
+        "front": 2,
+        "passThrough": false,
+        "media": "SFP+",
+        "frontPorts": [
+          {
+            "name": "Eth1",
+            "type": "SFP+"
+          },
+          {
+            "name": "Eth2",
+            "type": "SFP+"
+          }
+        ]
+      }
+    },
+    {
+      "key": "pp",
+      "manufacturer": "Acme",
+      "model": "PP24",
+      "uHeight": 1,
+      "fullDepth": false,
+      "ports": {
+        "front": 2,
+        "passThrough": true,
+        "media": "LC"
+      }
+    },
+    {
+      "key": "srv",
+      "manufacturer": "Acme",
+      "model": "SRV1",
+      "uHeight": 2,
+      "fullDepth": true,
+      "powerInlets": [
+        {
+          "name": "PSU1",
+          "connector": "C14"
+        }
+      ]
+    },
+    {
+      "key": "pdu",
+      "manufacturer": "Acme",
+      "model": "PDU1",
+      "uHeight": 0,
+      "fullDepth": false,
+      "outlets": {
+        "count": 2,
+        "type": "C13",
+        "feeds": 1
+      }
+    }
+  ],
+  "cables": [
+    {
+      "id": "c1",
+      "a": {
+        "rackId": "r1",
+        "placementId": "p_sw",
+        "side": "front",
+        "portIndex": 1
+      },
+      "b": {
+        "rackId": "r1",
+        "placementId": "p_pp",
+        "side": "front",
+        "portIndex": 1
+      },
+      "media": "LC",
+      "label": "L1",
+      "colour": "#ff0000"
+    },
+    {
+      "id": "c2",
+      "a": {
+        "rackId": "r1",
+        "placementId": "p_pp",
+        "side": "rear",
+        "portIndex": 1
+      },
+      "b": {
+        "rackId": "r1",
+        "placementId": "p_srv"
+      },
+      "media": "LC",
+      "label": "L2"
+    }
+  ],
+  "powerLinks": [
+    {
+      "id": "pw1",
+      "device": {
+        "rackId": "r1",
+        "placementId": "p_srv",
+        "inletId": "template:power:1"
+      },
+      "pdu": {
+        "rackId": "r1",
+        "placementId": "p_pdu",
+        "outlet": 1
+      }
+    }
+  ]
+}

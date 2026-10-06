@@ -1,0 +1,224 @@
+{
+  "format": "railyard-netbox-sync",
+  "version": 1,
+  "netboxVersion": "4.5",
+  "project": {
+    "id": "prj_replace-with-a-unique-id",
+    "name": "Acme spine-leaf build",
+    "revision": 1
+  },
+  "objects": {
+    "tags": [],
+    "manufacturers": [
+      {
+        "name": "Cisco",
+        "slug": "cisco",
+        "railyard": {
+          "kind": "manufacturer"
+        }
+      }
+    ],
+    "device-types": [
+      {
+        "manufacturer": "Cisco",
+        "model": "Nexus 93180YC-FX",
+        "slug": "cisco-nexus-93180yc-fx",
+        "u_height": "1",
+        "is_full_depth": "true",
+        "railyard": {
+          "kind": "device-type",
+          "id": "cisco-nexus-93180yc-fx",
+          "keys": [
+            "cisco-nexus-93180yc-fx"
+          ]
+        }
+      }
+    ],
+    "device-roles": [
+      {
+        "name": "leaf",
+        "slug": "leaf",
+        "color": "9e9e9e",
+        "railyard": {
+          "kind": "role"
+        }
+      }
+    ],
+    "sites": [
+      {
+        "name": "LDN1",
+        "slug": "ldn1-2334f5e693",
+        "status": "active",
+        "facility": "",
+        "railyard": {
+          "kind": "container",
+          "id": "dc_ldn1"
+        }
+      },
+      {
+        "name": "FRA1",
+        "slug": "fra1-ceff732d4b",
+        "status": "active",
+        "facility": "",
+        "railyard": {
+          "kind": "container",
+          "id": "dc_fra1"
+        }
+      }
+    ],
+    "locations": [
+      {
+        "name": "A [a559f3df2a]",
+        "slug": "a-a559f3df2a",
+        "site": "LDN1",
+        "parent": "",
+        "status": "active",
+        "facility": "",
+        "railyard": {
+          "kind": "container",
+          "id": "row_ldn_a"
+        }
+      },
+      {
+        "name": "A [ea30999eaa]",
+        "slug": "a-ea30999eaa",
+        "site": "FRA1",
+        "parent": "",
+        "status": "active",
+        "facility": "",
+        "railyard": {
+          "kind": "container",
+          "id": "row_fra_a"
+        }
+      }
+    ],
+    "racks": [
+      {
+        "name": "LDN1-A01",
+        "site": "LDN1",
+        "status": "active",
+        "width": "19",
+        "u_height": "42",
+        "desc_units": "false",
+        "comments": "",
+        "tags": "",
+        "location": "A [a559f3df2a]",
+        "railyard": {
+          "kind": "rack",
+          "id": "rack_ldn_a01"
+        }
+      },
+      {
+        "name": "LDN1-A02",
+        "site": "LDN1",
+        "status": "active",
+        "width": "19",
+        "u_height": "42",
+        "desc_units": "false",
+        "comments": "",
+        "tags": "",
+        "location": "A [a559f3df2a]",
+        "railyard": {
+          "kind": "rack",
+          "id": "rack_ldn_a02"
+        }
+      },
+      {
+        "name": "FRA1-A01",
+        "site": "FRA1",
+        "status": "active",
+        "width": "19",
+        "u_height": "42",
+        "desc_units": "false",
+        "comments": "",
+        "tags": "",
+        "location": "A [ea30999eaa]",
+        "railyard": {
+          "kind": "rack",
+          "id": "rack_fra_a01"
+        }
+      }
+    ],
+    "devices": [
+      {
+        "name": "LDN1-A01-LEAF-01",
+        "serial": "",
+        "manufacturer": "Cisco",
+        "device_type": "Nexus 93180YC-FX",
+        "role": "leaf",
+        "site": "LDN1",
+        "rack": "LDN1-A01",
+        "position": "41",
+        "face": "front",
+        "status": "active",
+        "comments": "",
+        "tags": "",
+        "location": "A [a559f3df2a]",
+        "railyard": {
+          "kind": "device",
+          "id": "pl_ldn_a01_leaf1"
+        }
+      },
+      {
+        "name": "LDN1-A02-LEAF-01",
+        "serial": "",
+        "manufacturer": "Cisco",
+        "device_type": "Nexus 93180YC-FX",
+        "role": "leaf",
+        "site": "LDN1",
+        "rack": "LDN1-A02",
+        "position": "41",
+        "face": "front",
+        "status": "active",
+        "comments": "",
+        "tags": "",
+        "location": "A [a559f3df2a]",
+        "railyard": {
+          "kind": "device",
+          "id": "pl_ldn_a02_leaf1"
+        }
+      },
+      {
+        "name": "FRA1-A01-LEAF-01",
+        "serial": "",
+        "manufacturer": "Cisco",
+        "device_type": "Nexus 93180YC-FX",
+        "role": "leaf",
+        "site": "FRA1",
+        "rack": "FRA1-A01",
+        "position": "41",
+        "face": "front",
+        "status": "active",
+        "comments": "",
+        "tags": "",
+        "location": "A [ea30999eaa]",
+        "railyard": {
+          "kind": "device",
+          "id": "pl_fra_a01_leaf1"
+        }
+      }
+    ],
+    "interfaces": [],
+    "rear-ports": [],
+    "front-ports": [],
+    "power-outlets": [],
+    "power-ports": [],
+    "cables": []
+  },
+  "unresolved": [
+    {
+      "rackName": "LDN1-A01",
+      "placementId": "pl_ldn_a01_srv1",
+      "label": "LDN1-A01-SRV-01",
+      "ref": "some 2U server",
+      "heightU": 2,
+      "placeheld": false
+    }
+  ],
+  "warnings": [
+    "Export container \"A\" as \"A [a559f3df2a]\" to keep import references unambiguous; original names and IDs remain in project.json.",
+    "Export container \"A\" as \"A [ea30999eaa]\" to keep import references unambiguous; original names and IDs remain in project.json.",
+    "NetBox site \"LDN1\" cannot retain its parent container relationship; see project.json.",
+    "NetBox site \"FRA1\" cannot retain its parent container relationship; see project.json."
+  ]
+}
