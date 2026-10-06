@@ -196,11 +196,13 @@ class NetBoxClient:
         return f"NetBoxClient(url={self.url!r})"
 
     def scrub(self, text: str) -> str:
-        """``text`` with the token (and its key part, for a v2 token) replaced by ``***``."""
+        """``text`` with the token, and each part of a v2 token (``nbt_<key>.<secret>``), replaced by ``***``.
+
+        Longest first, so the whole token is never left half-replaced."""
         out = text or ""
-        for secret in {self._token, self._token.split(".", 1)[0] if "." in self._token else ""}:
-            if secret and len(secret) >= 4:
-                out = out.replace(secret, "***")
+        secrets = {self._token, *self._token.split(".")}
+        for secret in sorted((s for s in secrets if len(s) >= 4), key=len, reverse=True):
+            out = out.replace(secret, "***")
         return out
 
     def request(self, method: str, path: str, *, params: Any = None, json: Any = None) -> Any:
