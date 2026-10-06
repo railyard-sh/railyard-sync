@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://railyard.dev/schema/project.schema.json",
   "title": "Railyard Project",
-  "description": "The single source-of-truth serialisation for a Railyard rack-design project. This exact JSON is what the frontend holds in its store, what the API posts, what saves to disk, and what the `railyard` CLI reads. Placements are deliberately dumb: no referential integrity is enforced here — that only happens at export time.",
+  "description": "The single source-of-truth serialisation for a Railyard rack-design project. This exact JSON is what the frontend holds in its store, what the API posts, what saves to disk, and what the CLI reads. Mutation boundaries enforce cable endpoint and occupancy integrity; older malformed topology remains readable for diagnosis and repair.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "id", "name"],
@@ -14,9 +14,22 @@
     },
     "id": { "type": "string", "minLength": 1 },
     "name": { "type": "string" },
+    "description": { "type": "string", "maxLength": 160, "description": "Optional single-line project summary shown on project cards. Outer whitespace is trimmed on save." },
     "organisation": { "type": "string", "description": "The company at the root of the estate tree." },
     "createdAt": { "type": "string", "description": "ISO-8601 timestamp; optional." },
     "updatedAt": { "type": "string", "description": "ISO-8601 timestamp; optional." },
+    "example": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["template", "version"],
+      "description": "Optional example creation provenance, not evidence of an unedited project or permission to auto-upgrade. Legacy examples remain unmarked.",
+      "properties": {
+        "template": { "const": "data-centre" },
+        "version": { "type": "integer", "minimum": 1, "maximum": 2147483647 }
+      }
+    },
+    "containers": { "type": "array", "items": { "$ref": "#/$defs/Container" }, "description": "Canonical customer-defined hierarchy. Absent means legacy Location/DataCentre/Row migration is needed; an explicit empty array remains empty." },
+    "containerTypes": { "type": "array", "items": { "type": "string", "minLength": 1, "pattern": "\\S" }, "uniqueItems": true, "description": "Additional customer-defined container type suggestions." },
     "locations": { "type": "array", "items": { "$ref": "#/$defs/Location" }, "default": [] },
     "dataCentres": { "type": "array", "items": { "$ref": "#/$defs/DataCentre" }, "default": [] },
     "rows": { "type": "array", "items": { "$ref": "#/$defs/Row" }, "default": [] },
@@ -29,19 +42,110 @@
     "meetMeRooms": { "type": "array", "items": { "$ref": "#/$defs/MeetMeRoom" }, "default": [] },
     "cables": { "type": "array", "items": { "$ref": "#/$defs/Cable" }, "default": [] },
     "powerLinks": { "type": "array", "items": { "$ref": "#/$defs/PowerLink" }, "default": [] },
+    "topologies": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/Topology" }, "description": "Named diagrams with independent layouts and user-defined layers. Shared inventory and cable references may be stale for repair." },
+    "reviewDismissals": { "type": "array", "maxItems": 1000, "items": { "type": "string", "minLength": 1, "maxLength": 2000, "pattern": "\\S" }, "uniqueItems": true, "description": "Accepted warning/info design-review findings, keyed by stable condition fingerprint. Errors remain active." },
+    "deviceRoles": { "type": "array", "items": { "type": "string", "minLength": 1, "pattern": "\\S" }, "uniqueItems": true, "description": "Project-level device-role vocabulary, layered on top of the base and organisation roles." },
     "meta": { "type": "object", "description": "Free-form extension bag; ignored by export.", "additionalProperties": true }
   },
   "$defs": {
+    "Topology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "layers", "nodes", "edges"],
+      "description": "Topology IDs and child IDs are unique in their collections; device and cable references are unique per diagram. Layer references must resolve within this topology. These cross-item invariants are enforced at document and collaboration boundaries.",
+      "properties": {
+        "id": {"type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S", "allOf": [{"pattern": "^[^:]*$"}]},
+        "name": {"type": "string", "minLength": 1, "maxLength": 100, "pattern": "^\\S(?:[\\s\\S]*\\S)?$"},
+        "layers": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/TopologyLayer"}, "minItems": 1},
+        "nodes": {"type": "array", "maxItems": 2000, "items": {"$ref": "#/$defs/TopologyNode"}},
+        "edges": {"type": "array", "maxItems": 5000, "items": {"$ref": "#/$defs/TopologyEdge"}}
+      }
+    },
+    "TopologyLayer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "visible", "locked", "order"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S"},
+        "name": {"type": "string", "minLength": 1, "maxLength": 100, "pattern": "^\\S(?:[\\s\\S]*\\S)?$"},
+        "visible": {"type": "boolean"},
+        "locked": {"type": "boolean"},
+        "order": {"type": "integer", "minimum": 0, "maximum": 1000000}
+      }
+    },
+    "TopologyNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "placementId", "layerId", "x", "y"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S"},
+        "placementId": {"type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S"},
+        "layerId": {"type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S"},
+        "x": {"type": "number", "minimum": -1000000, "maximum": 1000000},
+        "y": {"type": "number", "minimum": -1000000, "maximum": 1000000},
+        "label": {"type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S", "description": "The device label when the node was last drawn or renamed. Kept after the device is removed (by a peer or an import) so the stale item can still be named. Optional; older documents omit it."}
+      }
+    },
+    "TopologyEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "cableId", "layerId", "points"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S"},
+        "cableId": {"type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S"},
+        "layerId": {"type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S"},
+        "points": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/TopologyPoint"}},
+        "aAnchor": {"$ref": "#/$defs/TopologyAnchor"},
+        "bAnchor": {"$ref": "#/$defs/TopologyAnchor"},
+        "label": {"type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S", "description": "The cable label when the edge was last drawn or renamed. Kept after the cable is removed so the stale item can still be named. Optional; older documents omit it."}
+      }
+    },
+    "TopologyAnchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["side", "offset"],
+      "description": "Optional connector position on the device edge. Horizontal sides run left-to-right; vertical sides run top-to-bottom. Omitted anchors are positioned automatically.",
+      "properties": {
+        "side": {"type": "string", "enum": ["top", "right", "bottom", "left"]},
+        "offset": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "TopologyPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": {"type": "number", "minimum": -1000000, "maximum": 1000000},
+        "y": {"type": "number", "minimum": -1000000, "maximum": 1000000}
+      }
+    },
+    "Container": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "type"],
+      "description": "A named place in a flexible parent tree. Type is an editable label; layout explicitly enables physical behaviour. Container IDs are unique, cannot equal rack IDs, and parent references must form an acyclic graph.",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "\\S" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "\\S" },
+        "type": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "\\S" },
+        "parentId": { "type": "string", "maxLength": 256, "description": "Parent Container.id; absent or empty means the organisation root." },
+        "layout": { "type": "string", "enum": ["group", "floor", "row"], "description": "Explicit layout behaviour. Floor geometry and row ordering remain on same-ID DataCentre and Row records." },
+        "status": { "type": "string", "maxLength": 256 },
+        "facility": { "type": "string", "maxLength": 256 },
+        "exportSite": { "type": "boolean", "description": "Use this container as the NetBox site for the racks below it. An unmarked root is used only for racks with no marked ancestor, or when nothing in its tree is marked." },
+        "rackOrder": { "type": "array", "items": { "type": "string" }, "maxItems": 10000, "description": "The rack order a space kept from when it was a row: listed Rack.ids come first, in this order. Cleared when the space becomes a row again, whose Row.rackIds then carries the order." }
+      }
+    },
     "Location": {
       "type": "object",
       "additionalProperties": false,
       "required": ["id", "name"],
       "description": "A geographic site (city/campus). Exports as the parent Nautobot location of its data centres.",
       "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "name": { "type": "string" },
-        "facility": { "type": "string", "description": "Short code, e.g. 'LDN'. Used by naming templates as {site}." },
-        "status": { "type": "string", "description": "Export status name; defaults to 'Active' when empty." }
+        "id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "name": { "type": "string", "maxLength": 256 },
+        "facility": { "type": "string", "maxLength": 256, "description": "Short code, e.g. 'LDN'. Used by naming templates as {site}." },
+        "status": { "type": "string", "maxLength": 256, "description": "Export status name; defaults to 'Active' when empty." }
       }
     },
     "DataCentre": {
@@ -50,14 +154,14 @@
       "required": ["id", "name"],
       "description": "A hall/building within a Location. Racks live inside a data centre; it is the Nautobot 'location' at export time.",
       "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "name": { "type": "string" },
-        "locationId": { "type": "string", "description": "Back-reference to a Location.id." },
-        "status": { "type": "string", "description": "Export status name; defaults to 'Active' when empty." },
-        "naming": { "$ref": "#/$defs/NamingScheme", "description": "Optional per-DC override of the project naming scheme." },
-        "aisleMm": { "type": "integer", "description": "Clear aisle between rows (mm); feeds cable-length estimation." },
-        "rackGapMm": { "type": "integer", "description": "Gap between adjacent racks in a row (mm)." },
-        "trayHeightMm": { "type": "integer", "description": "Overhead cable-tray height above the floor (mm)." }
+        "id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "name": { "type": "string", "maxLength": 256 },
+        "locationId": { "type": "string", "maxLength": 256, "description": "Back-reference to a Location.id." },
+        "status": { "type": "string", "maxLength": 256, "description": "Export status name; defaults to 'Active' when empty." },
+        "naming": { "$ref": "#/$defs/DataCentreNamingScheme", "description": "Legacy per-DC naming override. The device naming switch is project-wide." },
+        "aisleMm": { "type": "integer", "description": "Clear aisle between rows (mm); feeds cable-length estimation. Omit it for the 1200 mm default; an explicit 0 (back-to-back rows) is kept." },
+        "rackGapMm": { "type": "integer", "description": "Gap between adjacent racks in a row (mm). Omit it for the 0 mm default." },
+        "trayHeightMm": { "type": "integer", "description": "Overhead cable-tray height above the floor (mm). Omit it for the 2400 mm default; an explicit 0 (an under-floor tray) is kept." }
       }
     },
     "CableEnd": {
@@ -68,6 +172,7 @@
       "properties": {
         "rackId": { "type": "string" },
         "placementId": { "type": "string" },
+        "portId": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S", "description": "Authoritative DevicePort.id within the placement. An unresolved ID is an error, never a fallback to side/portIndex/port. Absent retains legacy endpoint semantics." },
         "port": { "type": "string", "description": "Free-text port/interface label, e.g. 'Gi0/1' or 'NIC0'. Used when the device has no modelled ports." },
         "side": { "type": "string", "enum": ["front", "rear"], "description": "Which face of a paneled device this end terminates on." },
         "portIndex": { "type": "integer", "minimum": 1, "description": "1-based port number on that side; requires the DeviceType to declare ports." }
@@ -79,7 +184,7 @@
       "required": ["id", "a", "b"],
       "description": "A point-to-point cable between two devices. An optional layer over the rack layout; empty by default.",
       "properties": {
-        "id": { "type": "string", "minLength": 1 },
+        "id": { "type": "string", "minLength": 1, "maxLength": 256 },
         "a": { "$ref": "#/$defs/CableEnd" },
         "b": { "$ref": "#/$defs/CableEnd" },
         "media": { "type": "string", "description": "Cable media/type, e.g. 'Cat6', 'OM4 LC-LC', 'DAC'." },
@@ -107,9 +212,9 @@
       "required": ["id", "name"],
       "description": "An ordered aisle of racks within a data centre. The naming-template token {row} derives from this.",
       "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "name": { "type": "string" },
-        "dcId": { "type": "string", "description": "Back-reference to a DataCentre.id." },
+        "id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "name": { "type": "string", "maxLength": 256 },
+        "dcId": { "type": "string", "maxLength": 256, "description": "Back-reference to a DataCentre.id." },
         "rackIds": { "type": "array", "items": { "type": "string" }, "default": [] }
       }
     },
@@ -118,23 +223,26 @@
       "additionalProperties": false,
       "required": ["id", "name", "uHeight"],
       "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "name": { "type": "string" },
+        "id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "name": { "type": "string", "maxLength": 256 },
         "uHeight": { "type": "integer", "minimum": 1, "maximum": 100, "default": 42 },
         "widthMm": { "type": "integer", "description": "Rail width in millimetres (600/750...). Export maps to inches (19/23).", "default": 600 },
         "depthMm": { "type": "integer", "description": "Floor footprint depth in millimetres; used by the floor plan.", "default": 1070 },
         "startingUnit": { "type": "integer", "minimum": 1, "default": 1, "description": "U number of the lowest position." },
         "descendingUnits": { "type": "boolean", "default": false, "description": "U1 at the top instead of the bottom." },
-        "rowId": { "type": "string" },
-        "dcId": { "type": "string", "description": "Denormalised convenience; export resolves rack.dcId then row.dcId." },
-        "rackTypeKey": { "type": "string", "description": "Optional reference to a RackType.key this rack was built from." },
+        "containerId": { "type": "string", "maxLength": 256, "description": "Canonical parent Container.id; absent or empty means the organisation root." },
+        "rowId": { "type": "string", "maxLength": 256 },
+        "dcId": { "type": "string", "maxLength": 256, "description": "Physical projection of the nearest floor container; legacy documents resolve rack.dcId then row.dcId." },
+        "rackTypeKey": { "type": "string", "maxLength": 256, "description": "Optional reference to a RackType.key this rack was built from." },
         "indexInRow": { "type": "integer", "minimum": 0, "default": 0 },
-        "status": { "type": "string", "description": "Export status name; defaults to 'Active' when empty." },
-        "role": { "type": "string" },
+        "status": { "type": "string", "maxLength": 256, "description": "Export status name; defaults to 'Active' when empty." },
+        "role": { "type": "string", "maxLength": 256 },
         "powerCapacityW": { "type": "integer", "minimum": 0, "description": "Usable power budget for the rack in watts. 0/absent disables the power-budget check." },
         "maxLoadKg": { "type": "number", "minimum": 0, "description": "Static load rating for the rack in kilograms. 0/absent disables the weight-limit check." },
         "facing": { "type": "string", "enum": ["up", "down"], "default": "up", "description": "Which way the rack front points on the floor plan — 'up' = front at the top edge of its row band. Drives hot/cold-aisle airflow." },
         "kind": { "type": "string", "enum": ["cabinet", "wall-mount"], "description": "Rack form factor. Absent = 'cabinet'. 'wall-mount' is a small floor-placed (usually rowless) rack of patch panels; reuses all placement/cabling/power machinery." },
+        "notes": { "type": "string", "description": "Free-form rack annotation; exports as comments." },
+        "tags": { "type": "array", "items": { "type": "string" }, "description": "Free-form rack labels for grouping and export." },
         "placements": { "type": "array", "items": { "$ref": "#/$defs/Placement" }, "default": [] }
       }
     },
@@ -144,39 +252,78 @@
       "required": ["id", "startU", "heightU", "face"],
       "description": "A block occupying whole-U positions on one or both faces of a rack. deviceTypeRef is an unresolved free string until export.",
       "properties": {
-        "id": { "type": "string", "minLength": 1 },
+        "id": { "type": "string", "minLength": 1, "maxLength": 256 },
         "startU": { "type": "integer", "minimum": 1, "description": "Lowest U occupied (1-based, in the rack's own numbering)." },
         "heightU": { "type": "integer", "minimum": 1 },
         "face": { "type": "string", "enum": ["front", "rear", "full"] },
-        "label": { "type": "string", "default": "" },
-        "deviceTypeRef": { "type": "string", "description": "Free text or a catalogue DeviceType.key. Resolved only at export." },
-        "role": { "type": "string" },
+        "label": { "type": "string", "maxLength": 256, "default": "" },
+        "namingMode": { "type": "string", "enum": ["auto", "manual"], "description": "Absent means manual for legacy devices. Automatic labels follow the active device naming rule." },
+        "nameSequence": { "type": "object", "additionalProperties": false, "required": ["scope", "value"], "properties": { "scope": { "type": "string", "minLength": 1, "maxLength": 1024 }, "value": { "type": "integer", "minimum": 1 } }, "description": "Stable allocation for the optional {seq} token." },
+        "serial": { "type": "string", "maxLength": 50, "description": "Manufacturer-assigned chassis serial number for this physical device. Optional until it is built; NetBox Device.serial accepts at most 50 characters." },
+        "deviceTypeRef": { "type": "string", "maxLength": 256, "description": "Free text or a catalogue DeviceType.key. Resolved only at export." },
+        "role": { "type": "string", "maxLength": 256 },
         "powerW": { "type": "integer", "minimum": 0, "description": "Per-device power draw override in watts; falls back to the catalogue DeviceType.powerW when absent." },
         "colour": { "type": "string", "description": "CSS colour used on the canvas; ignored by data exports." },
         "notes": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" }, "description": "Free-form device labels for grouping and export." },
+        "ports": { "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/DevicePort" }, "description": "Authoritative device-instance port snapshot. Omit to derive defaults from the device template; an empty array means no ports." },
+        "powerInlets": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/PowerInlet" }, "description": "Authoritative device-instance power input inventory. Omit to derive template inputs; an empty array means no inputs. Preserve IDs when renaming inputs." },
         "mount": { "type": "string", "enum": ["rack", "zeroU"], "description": "How the device mounts. Absent = 'rack' = the startU/heightU/face U-grid behaviour. 'zeroU' = a 0U side mount (e.g. a vertical PDU); startU/heightU/face are inert placeholders then." },
         "side": { "type": "string", "enum": ["left", "right"], "description": "Which side rail a 0U device mounts on. Only meaningful when mount === 'zeroU'." }
+      }
+    },
+    "DevicePort": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "side", "kind", "origin"],
+      "description": "Stable device-instance port. A present Placement.ports array replaces template derivation, including when empty. Template updates do not rewrite a materialised device's ports. IDs are unique within a placement; peerId refers to a passive rear port on that same device.",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 100, "pattern": "\\S" },
+        "side": { "type": "string", "enum": ["front", "rear"] },
+        "kind": { "type": "string", "enum": ["interface", "front-port", "rear-port"] },
+        "origin": { "type": "string", "enum": ["template", "custom", "module"] },
+        "connector": { "type": "string", "maxLength": 100 },
+        "module": { "type": "string", "maxLength": 100 },
+        "optic": {
+          "type": "object", "additionalProperties": false, "required": ["name"],
+          "properties": { "name": { "type": "string", "minLength": 1, "maxLength": 100, "pattern": "\\S" }, "connector": { "type": "string", "maxLength": 100 } }
+        },
+        "templateIndex": { "type": "integer", "minimum": 1, "description": "Original template position for legacy side/index endpoint resolution; not current array order." },
+        "peerId": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S" },
+        "peerPosition": { "type": "integer", "minimum": 1 }
       }
     },
     "DeviceType": {
       "type": "object",
       "additionalProperties": false,
       "required": ["key", "manufacturer", "model", "uHeight"],
-      "description": "A catalogue entry, typically seeded from netbox-community/devicetype-library.",
+      "description": "A device type, typically copied from the built-in device catalogue.",
       "properties": {
-        "key": { "type": "string", "minLength": 1, "description": "Stable catalogue key, usually the devicetype-library slug." },
-        "manufacturer": { "type": "string" },
-        "model": { "type": "string" },
+        "key": { "type": "string", "minLength": 1, "maxLength": 256, "description": "Stable catalogue key, usually the built-in device catalogue's slug for the type." },
+        "manufacturer": { "type": "string", "maxLength": 256 },
+        "model": { "type": "string", "maxLength": 256 },
         "uHeight": { "type": "integer", "minimum": 0 },
         "fullDepth": { "type": "boolean", "default": true },
         "powerW": { "type": "integer", "minimum": 0, "description": "Typical power draw in watts, used by the rack power-budget check." },
-        "frontImage": { "type": "string" },
-        "rearImage": { "type": "string" },
+        "powerInlets": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/PowerInletDef" }, "description": "Ordered template power inputs; devices derive template:power:1, template:power:2, and so on. Materialise linked device inputs before changing this definition." },
         "partNumber": { "type": "string" },
         "ports": { "$ref": "#/$defs/PortSpec" },
         "outlets": { "$ref": "#/$defs/OutletSpec" },
         "weightKg": { "type": "number", "minimum": 0, "description": "Unit weight in kilograms, for rack weight roll-ups." },
-        "airflow": { "type": "string", "description": "Airflow direction: front-to-rear, rear-to-front, passive, side-to-rear, etc." }
+        "airflow": { "type": "string", "description": "Airflow direction: front-to-rear, rear-to-front, passive, side-to-rear, etc." },
+        "source": { "$ref": "#/$defs/DeviceTypeSource" }
+      }
+    },
+    "DeviceTypeSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "description": "Where this project copy came from. Copies from the catalogue, an organisation or the built-in types are removed automatically when no device uses them; custom types are kept until deleted.",
+      "properties": {
+        "kind": { "type": "string", "enum": ["catalogue", "organisation", "builtin", "custom"] },
+        "ref": { "type": "string", "maxLength": 200, "description": "Catalogue entry ID, or the organisation ID for an organisation custom type." },
+        "revision": { "type": "string", "maxLength": 200, "description": "Catalogue revision the copy was taken from." }
       }
     },
     "PortSpec": {
@@ -185,13 +332,13 @@
       "required": ["front"],
       "description": "Declares a paneled device's ports. passThrough=true means front[i] internally couples to rear[i] (a patch panel); a switch sets passThrough=false with front ports only. Ports are derived from the counts (1-based); usage is computed from cables.",
       "properties": {
-        "front": { "type": "integer", "minimum": 0, "description": "Number of front ports." },
-        "rear": { "type": "integer", "minimum": 0, "description": "Number of rear ports; defaults to front for a pass-through panel, else 0." },
+        "front": { "type": "integer", "minimum": 0, "maximum": 4096, "description": "Number of front ports." },
+        "rear": { "type": "integer", "minimum": 0, "maximum": 4096, "description": "Number of rear ports; defaults to front for a pass-through panel, else 0." },
         "passThrough": { "type": "boolean", "default": false, "description": "front[i] ↔ rear[i] internally (patch panel)." },
-        "media": { "type": "string", "description": "Default connector/media, e.g. 'LC', 'RJ45', 'MPO-12'." },
-        "perRow": { "type": "integer", "minimum": 1, "description": "Layout hint: ports per visual row in the port grid." },
-        "frontPorts": { "type": "array", "items": { "$ref": "#/$defs/PortDef" }, "description": "Explicit front port names/types; when absent ports are numbered 1..front." },
-        "rearPorts": { "type": "array", "items": { "$ref": "#/$defs/PortDef" }, "description": "Explicit rear port names/types." }
+        "media": { "type": "string", "maxLength": 100, "description": "Default connector/media, e.g. 'LC', 'RJ45', 'MPO-12'." },
+        "perRow": { "type": "integer", "minimum": 1, "maximum": 4096, "description": "Layout hint: ports per visual row in the port grid." },
+        "frontPorts": { "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/PortDef" }, "description": "Explicit front port names/types; when absent ports are numbered 1..front." },
+        "rearPorts": { "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/PortDef" }, "description": "Explicit rear port names/types." }
       }
     },
     "PortDef": {
@@ -200,10 +347,29 @@
       "required": ["name"],
       "description": "One real port: name, connector, and (for a pass-through panel) which rear port it internally couples to.",
       "properties": {
-        "name": { "type": "string", "description": "Port name, e.g. 'Ethernet1/1', 'Port 12'." },
-        "type": { "type": "string", "description": "This port's connector/media." },
-        "rear": { "type": "string", "description": "Name of the rear port this front port couples to (default: same index)." },
-        "rearPos": { "type": "integer", "minimum": 1, "description": "1-based position within that rear port (MPO/breakout)." }
+        "name": { "type": "string", "minLength": 1, "maxLength": 100, "pattern": "\\S", "description": "Port name, e.g. 'Ethernet1/1', 'Port 12'." },
+        "type": { "type": "string", "maxLength": 100, "description": "This port's connector/media." },
+        "netboxType": { "type": "string", "maxLength": 100, "description": "The port's NetBox interface or port type when it comes from the built-in device catalogue and says more than type (e.g. '800gbase-x-osfp', 'lc-apc'). Exports write it unchanged while the port keeps that connector." },
+        "rear": { "type": "string", "maxLength": 100, "description": "Name of the rear port this front port couples to (default: same index)." },
+        "rearPos": { "type": "integer", "minimum": 1, "maximum": 4096, "description": "1-based position within that rear port (MPO/breakout)." }
+      }
+    },
+    "PowerInletDef": {
+      "type": "object", "additionalProperties": false, "required": ["name"],
+      "description": "A declared template power input or PSU. Names are unique ignoring ASCII case and surrounding whitespace.",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 100, "pattern": "\\S" },
+        "connector": { "type": "string", "minLength": 1, "maxLength": 100, "pattern": "\\S" }
+      }
+    },
+    "PowerInlet": {
+      "type": "object", "additionalProperties": false, "required": ["id", "name", "origin"],
+      "description": "A stable device-instance power input. IDs and normalised names are unique within the device; template and custom inputs coexist in the same authoritative inventory.",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 100, "pattern": "\\S" },
+        "connector": { "type": "string", "minLength": 1, "maxLength": 100, "pattern": "\\S" },
+        "origin": { "type": "string", "enum": ["template", "custom"] }
       }
     },
     "OutletSpec": {
@@ -212,9 +378,9 @@
       "required": ["count"],
       "description": "A PDU's output receptacles. Devices draw from them via PowerLinks; connected draw rolls up against capacityW.",
       "properties": {
-        "count": { "type": "integer", "minimum": 0, "description": "Number of output receptacles." },
+        "count": { "type": "integer", "minimum": 0, "maximum": 4096, "description": "Number of output receptacles." },
         "type": { "type": "string", "description": "Receptacle type, e.g. 'C13', 'C19', 'C13/C19'." },
-        "feeds": { "type": "integer", "minimum": 1, "description": "1 = single feed; 2 = A/B redundant." },
+        "feeds": { "type": "integer", "minimum": 1, "description": "Declared input feed count. Does not establish independent upstream sources or redundancy." },
         "capacityW": { "type": "integer", "minimum": 0, "description": "Rated output capacity in watts (drives the load bar)." }
       }
     },
@@ -224,12 +390,17 @@
       "required": ["id", "device", "pdu"],
       "description": "Plugs a device into a PDU outlet (power cabling).",
       "properties": {
-        "id": { "type": "string", "minLength": 1 },
+        "id": { "type": "string", "minLength": 1, "maxLength": 256 },
         "device": {
           "type": "object",
           "additionalProperties": false,
           "required": ["rackId", "placementId"],
-          "properties": { "rackId": { "type": "string" }, "placementId": { "type": "string" } }
+          "properties": {
+            "rackId": { "type": "string" },
+            "placementId": { "type": "string" },
+            "inletId": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S", "description": "Authoritative stable power input ID on this device. An unresolved ID is an error and never falls back to the legacy inlet label." },
+            "inlet": { "type": "string", "minLength": 1, "maxLength": 100, "pattern": "\\S", "description": "Legacy recorded inlet label or snapshot. Without inletId, uniquely matching a declared input resolves to its stable ID; unmatched labels remain unverified. An absent label never invents a power input." }
+          }
         },
         "pdu": {
           "type": "object",
@@ -245,33 +416,64 @@
       "required": ["key", "model", "uHeight"],
       "description": "A vendor rack model — the 'rack template' a Rack is built from.",
       "properties": {
-        "key": { "type": "string", "minLength": 1 },
-        "manufacturer": { "type": "string" },
-        "model": { "type": "string" },
+        "key": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "manufacturer": { "type": "string", "maxLength": 256 },
+        "model": { "type": "string", "maxLength": 256 },
         "uHeight": { "type": "integer", "minimum": 1, "maximum": 100 },
         "widthMm": { "type": "integer", "default": 600 },
         "depthMm": { "type": "integer", "default": 1070 },
-        "formFactor": { "type": "string", "description": "e.g. '4-post-cabinet'." }
+        "formFactor": { "type": "string", "maxLength": 256, "description": "e.g. '4-post-cabinet'." }
       }
     },
     "PodPattern": {
       "type": "object",
       "additionalProperties": false,
       "required": ["id", "name"],
-      "description": "A repeatable ordered set of rack templates, stamped N times with counter substitution.",
+      "description": "A repeatable row: an ordered composition of rack assembly templates plus the cables and power links between its racks. Each stamp lays a copy down as a new row. Documents saved before pods used the rack template engine carry `rackTemplates` instead of `racks`; readers migrate that shape on load and never write it.",
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "name": { "type": "string" },
-        "rackTemplates": { "type": "array", "items": { "$ref": "#/$defs/RackTemplate" }, "default": [] },
-        "substitutions": { "type": "array", "items": { "$ref": "#/$defs/Substitution" }, "default": [] }
+        "rowType": { "type": "string", "description": "Container type of the captured row; stamped rows use it. Defaults to 'Row'." },
+        "racks": { "type": "array", "items": { "$ref": "#/$defs/PodRackTemplate" }, "default": [] },
+        "cables": { "type": "array", "items": { "$ref": "#/$defs/Cable" }, "default": [], "description": "Cables between two racks of the pod. Ends reference racks[].rack.id and that rack's placements." },
+        "powerLinks": { "type": "array", "items": { "$ref": "#/$defs/PowerLink" }, "default": [], "description": "Power links between two racks of the pod, referenced like cables." },
+        "substitutions": { "type": "array", "items": { "$ref": "#/$defs/Substitution" }, "default": [] },
+        "rackTemplates": { "type": "array", "items": { "$ref": "#/$defs/LegacyPodRackTemplate" }, "deprecated": true, "description": "Legacy pre-engine pod racks (dimensions, role and placements only). Migrated into racks on load; never written." }
       }
     },
-    "RackTemplate": {
+    "PodRackTemplate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "rack", "cables", "powerLinks", "deviceTypes"],
+      "description": "One rack of a pod: a self-contained rack assembly template with its internal cables and power, device and rack type snapshots, and handoffs for connections that leave the pod.",
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "nameTemplate": { "type": "string", "description": "Optional stamped rack name. Tokens: {project} {parent} {type} {dc} {location} {row} {n} plus the pod's substitution tokens, e.g. '{row}-SPINE'. Omitted follows the destination floor's rack naming." },
+        "rack": { "$ref": "#/$defs/Rack" },
+        "cables": { "type": "array", "items": { "$ref": "#/$defs/Cable" } },
+        "powerLinks": { "type": "array", "items": { "$ref": "#/$defs/PowerLink" } },
+        "deviceTypes": { "type": "array", "items": { "$ref": "#/$defs/DeviceType" } },
+        "rackType": { "$ref": "#/$defs/RackType" },
+        "handoffs": {
+          "type": "array",
+          "description": "Connections from this rack that leave the pod; they must be wired manually after stamping.",
+          "items": { "type": "object", "required": ["id", "kind", "label", "local"], "properties": {
+            "id": { "type": "string" }, "kind": { "type": "string", "enum": ["cable", "power"] },
+            "label": { "type": "string" }, "localRole": { "type": "string", "enum": ["device", "pdu"] },
+            "local": { "type": "object" }, "remoteRackName": { "type": "string" }, "remoteDeviceLabel": { "type": "string" }
+          } }
+        }
+      }
+    },
+    "LegacyPodRackTemplate": {
       "type": "object",
       "additionalProperties": false,
       "required": ["nameTemplate"],
+      "description": "Legacy pre-engine pod racks (dimensions, role and placements only). Migrated into racks on load; never written.",
       "properties": {
-        "nameTemplate": { "type": "string", "description": "e.g. '{site}-{row}{rack:02d}'." },
+        "nameTemplate": { "type": "string", "description": "The captured rack name. Kept as a name template on migration only when every placeholder resolves." },
         "uHeight": { "type": "integer", "minimum": 1, "default": 42 },
         "widthMm": { "type": "integer", "default": 600 },
         "depthMm": { "type": "integer", "default": 1070 },
@@ -287,8 +489,8 @@
       "additionalProperties": false,
       "required": ["token", "values"],
       "properties": {
-        "token": { "type": "string", "description": "Token replaced per stamp, e.g. 'rack' or 'pod'." },
-        "values": { "type": "array", "items": { "type": "string" } }
+        "token": { "type": "string", "pattern": "^\\w{1,64}$", "description": "Token usable in pod rack name templates, e.g. 'pod'. It cannot reuse a built-in rack naming token." },
+        "values": { "type": "array", "items": { "type": "string" }, "description": "One value per stamped copy: copy i of a stamp uses values[i]." }
       }
     },
     "NamingRule": {
@@ -312,17 +514,42 @@
         "pad": { "type": "integer", "minimum": 0, "default": 0, "description": "Zero-pad width." }
       }
     },
+    "SpaceNamingRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["containerType", "template"],
+      "description": "A naming template applied to spaces of one customer-defined container type. Container type matching is case-insensitive.",
+      "properties": {
+        "containerType": { "type": "string", "minLength": 1, "pattern": "\\S", "description": "Customer-defined container type, for example 'Data Centre', 'Room', or 'Cage'." },
+        "template": { "type": "string", "minLength": 1, "pattern": "\\S", "description": "Template used when naming spaces of this type." }
+      }
+    },
+    "DataCentreNamingScheme": {
+      "description": "Legacy data-centre override. Inherits naming fields but cannot set the project-wide device naming switch or estate naming mode.",
+      "allOf": [
+        { "$ref": "#/$defs/NamingScheme" },
+        { "not": { "required": ["deviceNamingEnabled"] } },
+        { "not": { "required": ["estateNaming"] } }
+      ]
+    },
     "NamingScheme": {
       "type": "object",
       "additionalProperties": false,
       "required": ["rowStyle", "rackTemplate"],
-      "description": "Drives generated row and rack names. Tokens in templates: {dc} {location} {row} {n}, with optional zero-pad e.g. {n:02}.",
+      "description": "Drives generated space, row and rack names. Tokens in templates include {project} {parent} {type} {dc} {location} {row} {n}, with optional zero-pad e.g. {n:02}.",
       "properties": {
+        "estateNaming": { "type": "string", "enum": ["rules", "manual"], "description": "Project-wide. 'manual' keeps existing row and rack names as entered: new rows and racks are still named from this scheme, but applying it never renames existing ones (explicit spaceRules still apply). 'rules' lets applying rename rows and racks to follow the formats. Absent means 'rules' for documents saved before the field existed; a project with no naming scheme behaves as 'manual'. A replacement scheme that omits it keeps the current mode." },
         "rowStyle": { "type": "string", "enum": ["alpha", "numeric"], "description": "Row identifiers as letters (A, B, C) or numbers (1, 2, 3)." },
         "rowStart": { "type": "integer", "default": 1, "description": "First row index (1 → 'A' or '1')." },
-        "rowPad": { "type": "integer", "minimum": 0, "default": 0, "description": "Zero-pad width for numeric row identifiers." },
+        "rowPad": { "type": "integer", "minimum": 0, "maximum": 32, "default": 0, "description": "Zero-pad width for numeric row identifiers." },
         "rackTemplate": { "type": "string", "description": "e.g. '{dc}-{row}{n:02}' → 'LDN1-A01' or 'LDN1-101'." },
-        "deviceTemplate": { "type": "string", "description": "Optional device-name template, e.g. '{rack}-{role}-{index:02}'." }
+        "deviceTemplate": { "type": "string", "description": "Optional device-name template, e.g. '{location.code}-{dc.code}-{space.Hall.code}-{role.code}-{u:02}'. Custom space types also support quoted tokens such as {space.\"Data Hall\".code}." },
+        "deviceRoleTemplates": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["role", "template"], "properties": { "role": { "type": "string", "minLength": 1, "pattern": "\\S" }, "template": { "type": "string", "minLength": 1, "pattern": "\\S" } } }, "description": "Per-role overrides of deviceTemplate, e.g. { role: 'PDU', template: '{rack}-PDU-{side}' }. A device whose role matches (legacy values such as 'power' match 'PDU') uses the rule's template, and {seq} counts separately for each rule. Matching roles can be named without a default deviceTemplate." },
+        "deviceNamingEnabled": { "type": "boolean", "description": "Project-wide device naming switch. False disables automatic naming, including inherited data centre rules. Absent preserves legacy behavior." },
+        "roleCodes": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["role", "code"], "properties": { "role": { "type": "string", "minLength": 1, "pattern": "\\S" }, "code": { "type": "string", "minLength": 1, "maxLength": 32, "pattern": "^[A-Za-z0-9._-]+$" } } }, "description": "Ordered role to short-code overrides for {role.code}. A role without an entry uses its built-in code (Server SRV, PDU PDU, …) or, for custom roles, the initials of its name; matching ignores case and treats legacy values such as power as the role they display as." },
+        "spaceCodes": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["containerId", "code"], "properties": { "containerId": { "type": "string", "minLength": 1, "pattern": "^\\S(?:.*\\S)?$" }, "code": { "type": "string", "minLength": 1, "maxLength": 32, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$" } } }, "description": "Ordered stable container ID to short-code map for {location.code}, {dc.code}, and {space.<type>.code}." },
+        "deviceSequenceScope": { "type": "object", "additionalProperties": false, "required": ["type"], "properties": { "type": { "type": "string", "enum": ["project", "rack", "ancestor"] }, "containerType": { "type": "string", "minLength": 1 } }, "description": "Stable {seq} allocation scope. Ancestor scope requires a containerType." },
+        "spaceRules": { "type": "array", "items": { "$ref": "#/$defs/SpaceNamingRule" }, "description": "Optional naming templates keyed by customer-defined container type." }
       }
     }
   }

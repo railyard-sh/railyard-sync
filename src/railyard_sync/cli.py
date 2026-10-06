@@ -317,10 +317,13 @@ def _sync_meta(doc: dict) -> dict:
 def _recorded_source(doc: dict) -> tuple[str, str, list[str]]:
     """(kind, url, site slugs) an earlier import recorded in meta.railyardSync, as far as it says."""
     sync = _sync_meta(doc)
+    # The builder writes {"source": "netbox", "url": …, "sites": […]}; accept a nested
+    # {"source": {"kind", "url", "sites"}} too.
     source = sync.get("source") if isinstance(sync.get("source"), dict) else sync
+    kind = source.get("kind") or (sync.get("source") if isinstance(sync.get("source"), str) else "")
     sites = source.get("sites") or sync.get("sites") or []
     slugs = [str(s.get("slug") or s.get("name") or "") if isinstance(s, dict) else str(s) for s in sites]
-    return str(source.get("kind") or ""), str(source.get("url") or ""), [s for s in slugs if s]
+    return str(kind or ""), str(source.get("url") or ""), [s for s in slugs if s]
 
 
 def _norm_url(url: str) -> str:
