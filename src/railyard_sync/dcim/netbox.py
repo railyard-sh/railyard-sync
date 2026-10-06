@@ -41,10 +41,13 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from collections.abc import Iterable, Iterator
 from typing import Any, Protocol
-from urllib.parse import parse_qsl, urlsplit
+from urllib.parse import parse_qsl, urlencode, urlsplit
 
+from .. import netbox_http as nb_http
+from ..log import count, log_http, response_size
 from .errors import DCIMAuthError, DCIMConnectionError, DCIMError, DCIMNotFoundError, DCIMVersionError
 from .snapshot import (
     Cable,
@@ -286,38 +289,65 @@ class NetBoxLoader:
     def _get(self, path: str, params: list[tuple[str, Any]] | None = None) -> Any:
         url = f"{self.url}{path}"
         headers = {"Authorization": self._auth, "Accept": "application/json"}
-        log.debug("GET %s %s", path, params or "")
+        shown = path + (f"?{urlencode(params, doseq=True)}" if params else "")
+        started = time.monotonic()
         try:
             resp = self._session.request(
                 "GET", url, headers=headers, params=params, timeout=self._timeout, verify=self._verify
             )
         except _connection_errors() as exc:
+            log_http(log, "NetBox", "GET", shown, "no response", time.monotonic() - started)
             raise DCIMConnectionError(
                 self._scrub(f"Could not reach NetBox at {self.url}: {type(exc).__name__}: {exc}")
+                + " Check --netbox-url, your network and any proxy (or --insecure for a self-signed certificate).",
+                method="GET",
+                path=path,
             ) from None
         status = resp.status_code
-        if status in (401, 403):
+        rid = nb_http.request_id(resp)
+        log_http(
+            log,
+            "NetBox",
+            "GET",
+            shown,
+            status,
+            time.monotonic() - started,
+            request_id=rid,
+            received=response_size(resp),
+        )
+        context = {"status": status, "request_id": rid, "method": "GET", "path": path}
+        if 200 <= status < 300:
+            try:
+                return resp.json()
+            except ValueError:
+                raise DCIMError(
+                    f"NetBox returned a response that is not JSON for {path}: is {self.url} a NetBox server?",
+                    **context,
+                ) from None
+        said = self._scrub(nb_http.detail(resp))
+        suffix = f": {said}" if said else ""
+        report = nb_http.reporting(rid)
+        if status == 401 or (status == 403 and "token" in said.lower()):
             raise DCIMAuthError(
-                f"NetBox refused the API token (HTTP {status}) for {path}: it is wrong, expired, or lacks "
-                "read permission. A read-only token is enough.",
-                status=status,
+                f"NetBox did not accept the API token (HTTP {status}) for GET {path}{suffix}. It is wrong, expired or "
+                "revoked: create a new one in NetBox (your user menu → API Tokens) and set NETBOX_TOKEN to it."
+                + report,
+                **context,
+            )
+        if status == 403:
+            raise DCIMAuthError(
+                f"NetBox refused GET {path} (HTTP 403){suffix}. {nb_http.permission_hint('GET', path)}{report}",
+                **context,
             )
         if status == 404:
-            raise DCIMNotFoundError(f"Not found in NetBox (HTTP 404): {path}", status=status)
-        if status < 200 or status >= 300:
-            body = ""
-            try:
-                body = self._scrub(resp.text[:400])
-            except Exception:  # pragma: no cover - defensive
-                pass
-            raise DCIMError(f"NetBox API error (HTTP {status}) for {path}: {body}", status=status)
-        try:
-            return resp.json()
-        except ValueError:
+            raise DCIMNotFoundError(f"Not found in NetBox (HTTP 404): GET {path}{suffix}.{report}", **context)
+        if status >= 500:
             raise DCIMError(
-                f"NetBox returned a response that is not JSON for {path}: is {self.url} a NetBox server?",
-                status=status,
-            ) from None
+                f"NetBox failed (HTTP {status}) for GET {path}{suffix}. This is NetBox's own fault (see its logs), "
+                f"not railyard-sync's.{report}",
+                **context,
+            )
+        raise DCIMError(f"NetBox API error (HTTP {status}) for GET {path}{suffix}.{report}", **context)
 
     def _list(self, path: str, params: list[tuple[str, Any]] | None = None) -> Iterator[dict]:
         """Every object a list endpoint returns, following ``next`` page by page.
@@ -377,11 +407,15 @@ class NetBoxLoader:
 
         raw_sites = self._find_sites(sites) if sites is not None else self._all_sites()
         site_ids = [str(s["id"]) for s in raw_sites]
+        slugs = [str(s.get("slug") or s.get("name") or s["id"]) for s in raw_sites]
+        shown = ", ".join(slugs[:8]) + (f" and {len(slugs) - 8} more" if len(slugs) > 8 else "")
+        log.info("Reading NetBox %s (%s): %s (%s)…", self.url, version, count(len(raw_sites), "site"), shown)
         by_site = [("site_id", i) for i in site_ids]
 
         snap.regions = self._load_regions(raw_sites)
         snap.sites = [self._site(s) for s in raw_sites]
         snap.locations = [self._location(x) for x in self._list("/api/dcim/locations/", by_site)]
+        log.debug("Read %s and %s", count(len(snap.regions), "region"), count(len(snap.locations), "location"))
 
         raw_racks = list(self._list("/api/dcim/racks/", by_site))
         snap.racks = [self._rack(r) for r in raw_racks]
@@ -392,18 +426,28 @@ class NetBoxLoader:
 
         devices_params = by_site + [("exclude", "config_context")]
         snap.devices = [self._device(d) for d in self._list("/api/dcim/devices/", devices_params)]
+        log.debug("Read %s and %s", count(len(snap.racks), "rack"), count(len(snap.devices), "device"))
         snap.device_types = self._load_device_types(_unique(d.device_type_id for d in snap.devices), snap.warnings)
+        log.debug("Read %s with their component templates", count(len(snap.device_types), "device type"))
 
         loaded_devices = {d.id for d in snap.devices}
         for kind, endpoint, _ in _COMPONENT_ENDPOINTS:
+            before = len(snap.components)
             for item in self._list(f"/api/dcim/{endpoint}/", by_site):
                 component = self._component(kind, item, snap.warnings)
                 if component.device_id in loaded_devices:
                     snap.components.append(component)
+            log.debug("Read %s", count(len(snap.components) - before, kind.replace("-", " ")))
 
         snap.power_panels = [self._power_panel(p) for p in self._list("/api/dcim/power-panels/", by_site)]
         snap.power_feeds = [self._power_feed(f) for f in self._list("/api/dcim/power-feeds/", by_site)]
         snap.cables = self._load_cables(by_site, snap)
+        log.debug(
+            "Read %s, %s and %s",
+            count(len(snap.power_panels), "power panel"),
+            count(len(snap.power_feeds), "power feed"),
+            count(len(snap.cables), "cable"),
+        )
         return snap
 
     # -- sites and regions -----------------------------------------------------------------------

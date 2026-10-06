@@ -39,17 +39,21 @@ injected, which is how the tests run against an in-memory NetBox.
 
 from __future__ import annotations
 
+import json as _json
 import logging
 import re
+import time
 from collections import Counter
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
 from diffsync import Adapter
 from diffsync.exceptions import ObjectAlreadyExists, ObjectNotCreated, ObjectNotUpdated
 
+from .. import netbox_http as nb_http
+from ..log import log_http, response_size
 from . import models
 from .devicetype_library import DeviceTypeLibrary
 from .mappings import slugify
@@ -95,11 +99,17 @@ COMPONENT_TYPES = ("interface", "rear_port", "front_port", "power_outlet", "powe
 
 
 class NetBoxError(Exception):
-    """A NetBox API request failed. Carries the HTTP status when there was a response."""
+    """A NetBox API request failed. Carries the HTTP status when there was a response, and the request's
+    method, path and NetBox request id (``X-Request-ID``) when there was one."""
 
-    def __init__(self, message: str, *, status: int | None = None) -> None:
+    def __init__(
+        self, message: str, *, status: int | None = None, request_id: str = "", method: str = "", path: str = ""
+    ) -> None:
         super().__init__(message)
         self.status = status
+        self.request_id = request_id
+        self.method = method
+        self.path = path
 
 
 class NetBoxConnectionError(NetBoxError):
@@ -208,44 +218,72 @@ class NetBoxClient:
     def request(self, method: str, path: str, *, params: Any = None, json: Any = None) -> Any:
         url = f"{self.url}{path}"
         headers = {"Authorization": self._auth, "Accept": "application/json"}
+        sent = None
         if json is not None:
             headers["Content-Type"] = "application/json"
-        log.debug("%s %s %s", method, path, params or "")
+            sent = len(_json.dumps(json).encode("utf-8"))  # logged as a size only, never the body
+        shown = path + (f"?{urlencode(params, doseq=True)}" if params else "")
+        started = time.monotonic()
         try:
             resp = self._session.request(
                 method, url, headers=headers, params=params, json=json, timeout=self._timeout, verify=self._verify
             )
         except _connection_errors() as exc:
+            log_http(log, "NetBox", method, shown, "no response", time.monotonic() - started, sent=sent)
             raise NetBoxConnectionError(
                 self.scrub(f"Could not reach NetBox at {self.url}: {type(exc).__name__}: {exc}")
+                + " Check --netbox-url, your network and any proxy (or --insecure for a self-signed certificate).",
+                method=method,
+                path=path,
             ) from None
         status = resp.status_code
+        rid = nb_http.request_id(resp)
+        log_http(
+            log,
+            "NetBox",
+            method,
+            shown,
+            status,
+            time.monotonic() - started,
+            request_id=rid,
+            sent=sent,
+            received=response_size(resp),
+        )
+        context = {"status": status, "request_id": rid, "method": method, "path": path}
+        if 200 <= status < 300:
+            if status == 204 or method == "DELETE":
+                return None
+            try:
+                return resp.json()
+            except ValueError:
+                raise NetBoxError(
+                    f"NetBox returned a response that is not JSON for {path}: is {self.url} a NetBox server?",
+                    **context,
+                ) from None
+        said = self.scrub(nb_http.detail(resp))
+        suffix = f": {said}" if said else ""
+        report = nb_http.reporting(rid)
         if status == 401:
             raise NetBoxAuthError(
-                "NetBox did not accept the API token (HTTP 401): it is wrong, expired or revoked.", status=status
+                f"NetBox did not accept the API token (HTTP 401) for {method} {path}{suffix}. It is wrong, expired "
+                "or revoked: create a new one in NetBox (your user menu → API Tokens) and set NETBOX_TOKEN to it."
+                + report,
+                **context,
             )
         if status == 403:
             raise NetBoxPermissionError(
-                self.scrub(
-                    f"NetBox refused {method} {path} (HTTP 403): the token's user lacks the permission. {_detail(resp)}"
-                ).strip(),
-                status=status,
+                f"NetBox refused {method} {path} (HTTP 403){suffix}. {nb_http.permission_hint(method, path)}{report}",
+                **context,
             )
         if status == 404:
-            raise NetBoxNotFoundError(f"Not found in NetBox (HTTP 404): {method} {path}", status=status)
-        if status < 200 or status >= 300:
+            raise NetBoxNotFoundError(f"Not found in NetBox (HTTP 404): {method} {path}{suffix}.{report}", **context)
+        if status >= 500:
             raise NetBoxError(
-                self.scrub(f"NetBox refused {method} {path} (HTTP {status}): {_detail(resp)}"), status=status
+                f"NetBox failed (HTTP {status}) for {method} {path}{suffix}. This is NetBox's own fault (see its "
+                f"logs).{report}",
+                **context,
             )
-        if status == 204 or method == "DELETE":
-            return None
-        try:
-            return resp.json()
-        except ValueError:
-            raise NetBoxError(
-                f"NetBox returned a response that is not JSON for {path}: is {self.url} a NetBox server?",
-                status=status,
-            ) from None
+        raise NetBoxError(f"NetBox refused {method} {path} (HTTP {status}){suffix}.{report}", **context)
 
     # -- verbs ---------------------------------------------------------------------------------
 
@@ -304,19 +342,6 @@ def _params(filters: dict) -> list[tuple[str, Any]]:
         for item in value if isinstance(value, list | tuple) else [value]:
             out.append((key, item))
     return out
-
-
-def _detail(resp: Any) -> str:
-    try:
-        data = resp.json()
-    except Exception:
-        data = None
-    if isinstance(data, dict | list):
-        return str(data)[:400]
-    try:
-        return (resp.text or "")[:400]
-    except Exception:  # pragma: no cover - defensive
-        return ""
 
 
 # ---- value helpers -------------------------------------------------------------------------------

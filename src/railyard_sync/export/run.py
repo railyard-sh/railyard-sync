@@ -20,6 +20,8 @@ Nothing here prints; the caller (the CLI) reports the returned :class:`SyncResul
 
 from __future__ import annotations
 
+import logging
+import time
 from collections import Counter
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -43,6 +45,8 @@ from .policy import DEFAULT_RAILYARD_URL, TagSpec, insecure_url, ownership_tag
 from .sync_document import SyncDocumentAdapter
 
 TAG_COLOUR = "1f8bff"
+
+log = logging.getLogger(__name__)
 
 
 class SyncRefused(Exception):
@@ -124,6 +128,13 @@ def sync_to_netbox(
     if insecure_url(client.url):
         warnings.append(f"{client.url} is not https: the NetBox token is sent in clear text. Use https.")
     client.status()
+    log.info(
+        "Syncing %r into NetBox %s (%s)%s…",
+        source.project_name,
+        client.url,
+        client.version or "unknown version",
+        " as a dry run" if dry_run else "",
+    )
     version = parse_version(client.version)
     if version < MIN_VERSION:
         raise NetBoxVersionError(f"NetBox {client.version or '(unknown version)'} is not supported: 4.0 or later.")
@@ -159,12 +170,22 @@ def sync_to_netbox(
         devicetype_library=devicetype_library,
         name="netbox",
     )
+    started = time.monotonic()
+    log.info("Reading what the estate owns in NetBox (tag %s)…", spec.name)
     target.load()
     report = target.reconcile(source, allow_deletes=allow_deletes)
     diff = target.diff_from(source, flags=DiffSyncFlags.SKIP_UNMATCHED_DST)
     candidates = target.delete_candidates(source)
 
     summary = diff.summary()
+    log.info(
+        "Planned in %.1fs: %d to create, %d to update, %d stale or to delete, %d unchanged",
+        time.monotonic() - started,
+        summary.get("create", 0),
+        summary.get("update", 0) + len(target.renames),
+        len(candidates),
+        summary.get("no-change", 0),
+    )
     result = SyncResult(
         dry_run=dry_run,
         netbox_url=client.url,
@@ -196,6 +217,8 @@ def sync_to_netbox(
                     report.kept.append(f"{model.get_type()} {model.get_unique_id()}: {'; '.join(reasons)}")
         return _finish(result, target)
 
+    started = time.monotonic()
+    log.info("Writing to NetBox…")
     target.apply_renames()
     deletes = candidates if allow_deletes else []
     for model in deletes:  # cables first, so a re-patched port is free before its new cable is created
@@ -205,7 +228,16 @@ def sync_to_netbox(
     for model in deletes:  # then the rest, dependents before what they depend on
         if model.get_type() != "cable":
             model.delete()
-    return _finish(result, target)
+    result = _finish(result, target)
+    log.info(
+        "Wrote to NetBox in %.1fs: %d created, %d updated, %d deleted, %d refused",
+        time.monotonic() - started,
+        result.created,
+        result.updated,
+        result.deleted,
+        len(result.errors),
+    )
+    return result
 
 
 def _finish(result: SyncResult, target: NetBoxRESTAdapter) -> SyncResult:

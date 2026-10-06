@@ -10,9 +10,14 @@ from __future__ import annotations
 class DCIMError(Exception):
     """Reading from the DCIM failed. Carries the HTTP status when there was a response."""
 
-    def __init__(self, message: str, *, status: int | None = None) -> None:
+    def __init__(
+        self, message: str, *, status: int | None = None, request_id: str = "", method: str = "", path: str = ""
+    ) -> None:
         super().__init__(message)
         self.status = status
+        self.request_id = request_id
+        self.method = method
+        self.path = path
 
 
 class DCIMAuthError(DCIMError):
