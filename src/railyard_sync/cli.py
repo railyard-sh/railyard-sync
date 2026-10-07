@@ -68,7 +68,6 @@ from .errors import (
     RailyardNotFoundError,
     RailyardPlanError,
     RailyardPlanLimitError,
-    RailyardPlanRequiredError,
     RailyardPreconditionError,
     RailyardServerError,
     RailyardTooLargeError,
@@ -78,6 +77,7 @@ from .export.policy import DEFAULT_RAILYARD_URL
 from .export.run import SyncRefused, SyncResult, sync_to_netbox
 from .importer.merge import MergeDiff, merge
 from .log import FILE_ONLY, CLILogging, configure_cli, count, human_size, seconds
+from .plans import deliverable_plan_message, plan_limit_message, sentence, upgrade_options
 from .problems import ERROR, ProblemNamer, identity, listing, severity
 
 log = logging.getLogger(__name__)
@@ -88,17 +88,6 @@ RAILYARD_TOKEN_ENV = "RAILYARD_TOKEN"
 NETBOX_PREFIX = "nb"
 
 SOURCE_NAMES = {"netbox": "NetBox", "nautobot": "Nautobot"}
-
-# Display names for the plan ids Railyard reports (backend/internal/plans/catalogue.json).
-PLAN_NAMES = {
-    "community": "Community",
-    "project-pass": "Project Pass",
-    "pro": "Pro",
-    "team": "Team",
-    "partner": "Partner",
-    "self-hosted": "Self-hosted",
-    "enterprise": "Enterprise",
-}
 
 
 class UsageError(Exception):
@@ -1004,78 +993,14 @@ def export_report(result: SyncResult) -> str:
     return "\n".join(lines)
 
 
-def _plan_name(plan_id: str) -> str:
-    return PLAN_NAMES.get(plan_id, plan_id.replace("-", " ").title() if plan_id else "current")
-
-
-def _either(names: list[str]) -> str:
-    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " or " + names[-1]
-
-
-def _upgrade_options(required_plans: list[str], project_pass: bool) -> list[str]:
-    options = []
-    if required_plans:
-        options.append(f"upgrade to {_either([_plan_name(p) for p in required_plans])}")
-    if project_pass:
-        options.append("buy a Project Pass for this estate")
-    return options
-
-
-def _sentence(options: list[str]) -> str:
-    """['a', 'b', 'c'] -> 'A, b, or c.'"""
-    text = options[0] if len(options) == 1 else ", ".join(options[:-1]) + ", or " + options[-1]
-    return text[:1].upper() + text[1:] + "."
-
-
 def plan_message(e: RailyardPlanError, args: argparse.Namespace | None) -> str:
     """The upgrade message for a plan refusal, worded for the command that met it."""
     if args is not None and args.command == "export":
         return deliverable_plan_message(e)
     if isinstance(e, RailyardPlanLimitError):
         return plan_limit_message(e, refreshing=bool(args is not None and args.project))
-    options = _upgrade_options(e.required_plans, e.project_pass)
-    return f"{e}" + (f". {_sentence(options)}" if options else "")
-
-
-def deliverable_plan_message(e: RailyardPlanError) -> str:
-    """'Exporting to NetBox needs a plan with deliverables: the Community plan does not include them. Upgrade to
-    Pro or Team, or buy a Project Pass for this estate. Nothing was written to NetBox.'"""
-    plan = _plan_name(e.plan)
-    plan = plan if plan == "Project Pass" else f"the {plan} plan"
-    if isinstance(e, RailyardPlanLimitError) and e.current is not None and e.limit is not None:
-        resource = e.resource or "racks"
-        head = (
-            f"This estate has {e.current} {resource}; {plan} exports deliverables for estates of up to "
-            f"{e.limit} {resource}."
-        )
-        extra = [f"remove {resource}"]
-    elif isinstance(e, RailyardPlanRequiredError):
-        head = f"Exporting to NetBox needs a plan with deliverables: {plan} does not include them."
-        extra = []
-    else:
-        head = f"Railyard refused the NetBox sync document: {e}."
-        extra = []
-    options = _upgrade_options(e.required_plans, e.project_pass) or ["contact Railyard about an Enterprise plan"]
-    return f"{head} {_sentence(options + extra)} Nothing was written to NetBox."
-
-
-def plan_limit_message(e: RailyardPlanLimitError, *, refreshing: bool = False) -> str:
-    """'This import has 140 racks; the Community plan allows 25 per estate. Upgrade to Team or Partner,
-    or import fewer sites. Nothing was saved.' — built from the refusal's fields."""
-    resource = e.resource or "racks"
-    per = " per estate" if (e.scope or "estate") == "estate" else ""
-    plan = _plan_name(e.plan)
-    plan = plan if plan == "Project Pass" else f"the {plan} plan"
-    if e.current is None or e.limit is None:
-        head = f"Railyard refused the import: {e}."
-    elif refreshing:
-        head = f"After this import the estate would have {e.current} {resource}; {plan} allows {e.limit}{per}."
-    else:
-        head = f"This import has {e.current} {resource}; {plan} allows {e.limit}{per}."
-    options = _upgrade_options(e.required_plans, e.project_pass) or ["contact Railyard about an Enterprise plan"]
-    if resource == "racks":
-        options.append("import fewer sites")
-    return f"{head} {_sentence(options)} Nothing was saved."
+    options = upgrade_options(e.required_plans, e.project_pass)
+    return f"{e}" + (f". {sentence(options)}" if options else "")
 
 
 def _write_json(path: str, data: Any) -> None:
