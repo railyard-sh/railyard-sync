@@ -363,7 +363,7 @@ def test_one_request_per_endpoint_for_a_site(nb, snap):
 
 
 def test_templates_are_requested_in_chunks_of_device_types(nb, monkeypatch):
-    monkeypatch.setattr(netbox, "ID_CHUNK", 3)
+    monkeypatch.setattr(NetBoxLoader, "id_chunk", 3)
     snap = load(nb)
     calls = nb.list_calls("interface-templates")
     assert [[v for k, v in c["params"] if k == "device_type_id"] for c in calls] == [

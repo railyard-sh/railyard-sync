@@ -15,8 +15,7 @@ from conftest import FIXTURES, FakeResponse
 from export.fake_netbox_rest import FakeNetBox
 from test_cli import ORGS, PAT, FakeRailyard
 
-from railyard_sync import cli, client as client_module
-from railyard_sync.export import netbox_rest
+from railyard_sync import cli, client as client_module, dcim_http
 from railyard_sync.export.policy import ownership_tag
 
 RAILYARD = "https://railyard.sh"
@@ -67,7 +66,7 @@ def world(monkeypatch):
     monkeypatch.setenv("RAILYARD_TOKEN", PAT)
     monkeypatch.setenv("NETBOX_TOKEN", netbox.token)
     monkeypatch.setattr(client_module, "_default_session", lambda: railyard.session)
-    monkeypatch.setattr(netbox_rest, "_default_session", lambda: netbox)
+    monkeypatch.setattr(dcim_http, "default_session", lambda: netbox)
     return netbox, railyard
 
 

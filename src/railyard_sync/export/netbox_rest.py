@@ -39,21 +39,18 @@ injected, which is how the tests run against an in-memory NetBox.
 
 from __future__ import annotations
 
-import json as _json
 import logging
 import re
-import time
 from collections import Counter
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
-from typing import Any, Protocol
-from urllib.parse import urlencode, urlsplit
+from typing import Any
 
 from diffsync import Adapter
 from diffsync.exceptions import ObjectAlreadyExists, ObjectNotCreated, ObjectNotUpdated
 
-from .. import netbox_http as nb_http
-from ..log import log_http, response_size
+from .. import dcim_http as http
+from ..dcim_http import NETBOX, APIError, RESTClient
 from . import models
 from .devicetype_library import DeviceTypeLibrary
 from .mappings import slugify
@@ -98,18 +95,9 @@ COMPONENT_TYPES = ("interface", "rear_port", "front_port", "power_outlet", "powe
 # ---- errors --------------------------------------------------------------------------------------
 
 
-class NetBoxError(Exception):
+class NetBoxError(APIError):
     """A NetBox API request failed. Carries the HTTP status when there was a response, and the request's
     method, path and NetBox request id (``X-Request-ID``) when there was one."""
-
-    def __init__(
-        self, message: str, *, status: int | None = None, request_id: str = "", method: str = "", path: str = ""
-    ) -> None:
-        super().__init__(message)
-        self.status = status
-        self.request_id = request_id
-        self.method = method
-        self.path = path
 
 
 class NetBoxConnectionError(NetBoxError):
@@ -135,157 +123,27 @@ class NetBoxVersionError(NetBoxError):
 # ---- HTTP client ---------------------------------------------------------------------------------
 
 
-class _Response(Protocol):
-    status_code: int
-
-    @property
-    def text(self) -> str: ...
-
-    def json(self) -> Any: ...
-
-
-class _Session(Protocol):
-    def request(self, method: str, url: str, **kwargs: Any) -> _Response: ...
-
-
-def _default_session() -> _Session:
-    import requests
-
-    return requests.Session()
-
-
-def _connection_errors() -> tuple[type[BaseException], ...]:
-    try:
-        import requests
-    except ImportError:  # pragma: no cover - requests is a dependency
-        return (OSError,)
-    return (requests.RequestException, OSError)
-
-
 def parse_version(text: str) -> tuple[int, int]:
     """``"4.5.2"`` / ``"v4.6.0-Docker-3.4"`` -> ``(4, 5)``; ``(0, 0)`` when unreadable."""
     match = re.match(r"v?(\d+)\.(\d+)", (text or "").strip())
     return (int(match.group(1)), int(match.group(2))) if match else (0, 0)
 
 
-class NetBoxClient:
+class NetBoxClient(RESTClient):
     """A small NetBox REST client: list (paginated), get, create, update (PATCH), delete."""
 
-    def __init__(
-        self,
-        url: str,
-        token: str,
-        *,
-        session: _Session | None = None,
-        verify: bool | str = True,
-        timeout: float = 30,
-        page_size: int = 1000,
-    ) -> None:
-        if not url:
-            raise ValueError("NetBox URL is required")
-        parts = urlsplit(url.strip())
-        if parts.scheme not in ("http", "https") or not parts.netloc:
-            raise ValueError("NetBox URL must be an http:// or https:// URL")
-        if parts.username or parts.password:
-            raise ValueError("NetBox URL must not contain credentials; pass the token separately")
-        if not token:
-            raise ValueError("NetBox API token is required")
-        base = url.strip().rstrip("/")
-        if base.endswith("/api"):  # a common slip: the API root rather than NetBox's own URL
-            base = base[: -len("/api")]
-        self.url = base
-        self._token = token
-        self._auth = f"Bearer {token}" if token.startswith(V2_TOKEN_PREFIX) else f"Token {token}"
-        self._session = session or _default_session()
-        self._verify = verify
-        self._timeout = timeout
-        self._page_size = max(1, int(page_size))
-        self.version = ""
+    product = NETBOX
+    logger = log
+    errors = {
+        "base": NetBoxError,
+        "connection": NetBoxConnectionError,
+        http.AUTH: NetBoxAuthError,
+        http.PERMISSION: NetBoxPermissionError,
+        http.NOT_FOUND: NetBoxNotFoundError,
+    }
 
-    def __repr__(self) -> str:
-        return f"NetBoxClient(url={self.url!r})"
-
-    def scrub(self, text: str) -> str:
-        """``text`` with the token, and each part of a v2 token (``nbt_<key>.<secret>``), replaced by ``***``.
-
-        Longest first, so the whole token is never left half-replaced."""
-        out = text or ""
-        secrets = {self._token, *self._token.split(".")}
-        for secret in sorted((s for s in secrets if len(s) >= 4), key=len, reverse=True):
-            out = out.replace(secret, "***")
-        return out
-
-    def request(self, method: str, path: str, *, params: Any = None, json: Any = None) -> Any:
-        url = f"{self.url}{path}"
-        headers = {"Authorization": self._auth, "Accept": "application/json"}
-        sent = None
-        if json is not None:
-            headers["Content-Type"] = "application/json"
-            sent = len(_json.dumps(json).encode("utf-8"))  # logged as a size only, never the body
-        shown = path + (f"?{urlencode(params, doseq=True)}" if params else "")
-        started = time.monotonic()
-        try:
-            resp = self._session.request(
-                method, url, headers=headers, params=params, json=json, timeout=self._timeout, verify=self._verify
-            )
-        except _connection_errors() as exc:
-            log_http(log, "NetBox", method, shown, "no response", time.monotonic() - started, sent=sent)
-            raise NetBoxConnectionError(
-                self.scrub(f"Could not reach NetBox at {self.url}: {type(exc).__name__}: {exc}")
-                + " Check --netbox-url, your network and any proxy (or --insecure for a self-signed certificate).",
-                method=method,
-                path=path,
-            ) from None
-        status = resp.status_code
-        rid = nb_http.request_id(resp)
-        log_http(
-            log,
-            "NetBox",
-            method,
-            shown,
-            status,
-            time.monotonic() - started,
-            request_id=rid,
-            sent=sent,
-            received=response_size(resp),
-        )
-        context = {"status": status, "request_id": rid, "method": method, "path": path}
-        if 200 <= status < 300:
-            if status == 204 or method == "DELETE":
-                return None
-            try:
-                return resp.json()
-            except ValueError:
-                raise NetBoxError(
-                    f"NetBox returned a response that is not JSON for {path}: is {self.url} a NetBox server?",
-                    **context,
-                ) from None
-        said = self.scrub(nb_http.detail(resp))
-        suffix = f": {said}" if said else ""
-        report = nb_http.reporting(rid)
-        if status == 401:
-            raise NetBoxAuthError(
-                f"NetBox did not accept the API token (HTTP 401) for {method} {path}{suffix}. It is wrong, expired "
-                "or revoked: create a new one in NetBox (your user menu → API Tokens) and set NETBOX_TOKEN to it."
-                + report,
-                **context,
-            )
-        if status == 403:
-            raise NetBoxPermissionError(
-                f"NetBox refused {method} {path} (HTTP 403){suffix}. {nb_http.permission_hint(method, path)}{report}",
-                **context,
-            )
-        if status == 404:
-            raise NetBoxNotFoundError(f"Not found in NetBox (HTTP 404): {method} {path}{suffix}.{report}", **context)
-        if status >= 500:
-            raise NetBoxError(
-                f"NetBox failed (HTTP {status}) for {method} {path}{suffix}. This is NetBox's own fault (see its "
-                f"logs).{report}",
-                **context,
-            )
-        raise NetBoxError(f"NetBox refused {method} {path} (HTTP {status}){suffix}.{report}", **context)
-
-    # -- verbs ---------------------------------------------------------------------------------
+    def auth_header(self) -> str:
+        return f"Bearer {self._token}" if self._token.startswith(V2_TOKEN_PREFIX) else f"Token {self._token}"
 
     def status(self) -> dict:
         data = self.request("GET", "/api/status/")
@@ -293,55 +151,6 @@ class NetBoxClient:
             raise NetBoxError(f"NetBox returned an unexpected status for {self.url}: is it a NetBox server?")
         self.version = str(data.get("netbox-version") or "")
         return data
-
-    def list(self, endpoint: str, **filters: Any) -> list[dict]:
-        """Every object a list endpoint returns for ``filters``, page by page.
-
-        Pages are requested by ``offset`` against the configured URL, never by following ``next``:
-        behind a proxy NetBox often builds ``next`` with the wrong scheme or host, and the token must
-        never be sent anywhere else.
-        """
-        params = _params(filters)
-        out: list[dict] = []
-        offset = 0
-        while True:
-            page = self.request(
-                "GET", f"/api/{endpoint}/", params=params + [("limit", self._page_size), ("offset", offset)]
-            )
-            if not isinstance(page, dict) or not isinstance(page.get("results"), list):
-                raise NetBoxError(f"NetBox returned an unexpected response for /api/{endpoint}/ (no 'results').")
-            results = page["results"]
-            out.extend(r for r in results if isinstance(r, dict))
-            offset += len(results)
-            if not results or not page.get("next") or offset >= int(page.get("count") or 0):
-                return out
-
-    def first(self, endpoint: str, **filters: Any) -> dict | None:
-        found = self.list(endpoint, **filters)
-        return found[0] if found else None
-
-    def get(self, endpoint: str, obj_id: int) -> dict | None:
-        try:
-            return self.request("GET", f"/api/{endpoint}/{int(obj_id)}/")
-        except NetBoxNotFoundError:
-            return None
-
-    def create(self, endpoint: str, data: dict) -> dict:
-        return self.request("POST", f"/api/{endpoint}/", json=data)
-
-    def update(self, endpoint: str, obj_id: int, data: dict) -> dict:
-        return self.request("PATCH", f"/api/{endpoint}/{int(obj_id)}/", json=data)
-
-    def delete(self, endpoint: str, obj_id: int) -> None:
-        self.request("DELETE", f"/api/{endpoint}/{int(obj_id)}/")
-
-
-def _params(filters: dict) -> list[tuple[str, Any]]:
-    out: list[tuple[str, Any]] = []
-    for key, value in filters.items():
-        for item in value if isinstance(value, list | tuple) else [value]:
-            out.append((key, item))
-    return out
 
 
 # ---- value helpers -------------------------------------------------------------------------------
