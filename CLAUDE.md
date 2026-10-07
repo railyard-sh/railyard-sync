@@ -19,11 +19,13 @@ reads its own ORM into a `Snapshot` and calls the same importer the CLI uses.
 | `src/railyard_sync/client.py`, `errors.py`, `project.py` | Railyard REST client (`Authorization: Bearer ry_…`, `X-Org-Id`, an `X-Request-ID` per request; projects, named versions, `validate()` for `/api/validate`, `deliverable_json()` / `netbox_sync_document()`), typed errors, Project JSON wrapper. `client._error` maps every failed status to an error carrying method, path, status, the server's `error`/`code`/details and the request id, with what to do in `hints` (`str(e)` ends with the request id to quote); 429/503 are retried (bounded) for GETs, `/api/validate` and a PUT with `If-Match`, never a PUT without it. Every 402 is parsed in one place (`client._plan_error`) into the one `RailyardPlanError` family (`RailyardPlanLimitError` / `RailyardPlanRequiredError`), carrying plan, resource, limit, current, scope, required plans, Project Pass, feature and deliverable |
 | `src/railyard_sync/export/` | Railyard → DCIM: canonical DiffSync models, source adapter, mappings and cabling plan (ports of the Go export) |
 | `src/railyard_sync/export/sync_document.py` | Source adapter over Railyard's `netbox-sync` deliverable (the NetBox bundle as JSON rows). **All knowledge of that document's shape lives here** |
-| `src/railyard_sync/export/netbox_rest.py`, `run.py`, `policy.py` | NetBox REST target (the plugin's ownership rules: tag-owned objects only, shared objects used as-is, conflicts skipped, guarded deletes) and `sync_to_netbox()`; `policy.py` is the plugin's ownership tag, byte for byte |
+| `src/railyard_sync/export/netbox_rest.py`, `run.py`, `policy.py`, `ownership.py` | NetBox REST target (the plugin's ownership rules: tag-owned objects only, shared objects used as-is, conflicts skipped, guarded deletes) and `sync_to_netbox()`; `policy.py` is the ownership tag the plugin imports; `ownership.py` is what the REST target and the plugin's ORM target share (`OwnershipReport`, `OwnershipMixin`: delete candidates, rename detection and re-keying; planned-change counts and lines) |
 | `src/railyard_sync/dcim/snapshot.py` | **The contract**: a DCIM site as plain dataclasses (sites, locations, racks, device types, devices, components, cables, power panels/feeds), source-neutral, mm/kg/W units |
-| `src/railyard_sync/dcim/netbox.py` | NetBox REST loader → `Snapshot` (one or more sites) |
+| `src/railyard_sync/dcim/netbox.py` | `NetBoxReader` (everything that turns NetBox's data into a `Snapshot`: requests, units, enums, port mappings, warnings) and `NetBoxLoader`, which feeds it over REST. The NetBox plugin subclasses `NetBoxReader` and answers `fetch`/`fetch_all` from its ORM in the REST shape, so both read a site into the same snapshot: change the reader, not a loader |
 | `src/railyard_sync/importer/` | `build_project(snapshot)` → Railyard Project JSON; `merge(existing, imported)` for re-import; the import report |
 | `src/railyard_sync/log.py`, `problems.py`, `netbox_http.py` | Logging (the CLI's handlers, the redacting filter, `log_http`, size/count formatting); Railyard validation problems named by rack and device (`ProblemNamer`); NetBox's error `detail`, request id and the permission a 403 needed (shared by the loader and the export client) |
+| `src/railyard_sync/importer/run.py` | `ImportRun`: the import flow the CLI and the NetBox plugin's import job share (fetch + same-source check, build, merge, `/api/validate` check, save with `If-Match`; `run()` applies the CLI's rules). Refusals raise `ImportRefused` |
+| `src/railyard_sync/plans.py` | The upgrade messages for a 402 (`deliverable_plan_message`, `plan_limit_message`), shown by the CLI and the plugin's jobs |
 | `src/railyard_sync/cli.py` | `railyard-sync import netbox …` and `railyard-sync export netbox …` (shared argument, token and client helpers; exit codes: 0 ok, 1 error — for export also conflicts — 2 usage, 3 plan) |
 
 ## The Railyard side (facts the importer depends on)
@@ -142,7 +144,7 @@ Decisions the merge (`importer/merge.py`, whose docstring is the full statement)
   second line of defence, not the first.
 - Errors say what to do: the request, the status, the server's own words and code, details, the request id
   (`X-Request-ID`: Railyard adopts the id the client sends; NetBox returns its own), then the fix.
-- The import's preflight (`cli._preflight`) posts the document to `/api/validate` (`LoadStandalone` +
+- The import's preflight (`ImportRun.check`) posts the document to `/api/validate` (`LoadStandalone` +
   `Validate` + `WriteRuleProblems`; 4 MiB anonymous, the full document limit with a token). Errors stop the
   save; warnings are reported. Not held against the import: rack-name rules on a create (a new document is not
   held to them), errors the estate already had on a refresh (validated once more to compare), and a 400 on a
