@@ -1,8 +1,10 @@
-"""``sync_to_netbox`` — export a Railyard estate into NetBox over its REST API.
+"""``sync_to_netbox`` and ``sync_to_nautobot`` — export a Railyard estate into NetBox or Nautobot over its REST API.
 
 The command-line counterpart of the NetBox plugin's sync job (``netbox_railyard/jobs.py``): the
 source is Railyard's NetBox sync document (``sync_document.py``), the target NetBox's REST API
-(``netbox_rest.py``), and the ownership rules are the plugin's.
+(``netbox_rest.py``), and the ownership rules are the plugin's. ``sync_to_nautobot`` is the same flow
+over the Nautobot sync document (``nautobot_document.py``) and Nautobot's REST API (``nautobot_rest.py``),
+and is what the Nautobot app's export job runs, in-process.
 
 1. Read the document and check NetBox's version.
 2. Find the project's ownership tag (a real run creates it), the ``railyard_id`` custom field (a real
@@ -28,7 +30,16 @@ from typing import Any
 
 from diffsync.enum import DiffSyncFlags
 
+from . import nautobot_rest
 from .devicetype_library import DeviceTypeLibrary
+from .nautobot_document import NautobotSyncDocumentAdapter
+from .nautobot_rest import (
+    NautobotClient,
+    NautobotError,
+    NautobotPermissionError,
+    NautobotRESTAdapter,
+    check_version as check_nautobot_version,
+)
 from .netbox_rest import (
     CUSTOM_FIELD,
     ENDPOINT,
@@ -41,7 +52,7 @@ from .netbox_rest import (
     NetBoxVersionError,
     parse_version,
 )
-from .policy import DEFAULT_RAILYARD_URL, TagSpec, insecure_url, ownership_tag
+from .policy import DEFAULT_RAILYARD_URL, TAG_MARKER, TagSpec, insecure_url, ownership_tag
 from .sync_document import SyncDocumentAdapter
 
 TAG_COLOUR = "1f8bff"
@@ -54,12 +65,10 @@ class SyncRefused(Exception):
 
 
 @dataclass
-class SyncResult:
-    """What a sync did (or, for a dry run, would do)."""
+class SyncOutcome:
+    """What a sync did (or, for a dry run, would do), whichever DCIM it wrote to."""
 
     dry_run: bool
-    netbox_url: str
-    netbox_version: str
     project_id: str
     project_name: str
     tag: str  # the ownership tag's name
@@ -83,14 +92,61 @@ class SyncResult:
     kept: list[str] = field(default_factory=list)  # deletes refused (a dry run: would be refused)
     stale: list[str] = field(default_factory=list)  # owned objects gone from Railyard, kept: deletes are off
     warnings: list[str] = field(default_factory=list)
-    errors: list[str] = field(default_factory=list)  # writes NetBox refused (a real run carries on)
+    errors: list[str] = field(default_factory=list)  # writes the DCIM refused (a real run carries on)
+
+    #: The DCIM's name, for reports.
+    target_name = "DCIM"
 
     @property
     def ok(self) -> bool:
         return not self.errors
 
+    @property
+    def target_url(self) -> str:
+        return ""
+
+    @property
+    def target_version(self) -> str:
+        return ""
+
     def as_dict(self) -> dict[str, Any]:
         return {**asdict(self), "ok": self.ok}
+
+
+@dataclass
+class SyncResult(SyncOutcome):
+    """What a NetBox sync did."""
+
+    netbox_url: str = ""
+    netbox_version: str = ""
+
+    target_name = "NetBox"
+
+    @property
+    def target_url(self) -> str:
+        return self.netbox_url
+
+    @property
+    def target_version(self) -> str:
+        return self.netbox_version
+
+
+@dataclass
+class NautobotSyncResult(SyncOutcome):
+    """What a Nautobot sync did."""
+
+    nautobot_url: str = ""
+    nautobot_version: str = ""
+
+    target_name = "Nautobot"
+
+    @property
+    def target_url(self) -> str:
+        return self.nautobot_url
+
+    @property
+    def target_version(self) -> str:
+        return self.nautobot_version
 
 
 def sync_to_netbox(
@@ -170,8 +226,24 @@ def sync_to_netbox(
         devicetype_library=devicetype_library,
         name="netbox",
     )
+    result = SyncResult(
+        dry_run=dry_run,
+        netbox_url=client.url,
+        netbox_version=client.version,
+        project_id=source.project_id,
+        project_name=source.project_name,
+        tag=spec.name,
+        tag_slug=spec.slug,
+        warnings=warnings,
+    )
+    return _run(source, target, result, allow_deletes=allow_deletes, endpoints=ENDPOINT, product="NetBox")
+
+
+def _run(source, target, result: SyncOutcome, *, allow_deletes: bool, endpoints: dict, product: str):
+    """Load what the project owns, reconcile, diff and — unless a dry run — apply: renames, owned cable deletes,
+    creates and updates in dependency order, then the other deletes, dependents first."""
     started = time.monotonic()
-    log.info("Reading what the estate owns in NetBox (tag %s)…", spec.name)
+    log.info("Reading what the estate owns in %s (tag %s)…", product, result.tag)
     target.load()
     report = target.reconcile(source, allow_deletes=allow_deletes)
     diff = target.diff_from(source, flags=DiffSyncFlags.SKIP_UNMATCHED_DST)
@@ -186,39 +258,29 @@ def sync_to_netbox(
         len(candidates),
         summary.get("no-change", 0),
     )
-    result = SyncResult(
-        dry_run=dry_run,
-        netbox_url=client.url,
-        netbox_version=client.version,
-        project_id=source.project_id,
-        project_name=source.project_name,
-        tag=spec.name,
-        tag_slug=spec.slug,
-        diff={
-            "create": summary.get("create", 0),
-            "update": summary.get("update", 0) + len(target.renames),
-            "delete": len(candidates) if allow_deletes else 0,
-            "no-change": summary.get("no-change", 0),
-        },
-        planned=_planned(diff, len(target.renames), candidates if allow_deletes else []),
-        changes=[f"rename: device {old} → {new}" for old, new, _ in target.renames] + _changes(diff),
-        warnings=warnings,
-    )
+    result.diff = {
+        "create": summary.get("create", 0),
+        "update": summary.get("update", 0) + len(target.renames),
+        "delete": len(candidates) if allow_deletes else 0,
+        "no-change": summary.get("no-change", 0),
+    }
+    result.planned = _planned(diff, len(target.renames), candidates if allow_deletes else [])
+    result.changes = [f"rename: device {old} → {new}" for old, new, _ in target.renames] + _changes(diff)
     if allow_deletes:
         result.changes += [f"delete: {m.get_type()} [{m.get_unique_id()}]" for m in candidates]
     else:
         result.stale = [f"{m.get_type()} [{m.get_unique_id()}]" for m in candidates]
 
-    if dry_run:
+    if result.dry_run:
         if allow_deletes:
-            scheduled = {(ENDPOINT[m.get_type()], m.nb_id) for m in candidates}
+            scheduled = {(endpoints[m.get_type()], m.nb_id) for m in candidates}
             for model in candidates:
                 if reasons := target.preview_delete(model, scheduled):
                     report.kept.append(f"{model.get_type()} {model.get_unique_id()}: {'; '.join(reasons)}")
         return _finish(result, target)
 
     started = time.monotonic()
-    log.info("Writing to NetBox…")
+    log.info("Writing to %s…", product)
     target.apply_renames()
     deletes = candidates if allow_deletes else []
     for model in deletes:  # cables first, so a re-patched port is free before its new cable is created
@@ -230,7 +292,8 @@ def sync_to_netbox(
             model.delete()
     result = _finish(result, target)
     log.info(
-        "Wrote to NetBox in %.1fs: %d created, %d updated, %d deleted, %d refused",
+        "Wrote to %s in %.1fs: %d created, %d updated, %d deleted, %d refused",
+        product,
         time.monotonic() - started,
         result.created,
         result.updated,
@@ -240,7 +303,7 @@ def sync_to_netbox(
     return result
 
 
-def _finish(result: SyncResult, target: NetBoxRESTAdapter) -> SyncResult:
+def _finish(result: SyncOutcome, target: Any) -> SyncOutcome:
     report = target.report
     result.referenced = report.referenced
     result.conflicts = report.conflicts
@@ -429,4 +492,299 @@ def _ensure_user_tags(
         for type_name in ("rack", "device"):
             for model in source.get_all(type_name):
                 model.tags = [s for s in model.tags if s not in unusable]
+    return ids
+
+
+# ---- Nautobot ----------------------------------------------------------------------------------------
+
+#: The description of a tag the sync creates for the design's racks and devices; the sync may enable such a tag for
+#: more content types later, but never changes a tag someone else made.
+DESIGN_TAG_DESCRIPTION = f"Created by the Railyard sync for a design's racks and devices. {TAG_MARKER} design-tag"
+
+
+def sync_to_nautobot(
+    document: dict,
+    nautobot_url: str = "",
+    nautobot_token: str = "",
+    *,
+    client: NautobotClient | None = None,
+    dry_run: bool = True,
+    allow_deletes: bool = False,
+    session: Any = None,
+    railyard_url: str = DEFAULT_RAILYARD_URL,
+    verify: bool | str = True,
+    timeout: float = 30,
+) -> NautobotSyncResult:
+    """Sync a Railyard Nautobot sync document into Nautobot 2.x.
+
+    ``railyard_url`` is the Railyard instance the document came from: with the project id it keys the ownership
+    tag, so it must name the same instance as any other sync of the same project (the Nautobot app's, say).
+    ``client`` is a ready :class:`NautobotClient` (the Nautobot app passes one that calls its own API in-process);
+    otherwise one is made for ``nautobot_url`` and ``nautobot_token``.
+
+    Raises ``SyncDocumentError`` for a document it can't read, ``NautobotError`` subclasses when Nautobot can't be
+    used at all (unreachable, token refused, unsupported version) and ``SyncRefused`` when the ownership tag can't
+    be trusted or created. A write Nautobot refuses is in ``NautobotSyncResult.errors``.
+    """
+    source = NautobotSyncDocumentAdapter(document, name="railyard")
+    source.load()
+    warnings = list(source.warnings)
+
+    if client is None:
+        client = NautobotClient(nautobot_url, nautobot_token, session=session, verify=verify, timeout=timeout)
+        if insecure_url(client.url):
+            warnings.append(f"{client.url} is not https: the Nautobot token is sent in clear text. Use https.")
+    client.status()
+    log.info(
+        "Syncing %r into Nautobot %s (%s)%s…",
+        source.project_name,
+        client.url,
+        client.version or "unknown version",
+        " as a dry run" if dry_run else "",
+    )
+    check_nautobot_version(client, warnings)
+
+    spec = ownership_tag(railyard_url, source.project_id, source.project_name)
+    tag = _find_nautobot_tag(client, spec)
+    if not dry_run:
+        tag = _ensure_nautobot_tag(client, spec, tag, warnings)
+    elif tag is None:
+        warnings.append(
+            f"Ownership tag {spec.name!r} doesn't exist yet: this sync owns nothing in Nautobot, so nothing can be "
+            "updated or deleted. A real run creates it."
+        )
+    elif missing := sorted(set(nautobot_rest.TAG_CONTENT_TYPES) - set(nautobot_rest.content_types(tag))):
+        warnings.append(f"The ownership tag isn't enabled for {', '.join(missing)}; a real run enables it.")
+
+    custom_field = _ensure_nautobot_field(
+        client,
+        nautobot_rest.CUSTOM_FIELD,
+        "Railyard ID",
+        "Railyard placement id",
+        ["dcim.device"],
+        dry_run,
+        warnings,
+        "devices are synced without their Railyard id (so a rename in Railyard recreates the device)",
+    )
+    if not custom_field:
+        for device in source.get_all("device"):
+            device.railyard_id = ""
+    owner_field = _ensure_nautobot_field(
+        client,
+        nautobot_rest.OWNER_FIELD,
+        "Railyard owner",
+        f"The Railyard project that owns this object. {TAG_MARKER}",
+        nautobot_rest.OWNER_CONTENT_TYPES,
+        dry_run,
+        warnings,
+        "location types, statuses, manufacturers and roles the sync creates are not marked as the project's, so "
+        "it will never update or delete them",
+    )
+    user_tags = _ensure_nautobot_user_tags(client, source, spec, dry_run, warnings)
+
+    target = NautobotRESTAdapter(
+        client,
+        tag=tag,
+        tag_slug=spec.slug,
+        user_tags=user_tags,
+        custom_field=custom_field,
+        owner_field=owner_field,
+        name="nautobot",
+    )
+    result = NautobotSyncResult(
+        dry_run=dry_run,
+        nautobot_url=client.url,
+        nautobot_version=client.version,
+        project_id=source.project_id,
+        project_name=source.project_name,
+        tag=spec.name,
+        tag_slug=spec.slug,
+        warnings=warnings,
+    )
+    return _run(
+        source, target, result, allow_deletes=allow_deletes, endpoints=nautobot_rest.ENDPOINT, product="Nautobot"
+    )
+
+
+def _find_nautobot_tag(client: NautobotClient, spec: TagSpec) -> dict | None:
+    """The project's ownership tag, recognised by its exact description (Nautobot tags have no slug), without
+    creating or changing anything. A tag with the ownership tag's name but another description is not ours."""
+    tags = client.list("extras/tags")
+    ours = [t for t in tags if (t.get("description") or "") == spec.description]
+    if len(ours) > 1:
+        raise SyncRefused(
+            f"{len(ours)} Nautobot tags carry this project's ownership description ({spec.description!r}); keep one "
+            "and re-run."
+        )
+    return ours[0] if ours else None
+
+
+def _ensure_nautobot_tag(client: NautobotClient, spec: TagSpec, tag: dict | None, warnings: list[str]) -> dict:
+    """Get or create the project's ownership tag, enabled for every model the sync tags. Its name follows project
+    renames when it can."""
+    wanted = nautobot_rest.TAG_CONTENT_TYPES
+    if tag is None:
+        if client.first("extras/tags", name=spec.name) is not None:
+            raise SyncRefused(f"A different Nautobot tag is already named {spec.name!r}; rename it and re-run.")
+        data = {"name": spec.name, "description": spec.description, "color": TAG_COLOUR, "content_types": wanted}
+        try:
+            return client.create("extras/tags", data)
+        except NautobotPermissionError:
+            raise SyncRefused(
+                f"The Nautobot token may not create this project's ownership tag {spec.name!r} (extras.add_tag): ask "
+                "an administrator to run the first sync, or to grant it."
+            ) from None
+        except NautobotError as exc:
+            raise SyncRefused(
+                client.scrub(f"Nautobot refused to create the ownership tag {spec.name!r}: {exc}")
+            ) from None
+    patch: dict[str, Any] = {}
+    have = nautobot_rest.content_types(tag)
+    if set(wanted) - set(have):
+        patch["content_types"] = sorted(set(have) | set(wanted))
+    if tag.get("name") != spec.name and client.first("extras/tags", name=spec.name) is None:
+        patch["name"] = spec.name
+    if patch:
+        try:
+            tag = client.update("extras/tags", tag["id"], patch)
+        except NautobotError as exc:
+            if "content_types" in patch:
+                raise SyncRefused(
+                    client.scrub(
+                        f"The ownership tag {tag.get('name')!r} couldn't be enabled for every synced model: {exc}"
+                    )
+                ) from None
+            warnings.append(f"Could not rename the ownership tag {tag.get('name')!r} to {spec.name!r}; kept its name.")
+    return tag
+
+
+def _ensure_nautobot_field(
+    client: NautobotClient,
+    key: str,
+    label: str,
+    description: str,
+    wanted: list[str],
+    dry_run: bool,
+    warnings: list[str],
+    without: str,
+) -> bool:
+    """Whether a text custom field ``key`` is available on the ``wanted`` content types. A real run creates or
+    enables it when it may; otherwise ``without`` says what the sync does without it. A dry run never writes: it
+    reports what a real run would do and plans as if the field existed."""
+    try:
+        found = [f for f in client.list("extras/custom-fields") if (f.get("key") or f.get("name")) == key]
+    except NautobotError as exc:
+        warnings.append(client.scrub(f"Could not read the {key!r} custom field ({exc}): {without}."))
+        return False
+    if found:
+        field_ = found[0]
+        have = nautobot_rest.content_types(field_)
+        missing = sorted(set(wanted) - set(have))
+        if not missing:
+            return True
+        if dry_run:
+            warnings.append(f"The {key!r} custom field isn't enabled for {', '.join(missing)}; a real run enables it.")
+            return True
+        try:
+            client.update("extras/custom-fields", field_["id"], {"content_types": sorted(set(have) | set(wanted))})
+            return True
+        except NautobotError as exc:
+            warnings.append(
+                client.scrub(
+                    f"The {key!r} custom field isn't enabled for {', '.join(missing)} and couldn't be "
+                    f"({exc}): {without}."
+                )
+            )
+            return False
+    if dry_run:
+        warnings.append(f"The {key!r} custom field doesn't exist yet; a real run creates it if allowed.")
+        return True
+    data = {
+        "key": key,
+        "label": label,
+        "type": "text",
+        "description": description,
+        "content_types": list(wanted),
+        "filter_logic": "exact",
+    }
+    try:
+        client.create("extras/custom-fields", data)
+        return True
+    except NautobotError as exc:
+        why = "the token may not create custom fields" if isinstance(exc, NautobotPermissionError) else str(exc)
+        warnings.append(
+            client.scrub(
+                f"The {key!r} custom field doesn't exist and couldn't be created ({why}): {without}. Ask an "
+                f"administrator to create it (text, on {', '.join(wanted)})."
+            )
+        )
+        return False
+
+
+def _ensure_nautobot_user_tags(
+    client: NautobotClient, source: NautobotSyncDocumentAdapter, spec: TagSpec, dry_run: bool, warnings: list[str]
+) -> dict[str, str]:
+    """Find (a real run: create) the tags the design puts on racks and devices; name -> Nautobot id.
+
+    Nautobot applies a tag only to the content types it is enabled for. A tag the sync created is enabled for more
+    when the design needs it; a tag someone else made is used as it is, and dropped (with a warning) from the
+    objects it isn't enabled for, so the diff doesn't keep asking for it."""
+    needs: dict[str, set[str]] = {}
+    for type_name, ct in (("rack", "dcim.rack"), ("device", "dcim.device")):
+        for model in source.get_all(type_name):
+            for name in model.tags:
+                needs.setdefault(name, set()).add(ct)
+    ids: dict[str, str] = {}
+    unusable: dict[str, set[str]] = {}  # tag name -> content types it can't be used on
+    for name in sorted(needs):
+        wanted = needs[name]
+        if name == spec.name:
+            warnings.append(f"Tag {name!r} is this project's ownership tag; it is not synced as a design tag.")
+            unusable[name] = wanted
+            continue
+        found = client.first("extras/tags", name=name)
+        if found is None:
+            if dry_run:
+                warnings.append(f"Tag {name!r} doesn't exist in Nautobot; a real run creates it.")
+                continue
+            data = {
+                "name": name,
+                "color": "9e9e9e",
+                "description": DESIGN_TAG_DESCRIPTION,
+                "content_types": sorted(wanted),
+            }
+            try:
+                ids[name] = str(client.create("extras/tags", data)["id"])
+            except NautobotError as exc:
+                warnings.append(
+                    client.scrub(f"Tag {name!r} couldn't be created ({exc}); objects are synced without it.")
+                )
+                unusable[name] = wanted
+            continue
+        ids[name] = str(found["id"])
+        missing = wanted - set(nautobot_rest.content_types(found))
+        if not missing:
+            continue
+        if (found.get("description") or "") == DESIGN_TAG_DESCRIPTION:
+            if dry_run:
+                warnings.append(f"Tag {name!r} isn't enabled for {', '.join(sorted(missing))}; a real run enables it.")
+                continue
+            try:
+                cts = sorted(set(nautobot_rest.content_types(found)) | wanted)
+                client.update("extras/tags", found["id"], {"content_types": cts})
+                continue
+            except NautobotError as exc:
+                warnings.append(
+                    client.scrub(f"Tag {name!r} couldn't be enabled for {', '.join(sorted(missing))} ({exc}).")
+                )
+        else:
+            warnings.append(
+                f"Tag {name!r} exists in Nautobot but isn't enabled for {', '.join(sorted(missing))}; the objects of "
+                "those types are synced without it (enable it for them in Nautobot to sync it)."
+            )
+        unusable[name] = missing
+    if unusable:
+        for type_name, ct in (("rack", "dcim.rack"), ("device", "dcim.device")):
+            for model in source.get_all(type_name):
+                model.tags = [t for t in model.tags if ct not in unusable.get(t, set())]
     return ids

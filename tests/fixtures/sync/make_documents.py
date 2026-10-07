@@ -1,13 +1,14 @@
-"""Regenerate the NetBox sync-document fixtures with Railyard's own exporter.
+"""Regenerate the NetBox and Nautobot sync-document fixtures with Railyard's own exporter.
 
-The documents are exactly what ``POST /api/projects/{id}/deliverables/netbox-sync`` serves, written
-offline by the Railyard CLI. Build it and run this script from the repository root:
+The documents are exactly what ``POST /api/projects/{id}/deliverables/netbox-sync`` (and ``nautobot-sync``)
+serves, written offline by the Railyard CLI. Build it and run this script from the repository root:
 
     cd ../railyard/backend && go build -o /tmp/railyard ./cmd/railyard && cd -
     .venv/bin/python tests/fixtures/sync/make_documents.py --railyard-cli /tmp/railyard
 
 It exports each ``<name>-project.json`` here with ``railyard export --format netbox-sync`` and writes
-``netbox-sync-<name>[-<netbox version>].json`` beside it. The server adds ``project.revision`` (and
+``netbox-sync-<name>[-<netbox version>].json`` beside it, and with ``--format nautobot-sync`` to
+``nautobot-sync-<name>.json``. The server adds ``project.revision`` (and
 ``changeRequestId`` for a merge request's draft), which an offline export has no way to know; the
 fixtures carry a revision so they look like the served document.
 """
@@ -26,12 +27,14 @@ HERE = pathlib.Path(__file__).parent
 DOCUMENTS = [("example", ["4.5"]), ("cabled", ["4.5", "4.4"])]
 
 
-def build(cli: str, stem: str, version: str) -> dict:
+def build(cli: str, stem: str, version: str | None) -> dict:
+    """The netbox-sync document for NetBox ``version``, or the nautobot-sync document when it is None."""
     project_path = HERE / f"{stem}-project.json"
     with tempfile.TemporaryDirectory() as tmp:
         out = pathlib.Path(tmp) / "doc.json"
+        target = ["--format", "netbox-sync", "--netbox-version", version] if version else ["--format", "nautobot-sync"]
         subprocess.run(
-            [cli, "export", "--format", "netbox-sync", "--netbox-version", version, str(project_path), "-o", str(out)],
+            [cli, "export", *target, str(project_path), "-o", str(out)],
             check=True,
             capture_output=True,
             text=True,
@@ -52,6 +55,9 @@ def main() -> None:
             path = HERE / f"netbox-sync-{stem}{suffix}.json"
             path.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
             print(f"wrote {path.relative_to(HERE.parent.parent.parent)}")
+        path = HERE / f"nautobot-sync-{stem}.json"
+        path.write_text(json.dumps(build(args.railyard_cli, stem, None), indent=2, ensure_ascii=False) + "\n")
+        print(f"wrote {path.relative_to(HERE.parent.parent.parent)}")
 
 
 if __name__ == "__main__":

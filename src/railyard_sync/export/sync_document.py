@@ -155,12 +155,17 @@ def _identity(row: dict) -> tuple[str, str]:
 # ---- envelope ----------------------------------------------------------------------------------
 
 
-def parse_document(document: Any) -> SyncDocument:
-    """Check the envelope and return it with each kind's rows (``[]`` when a kind is absent)."""
+def parse_document(
+    document: Any, *, fmt: str = FORMAT, kinds: tuple[str, ...] = OBJECT_KINDS, product: str = "NetBox"
+) -> SyncDocument:
+    """Check the envelope and return it with each kind's rows (``[]`` when a kind is absent).
+
+    ``fmt``, ``kinds`` and ``product`` name the document: NetBox's by default; the Nautobot sync document
+    (``nautobot_document.py``) has the same envelope with its own format and sections."""
     if not isinstance(document, dict):
         raise SyncDocumentError("The sync document must be a JSON object.")
-    if document.get("format") != FORMAT:
-        raise SyncDocumentError(f"Not a Railyard NetBox sync document: format is {document.get('format')!r}.")
+    if document.get("format") != fmt:
+        raise SyncDocumentError(f"Not a Railyard {product} sync document: format is {document.get('format')!r}.")
     version = document.get("version")
     if version not in SUPPORTED_VERSIONS:
         raise SyncDocumentError(
@@ -176,14 +181,14 @@ def parse_document(document: Any) -> SyncDocument:
 
     warnings = [_text(w) for w in document.get("warnings") or [] if _text(w)]
     rows: dict[str, list[dict]] = {}
-    for kind in OBJECT_KINDS:
+    for kind in kinds:
         value = objects.get(kind) or []
         if not isinstance(value, list) or not all(isinstance(r, dict) for r in value):
             raise SyncDocumentError(f"The sync document's objects.{kind} must be a list of objects.")
         if len(value) > MAX_ROWS_PER_KIND:
             raise SyncDocumentError(f"The sync document has {len(value)} {kind}; at most {MAX_ROWS_PER_KIND}.")
         rows[kind] = value
-    for kind in sorted(set(objects) - set(OBJECT_KINDS)):
+    for kind in sorted(set(objects) - set(kinds)):
         warnings.append(f"The sync document's {kind!r} objects are not synced by this railyard-sync; ignored.")
     unresolved = [u for u in document.get("unresolved") or [] if isinstance(u, dict)]
     for u in unresolved:

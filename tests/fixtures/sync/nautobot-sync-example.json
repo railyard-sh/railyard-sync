@@ -1,0 +1,272 @@
+{
+  "format": "railyard-nautobot-sync",
+  "version": 1,
+  "project": {
+    "id": "prj_replace-with-a-unique-id",
+    "name": "Acme spine-leaf build",
+    "revision": 1
+  },
+  "objects": {
+    "location-types": [
+      {
+        "name": "Location",
+        "content_types": "dcim.rack,dcim.device",
+        "parent__name": "NoObject",
+        "nestable": "False",
+        "railyard": {
+          "kind": "location-type"
+        }
+      },
+      {
+        "name": "Data centre",
+        "content_types": "dcim.rack,dcim.device",
+        "parent__name": "Location",
+        "nestable": "False",
+        "railyard": {
+          "kind": "location-type"
+        }
+      },
+      {
+        "name": "Row",
+        "content_types": "dcim.rack,dcim.device",
+        "parent__name": "Data centre",
+        "nestable": "False",
+        "railyard": {
+          "kind": "location-type"
+        }
+      }
+    ],
+    "statuses": [],
+    "tags": [],
+    "locations": [
+      {
+        "name": "London",
+        "location_type__name": "Location",
+        "status__name": "Active",
+        "parent__name": "NoObject",
+        "facility": "LDN",
+        "railyard": {
+          "kind": "container",
+          "id": "loc_ldn"
+        }
+      },
+      {
+        "name": "Frankfurt",
+        "location_type__name": "Location",
+        "status__name": "Active",
+        "parent__name": "NoObject",
+        "facility": "FRA",
+        "railyard": {
+          "kind": "container",
+          "id": "loc_fra"
+        }
+      },
+      {
+        "name": "LDN1",
+        "location_type__name": "Data centre",
+        "status__name": "Active",
+        "parent__name": "London",
+        "facility": "",
+        "railyard": {
+          "kind": "container",
+          "id": "dc_ldn1"
+        }
+      },
+      {
+        "name": "FRA1",
+        "location_type__name": "Data centre",
+        "status__name": "Active",
+        "parent__name": "Frankfurt",
+        "facility": "",
+        "railyard": {
+          "kind": "container",
+          "id": "dc_fra1"
+        }
+      },
+      {
+        "name": "A [a559f3df2a]",
+        "location_type__name": "Row",
+        "status__name": "Active",
+        "parent__name": "LDN1",
+        "facility": "",
+        "railyard": {
+          "kind": "container",
+          "id": "row_ldn_a"
+        }
+      },
+      {
+        "name": "A [ea30999eaa]",
+        "location_type__name": "Row",
+        "status__name": "Active",
+        "parent__name": "FRA1",
+        "facility": "",
+        "railyard": {
+          "kind": "container",
+          "id": "row_fra_a"
+        }
+      }
+    ],
+    "manufacturers": [
+      {
+        "name": "Cisco",
+        "railyard": {
+          "kind": "manufacturer"
+        }
+      }
+    ],
+    "device-types": [
+      {
+        "manufacturer__name": "Cisco",
+        "model": "Nexus 93180YC-FX",
+        "u_height": "1",
+        "is_full_depth": "True",
+        "railyard": {
+          "kind": "device-type",
+          "id": "cisco-nexus-93180yc-fx",
+          "keys": [
+            "cisco-nexus-93180yc-fx"
+          ]
+        }
+      }
+    ],
+    "roles": [
+      {
+        "name": "compute",
+        "content_types": "dcim.rack",
+        "railyard": {
+          "kind": "role"
+        }
+      },
+      {
+        "name": "leaf",
+        "content_types": "dcim.device",
+        "railyard": {
+          "kind": "role"
+        }
+      }
+    ],
+    "racks": [
+      {
+        "name": "LDN1-A01",
+        "location__name": "A [a559f3df2a]",
+        "status__name": "Active",
+        "role__name": "compute",
+        "type": "4-post-cabinet",
+        "width": "19",
+        "u_height": "42",
+        "desc_units": "False",
+        "comments": "",
+        "tags": "",
+        "railyard": {
+          "kind": "rack",
+          "id": "rack_ldn_a01"
+        }
+      },
+      {
+        "name": "LDN1-A02",
+        "location__name": "A [a559f3df2a]",
+        "status__name": "Active",
+        "role__name": "compute",
+        "type": "4-post-cabinet",
+        "width": "19",
+        "u_height": "42",
+        "desc_units": "False",
+        "comments": "",
+        "tags": "",
+        "railyard": {
+          "kind": "rack",
+          "id": "rack_ldn_a02"
+        }
+      },
+      {
+        "name": "FRA1-A01",
+        "location__name": "A [ea30999eaa]",
+        "status__name": "Active",
+        "role__name": "compute",
+        "type": "4-post-cabinet",
+        "width": "19",
+        "u_height": "42",
+        "desc_units": "False",
+        "comments": "",
+        "tags": "",
+        "railyard": {
+          "kind": "rack",
+          "id": "rack_fra_a01"
+        }
+      }
+    ],
+    "devices": [
+      {
+        "name": "LDN1-A01-LEAF-01",
+        "device_type__manufacturer__name": "Cisco",
+        "device_type__model": "Nexus 93180YC-FX",
+        "role__name": "leaf",
+        "status__name": "Active",
+        "location__name": "A [a559f3df2a]",
+        "rack__name": "LDN1-A01",
+        "position": "41",
+        "face": "front",
+        "comments": "",
+        "tags": "",
+        "railyard": {
+          "kind": "device",
+          "id": "pl_ldn_a01_leaf1"
+        }
+      },
+      {
+        "name": "LDN1-A02-LEAF-01",
+        "device_type__manufacturer__name": "Cisco",
+        "device_type__model": "Nexus 93180YC-FX",
+        "role__name": "leaf",
+        "status__name": "Active",
+        "location__name": "A [a559f3df2a]",
+        "rack__name": "LDN1-A02",
+        "position": "41",
+        "face": "front",
+        "comments": "",
+        "tags": "",
+        "railyard": {
+          "kind": "device",
+          "id": "pl_ldn_a02_leaf1"
+        }
+      },
+      {
+        "name": "FRA1-A01-LEAF-01",
+        "device_type__manufacturer__name": "Cisco",
+        "device_type__model": "Nexus 93180YC-FX",
+        "role__name": "leaf",
+        "status__name": "Active",
+        "location__name": "A [ea30999eaa]",
+        "rack__name": "FRA1-A01",
+        "position": "41",
+        "face": "front",
+        "comments": "",
+        "tags": "",
+        "railyard": {
+          "kind": "device",
+          "id": "pl_fra_a01_leaf1"
+        }
+      }
+    ],
+    "interfaces": [],
+    "rear-ports": [],
+    "front-ports": [],
+    "power-outlets": [],
+    "power-ports": [],
+    "cables": []
+  },
+  "unresolved": [
+    {
+      "rackName": "LDN1-A01",
+      "placementId": "pl_ldn_a01_srv1",
+      "label": "LDN1-A01-SRV-01",
+      "ref": "some 2U server",
+      "heightU": 2,
+      "placeheld": false
+    }
+  ],
+  "warnings": [
+    "Export container \"A\" as \"A [a559f3df2a]\" to keep import references unambiguous; original names and IDs remain in project.json.",
+    "Export container \"A\" as \"A [ea30999eaa]\" to keep import references unambiguous; original names and IDs remain in project.json."
+  ]
+}
