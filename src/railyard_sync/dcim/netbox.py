@@ -1,5 +1,9 @@
 """``NetBoxLoader`` — read one or more NetBox sites into a :class:`~railyard_sync.dcim.snapshot.Snapshot`.
 
+:class:`NetBoxReader` holds everything that turns NetBox's data into a snapshot; :class:`NetBoxLoader`
+feeds it from the REST API, and the NetBox plugin feeds it from NetBox's ORM through the same two
+methods (``fetch`` and ``fetch_all``), so both read a site into the same snapshot.
+
 Supports NetBox 4.0 to 4.6 over the REST API. Auth is ``Authorization: Token <token>`` for v1 tokens
 and ``Authorization: Bearer <token>`` for the v2 tokens NetBox 4.5 introduced (they start ``nbt_``).
 
@@ -238,144 +242,41 @@ def _first_mapping(port: dict) -> tuple[Any, int, int]:
 # ---- the loader -------------------------------------------------------------------------------
 
 
-class NetBoxLoader:
-    """Reads NetBox sites into a :class:`Snapshot`. One instance can serve several loads."""
+class NetBoxReader:
+    """Reads NetBox sites into a :class:`Snapshot` from answers shaped like NetBox's REST API.
 
-    def __init__(
-        self,
-        url: str,
-        token: str,
-        *,
-        session: _Session | None = None,
-        verify: bool | str = True,
-        timeout: float = 30,
-        page_size: int = 1000,
-    ) -> None:
-        if not url:
-            raise ValueError("NetBox URL is required")
-        parts = urlsplit(url.strip())
-        if parts.scheme not in ("http", "https") or not parts.netloc:
-            raise ValueError("NetBox URL must be an http:// or https:// URL")
-        if parts.username or parts.password:
-            raise ValueError("NetBox URL must not contain credentials; pass the token separately")
-        if not token:
-            raise ValueError("NetBox API token is required")
-        if page_size < 1:
-            raise ValueError("page_size must be at least 1")
-        base = url.strip().rstrip("/")
-        if base.endswith("/api"):  # a common slip: the API root rather than NetBox's own URL
-            base = base[: -len("/api")]
-        self.url = base
-        self._token = token
-        self._auth = f"Bearer {token}" if token.startswith(V2_TOKEN_PREFIX) else f"Token {token}"
-        self._session = session or _default_session()
-        self._verify = verify
-        self._timeout = timeout
-        self._page_size = page_size
-        self.version = ""
+    Everything that turns NetBox's data into the snapshot lives here: which objects one load asks for,
+    the units, enumerations and front/rear port mappings, and the warnings. A subclass only answers the
+    requests, as NetBox's REST API would (full representations, choice fields as ``{"value", "label"}``
+    or the bare value, nested objects or bare ids):
 
-    def __repr__(self) -> str:
-        return f"NetBoxLoader(url={self.url!r})"
+    - :meth:`fetch` ``(path)``: one object, for ``/api/status/`` and ``/api/dcim/regions/{id}/``.
+    - :meth:`fetch_all` ``(path, params)``: every object a list endpoint returns for ``params``, a list of
+      ``(key, value)`` pairs using NetBox's filter names (``site_id``, ``id``, ``device_type_id``, ``slug``,
+      ``name``) plus ``exclude=config_context``, which may be ignored.
 
-    # -- HTTP ------------------------------------------------------------------------------------
+    :class:`NetBoxLoader` answers them over HTTP; the NetBox plugin answers them from NetBox's own ORM,
+    so a site imported by either is the same snapshot.
+    """
 
-    def _scrub(self, text: str) -> str:
-        """Remove the token from text that may echo it: the whole token, and a v2 token's secret half."""
-        for secret in (self._token, self._token.partition(".")[2]):
-            if len(secret) >= 8:
-                text = text.replace(secret, "***")
-        return text
+    url: str = ""
+    version: str = ""
 
-    def _get(self, path: str, params: list[tuple[str, Any]] | None = None) -> Any:
-        url = f"{self.url}{path}"
-        headers = {"Authorization": self._auth, "Accept": "application/json"}
-        shown = path + (f"?{urlencode(params, doseq=True)}" if params else "")
-        started = time.monotonic()
-        try:
-            resp = self._session.request(
-                "GET", url, headers=headers, params=params, timeout=self._timeout, verify=self._verify
-            )
-        except _connection_errors() as exc:
-            log_http(log, "NetBox", "GET", shown, "no response", time.monotonic() - started)
-            raise DCIMConnectionError(
-                self._scrub(f"Could not reach NetBox at {self.url}: {type(exc).__name__}: {exc}")
-                + " Check --netbox-url, your network and any proxy (or --insecure for a self-signed certificate).",
-                method="GET",
-                path=path,
-            ) from None
-        status = resp.status_code
-        rid = nb_http.request_id(resp)
-        log_http(
-            log,
-            "NetBox",
-            "GET",
-            shown,
-            status,
-            time.monotonic() - started,
-            request_id=rid,
-            received=response_size(resp),
-        )
-        context = {"status": status, "request_id": rid, "method": "GET", "path": path}
-        if 200 <= status < 300:
-            try:
-                return resp.json()
-            except ValueError:
-                raise DCIMError(
-                    f"NetBox returned a response that is not JSON for {path}: is {self.url} a NetBox server?",
-                    **context,
-                ) from None
-        said = self._scrub(nb_http.detail(resp))
-        suffix = f": {said}" if said else ""
-        report = nb_http.reporting(rid)
-        if status == 401 or (status == 403 and "token" in said.lower()):
-            raise DCIMAuthError(
-                f"NetBox did not accept the API token (HTTP {status}) for GET {path}{suffix}. It is wrong, expired or "
-                "revoked: create a new one in NetBox (your user menu → API Tokens) and set NETBOX_TOKEN to it."
-                + report,
-                **context,
-            )
-        if status == 403:
-            raise DCIMAuthError(
-                f"NetBox refused GET {path} (HTTP 403){suffix}. {nb_http.permission_hint('GET', path)}{report}",
-                **context,
-            )
-        if status == 404:
-            raise DCIMNotFoundError(f"Not found in NetBox (HTTP 404): GET {path}{suffix}.{report}", **context)
-        if status >= 500:
-            raise DCIMError(
-                f"NetBox failed (HTTP {status}) for GET {path}{suffix}. This is NetBox's own fault (see its logs), "
-                f"not railyard-sync's.{report}",
-                **context,
-            )
-        raise DCIMError(f"NetBox API error (HTTP {status}) for GET {path}{suffix}.{report}", **context)
+    def fetch(self, path: str, params: list[tuple[str, Any]] | None = None) -> Any:
+        raise NotImplementedError
 
-    def _list(self, path: str, params: list[tuple[str, Any]] | None = None) -> Iterator[dict]:
-        """Every object a list endpoint returns, following ``next`` page by page.
-
-        Only the query of ``next`` is used; requests always go to the configured URL. NetBox behind
-        a proxy often builds ``next`` with the wrong scheme or host, and the token must never be sent
-        anywhere else.
-        """
-        query: list[tuple[str, Any]] = list(params or []) + [("limit", self._page_size), ("offset", 0)]
-        while True:
-            page = self._get(path, query)
-            if not isinstance(page, dict) or "results" not in page:
-                raise DCIMError(f"NetBox returned an unexpected response for {path} (no 'results').")
-            yield from page["results"]
-            nxt = page.get("next")
-            if not nxt or not page["results"]:
-                return
-            query = parse_qsl(urlsplit(nxt).query, keep_blank_values=True)
+    def fetch_all(self, path: str, params: list[tuple[str, Any]] | None = None) -> Iterator[dict]:
+        raise NotImplementedError
 
     def _list_by_ids(self, path: str, key: str, ids: list[str]) -> Iterator[dict]:
         for chunk in _chunks(ids):
-            yield from self._list(path, [(key, i) for i in chunk])
+            yield from self.fetch_all(path, [(key, i) for i in chunk])
 
     # -- load ------------------------------------------------------------------------------------
 
     def check_version(self) -> str:
         """Read ``/api/status/`` and return NetBox's version; refuse anything below 4.0 or from 5.0."""
-        status = self._get("/api/status/")
+        status = self.fetch("/api/status/")
         text = str((status or {}).get("netbox-version") or "")
         major_minor = _parse_version(text)[:2]
         if major_minor < MIN_VERSION:
@@ -414,10 +315,10 @@ class NetBoxLoader:
 
         snap.regions = self._load_regions(raw_sites)
         snap.sites = [self._site(s) for s in raw_sites]
-        snap.locations = [self._location(x) for x in self._list("/api/dcim/locations/", by_site)]
+        snap.locations = [self._location(x) for x in self.fetch_all("/api/dcim/locations/", by_site)]
         log.debug("Read %s and %s", count(len(snap.regions), "region"), count(len(snap.locations), "location"))
 
-        raw_racks = list(self._list("/api/dcim/racks/", by_site))
+        raw_racks = list(self.fetch_all("/api/dcim/racks/", by_site))
         snap.racks = [self._rack(r) for r in raw_racks]
         rack_type_ids = _unique(r.rack_type_id for r in snap.racks)
         if rack_type_ids and major_minor >= (4, 1):
@@ -425,7 +326,7 @@ class NetBoxLoader:
             snap.rack_types = [self._rack_type(t) for t in raw_types]
 
         devices_params = by_site + [("exclude", "config_context")]
-        snap.devices = [self._device(d) for d in self._list("/api/dcim/devices/", devices_params)]
+        snap.devices = [self._device(d) for d in self.fetch_all("/api/dcim/devices/", devices_params)]
         log.debug("Read %s and %s", count(len(snap.racks), "rack"), count(len(snap.devices), "device"))
         snap.device_types = self._load_device_types(_unique(d.device_type_id for d in snap.devices), snap.warnings)
         log.debug("Read %s with their component templates", count(len(snap.device_types), "device type"))
@@ -433,14 +334,14 @@ class NetBoxLoader:
         loaded_devices = {d.id for d in snap.devices}
         for kind, endpoint, _ in _COMPONENT_ENDPOINTS:
             before = len(snap.components)
-            for item in self._list(f"/api/dcim/{endpoint}/", by_site):
+            for item in self.fetch_all(f"/api/dcim/{endpoint}/", by_site):
                 component = self._component(kind, item, snap.warnings)
                 if component.device_id in loaded_devices:
                     snap.components.append(component)
             log.debug("Read %s", count(len(snap.components) - before, kind.replace("-", " ")))
 
-        snap.power_panels = [self._power_panel(p) for p in self._list("/api/dcim/power-panels/", by_site)]
-        snap.power_feeds = [self._power_feed(f) for f in self._list("/api/dcim/power-feeds/", by_site)]
+        snap.power_panels = [self._power_panel(p) for p in self.fetch_all("/api/dcim/power-panels/", by_site)]
+        snap.power_feeds = [self._power_feed(f) for f in self.fetch_all("/api/dcim/power-feeds/", by_site)]
         snap.cables = self._load_cables(by_site, snap)
         log.debug(
             "Read %s, %s and %s",
@@ -454,7 +355,7 @@ class NetBoxLoader:
 
     def _all_sites(self) -> list[dict]:
         """Every site the token can see, in NetBox's order."""
-        sites = list(self._list("/api/dcim/sites/"))
+        sites = list(self.fetch_all("/api/dcim/sites/"))
         if not sites:
             raise DCIMNotFoundError("This NetBox has no sites the token can see.")
         return sites
@@ -469,7 +370,7 @@ class NetBoxLoader:
             lookups += [("slug", needle), ("name", needle)]
             match = None
             for key, value in lookups:
-                results = list(self._list("/api/dcim/sites/", [(key, value)]))
+                results = list(self.fetch_all("/api/dcim/sites/", [(key, value)]))
                 if results:
                     match = results[0]
                     break
@@ -485,7 +386,7 @@ class NetBoxLoader:
             chain: list[Region] = []
             region_id = _ref_id(raw.get("region"))
             while region_id is not None and region_id not in regions and all(r.id != region_id for r in chain):
-                item = self._get(f"/api/dcim/regions/{region_id}/")
+                item = self.fetch(f"/api/dcim/regions/{region_id}/")
                 region = Region(
                     id=str(item["id"]),
                     name=str(item.get("name") or ""),
@@ -744,7 +645,7 @@ class NetBoxLoader:
         loaded |= {("dcim.powerfeed", f.id) for f in snap.power_feeds}
         devices = {d.id for d in snap.devices}
         cables: dict[str, Cable] = {}
-        for item in self._list("/api/dcim/cables/", by_site):
+        for item in self.fetch_all("/api/dcim/cables/", by_site):
             cable_id = str(item["id"])
             if cable_id in cables:
                 continue
@@ -789,6 +690,136 @@ class NetBoxLoader:
         obj = raw.get("object")
         device_id = _ref_id(obj.get("device")) if isinstance(obj, dict) else None
         return device_id is None or device_id not in devices
+
+
+class NetBoxLoader(NetBoxReader):
+    """Reads NetBox sites into a :class:`Snapshot` over the REST API. One instance can serve several loads."""
+
+    def __init__(
+        self,
+        url: str,
+        token: str,
+        *,
+        session: _Session | None = None,
+        verify: bool | str = True,
+        timeout: float = 30,
+        page_size: int = 1000,
+    ) -> None:
+        if not url:
+            raise ValueError("NetBox URL is required")
+        parts = urlsplit(url.strip())
+        if parts.scheme not in ("http", "https") or not parts.netloc:
+            raise ValueError("NetBox URL must be an http:// or https:// URL")
+        if parts.username or parts.password:
+            raise ValueError("NetBox URL must not contain credentials; pass the token separately")
+        if not token:
+            raise ValueError("NetBox API token is required")
+        if page_size < 1:
+            raise ValueError("page_size must be at least 1")
+        base = url.strip().rstrip("/")
+        if base.endswith("/api"):  # a common slip: the API root rather than NetBox's own URL
+            base = base[: -len("/api")]
+        self.url = base
+        self._token = token
+        self._auth = f"Bearer {token}" if token.startswith(V2_TOKEN_PREFIX) else f"Token {token}"
+        self._session = session or _default_session()
+        self._verify = verify
+        self._timeout = timeout
+        self._page_size = page_size
+        self.version = ""
+
+    def __repr__(self) -> str:
+        return f"NetBoxLoader(url={self.url!r})"
+
+    # -- HTTP ------------------------------------------------------------------------------------
+
+    def _scrub(self, text: str) -> str:
+        """Remove the token from text that may echo it: the whole token, and a v2 token's secret half."""
+        for secret in (self._token, self._token.partition(".")[2]):
+            if len(secret) >= 8:
+                text = text.replace(secret, "***")
+        return text
+
+    def fetch(self, path: str, params: list[tuple[str, Any]] | None = None) -> Any:
+        url = f"{self.url}{path}"
+        headers = {"Authorization": self._auth, "Accept": "application/json"}
+        shown = path + (f"?{urlencode(params, doseq=True)}" if params else "")
+        started = time.monotonic()
+        try:
+            resp = self._session.request(
+                "GET", url, headers=headers, params=params, timeout=self._timeout, verify=self._verify
+            )
+        except _connection_errors() as exc:
+            log_http(log, "NetBox", "GET", shown, "no response", time.monotonic() - started)
+            raise DCIMConnectionError(
+                self._scrub(f"Could not reach NetBox at {self.url}: {type(exc).__name__}: {exc}")
+                + " Check --netbox-url, your network and any proxy (or --insecure for a self-signed certificate).",
+                method="GET",
+                path=path,
+            ) from None
+        status = resp.status_code
+        rid = nb_http.request_id(resp)
+        log_http(
+            log,
+            "NetBox",
+            "GET",
+            shown,
+            status,
+            time.monotonic() - started,
+            request_id=rid,
+            received=response_size(resp),
+        )
+        context = {"status": status, "request_id": rid, "method": "GET", "path": path}
+        if 200 <= status < 300:
+            try:
+                return resp.json()
+            except ValueError:
+                raise DCIMError(
+                    f"NetBox returned a response that is not JSON for {path}: is {self.url} a NetBox server?",
+                    **context,
+                ) from None
+        said = self._scrub(nb_http.detail(resp))
+        suffix = f": {said}" if said else ""
+        report = nb_http.reporting(rid)
+        if status == 401 or (status == 403 and "token" in said.lower()):
+            raise DCIMAuthError(
+                f"NetBox did not accept the API token (HTTP {status}) for GET {path}{suffix}. It is wrong, expired or "
+                "revoked: create a new one in NetBox (your user menu → API Tokens) and set NETBOX_TOKEN to it."
+                + report,
+                **context,
+            )
+        if status == 403:
+            raise DCIMAuthError(
+                f"NetBox refused GET {path} (HTTP 403){suffix}. {nb_http.permission_hint('GET', path)}{report}",
+                **context,
+            )
+        if status == 404:
+            raise DCIMNotFoundError(f"Not found in NetBox (HTTP 404): GET {path}{suffix}.{report}", **context)
+        if status >= 500:
+            raise DCIMError(
+                f"NetBox failed (HTTP {status}) for GET {path}{suffix}. This is NetBox's own fault (see its logs), "
+                f"not railyard-sync's.{report}",
+                **context,
+            )
+        raise DCIMError(f"NetBox API error (HTTP {status}) for GET {path}{suffix}.{report}", **context)
+
+    def fetch_all(self, path: str, params: list[tuple[str, Any]] | None = None) -> Iterator[dict]:
+        """Every object a list endpoint returns, following ``next`` page by page.
+
+        Only the query of ``next`` is used; requests always go to the configured URL. NetBox behind
+        a proxy often builds ``next`` with the wrong scheme or host, and the token must never be sent
+        anywhere else.
+        """
+        query: list[tuple[str, Any]] = list(params or []) + [("limit", self._page_size), ("offset", 0)]
+        while True:
+            page = self.fetch(path, query)
+            if not isinstance(page, dict) or "results" not in page:
+                raise DCIMError(f"NetBox returned an unexpected response for {path} (no 'results').")
+            yield from page["results"]
+            nxt = page.get("next")
+            if not nxt or not page["results"]:
+                return
+            query = parse_qsl(urlsplit(nxt).query, keep_blank_values=True)
 
 
 def load_netbox_snapshot(

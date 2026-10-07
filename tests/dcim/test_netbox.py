@@ -563,3 +563,37 @@ def test_none_loads_every_site_the_token_can_see():
     snap = load_netbox_snapshot(BASE, V2_TOKEN, None, session=netbox.session)
     assert sorted(s.slug for s in snap.sites) == ["ldn1", "man1"]
     assert {d.site_id for d in snap.devices} == {s.id for s in snap.sites}
+
+
+# ---- the reader seam (what the NetBox plugin's ORM reader implements) ---------------------------
+
+
+class InMemoryReader(netbox.NetBoxReader):
+    """Answers the loader's requests straight from the fake's data: no HTTP, no token, no pagination."""
+
+    def __init__(self, nb: FakeNetBox):
+        self.nb = nb
+        self.url = BASE
+
+    def fetch(self, path, params=None):
+        return self.nb.handle("GET", f"{BASE}{path}", {"Authorization": self.nb.expected_auth()}, params).json()
+
+    def fetch_all(self, path, params=None):
+        params = [(k, v) for k, v in params or [] if k != "exclude"]
+        endpoint = path.removeprefix("/api/dcim/").strip("/")
+        filters: dict[str, set[str]] = {}
+        for key, value in params:
+            filters.setdefault(key, set()).add(str(value))
+        for item in self.nb.data[endpoint]:
+            if all(self.nb.matches(endpoint, item, k, v) for k, v in filters.items()):
+                yield item
+
+
+def test_a_reader_subclass_reads_the_same_snapshot_as_the_http_loader(nb, snap):
+    other = InMemoryReader(FakeNetBox()).load(["ldn1"])
+    assert other.to_dict() == snap.to_dict()
+
+
+def test_the_reader_base_has_no_transport():
+    with pytest.raises(NotImplementedError):
+        netbox.NetBoxReader().load(["ldn1"])
