@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import logging
 import time
-from collections import Counter
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -41,6 +40,7 @@ from .netbox_rest import (
     NetBoxVersionError,
     parse_version,
 )
+from .ownership import change_lines, planned_changes
 from .policy import DEFAULT_RAILYARD_URL, TagSpec, insecure_url, ownership_tag
 from .sync_document import SyncDocumentAdapter
 
@@ -200,8 +200,8 @@ def sync_to_netbox(
             "delete": len(candidates) if allow_deletes else 0,
             "no-change": summary.get("no-change", 0),
         },
-        planned=_planned(diff, len(target.renames), candidates if allow_deletes else []),
-        changes=[f"rename: device {old} → {new}" for old, new, _ in target.renames] + _changes(diff),
+        planned=planned_changes(diff, len(target.renames), candidates if allow_deletes else []),
+        changes=[f"rename: device {old} → {new}" for old, new, _ in target.renames] + change_lines(diff),
         warnings=warnings,
     )
     if allow_deletes:
@@ -255,44 +255,6 @@ def _finish(result: SyncResult, target: NetBoxRESTAdapter) -> SyncResult:
     result.updated = sum(target.counts["update"].values())
     result.deleted = sum(target.counts["delete"].values())
     return result
-
-
-def _planned(diff, renames: int, deletes: list) -> dict[str, dict[str, int]]:
-    """The planned creates, updates (renames included, as device updates) and deletes per object type."""
-    planned: dict[str, Counter] = {"create": Counter(), "update": Counter(), "delete": Counter()}
-
-    def walk(elements) -> None:
-        for el in elements:
-            if el.action in ("create", "update"):
-                planned[el.action][el.type] += 1
-            walk(el.get_children())
-
-    walk(diff.get_children())
-    if renames:
-        planned["update"]["device"] += renames
-    for model in deletes:
-        planned["delete"][model.get_type()] += 1
-    return {action: dict(counts) for action, counts in planned.items()}
-
-
-def _changes(diff) -> list[str]:
-    """One line per create/update in the diff, an update with what changes."""
-    lines: list[str] = []
-
-    def walk(elements) -> None:
-        for el in elements:
-            if el.action in ("create", "update"):
-                ident = " ".join(f"{k}={v}" for k, v in (el.keys or {}).items())
-                line = f"{el.action}: {el.type} [{ident}]"
-                if el.action == "update":
-                    d = el.get_attrs_diffs()
-                    old, new = d.get("-", {}), d.get("+", {})
-                    line += " — " + ", ".join(f"{k}: {old.get(k)!r}→{new.get(k)!r}" for k in new)
-                lines.append(line)
-            walk(el.get_children())
-
-    walk(diff.get_children())
-    return lines
 
 
 # ---- prerequisites -------------------------------------------------------------------------------
