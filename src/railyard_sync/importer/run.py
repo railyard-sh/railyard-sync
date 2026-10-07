@@ -104,7 +104,9 @@ class ImportRun:
     import of an estate. ``source_url`` is the DCIM the snapshot came from when the snapshot does not say,
     and ``requested_sites`` the sites asked for (slugs), both only for the same-source check of a refresh.
     ``catalogue`` (``None``: build every device type from the snapshot), ``build`` and ``project_id`` replace
-    the Railyard catalogue lookup, the builder and the new estate's id (the CLI's test seams).
+    the Railyard catalogue lookup, the builder and the new estate's id (the CLI's test seams). ``step`` is called
+    with a line for each finished step, and ``name_taken_hint`` says what to do when the new estate's name is
+    taken (worded for the caller's form or flags).
     """
 
     def __init__(
@@ -122,6 +124,7 @@ class ImportRun:
         build: Callable[..., BuildResult] | None = None,
         project_id: str | None = None,
         step: Callable[[str], None] | None = None,
+        name_taken_hint: str = "refresh it with --project, or choose another --name",
     ) -> None:
         project = (project or "").strip() or None
         name = (name or "").strip() or None
@@ -137,6 +140,7 @@ class ImportRun:
         self._catalogue = catalogue
         self._build = build or _default_build
         self._step = step or (lambda line: None)
+        self._name_taken_hint = name_taken_hint
 
         self.project_id = "" if project else (project_id or new_project_id())
         self.name = name or ""
@@ -326,10 +330,7 @@ class ImportRun:
                     "import again: it merges onto the latest revision."
                 )
             elif isinstance(e, RailyardConflictError) and e.code == "name_taken":
-                head = (
-                    f"an estate named {self.name!r} already exists in this organisation: refresh it with --project, "
-                    "or choose another --name."
-                )
+                head = f"an estate named {self.name!r} already exists in this organisation: {self._name_taken_hint}."
             else:
                 e.hints += kept
                 raise
