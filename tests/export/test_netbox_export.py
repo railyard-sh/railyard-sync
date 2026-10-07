@@ -544,3 +544,31 @@ def test_failed_writes_are_reported_and_the_sync_carries_on():
     assert any("create cable" in e for e in result.errors)  # the power cable needs that outlet
     assert nb.all("dcim/devices", name="PDU-1") and nb.one("dcim/cables", label="L1")
     assert all(nb.token not in e for e in result.errors)
+
+
+@pytest.mark.parametrize(("version", "name"), [("4.6.0", "cabled"), ("4.4.0", "cabled-4.4")])
+def test_front_ports_swapped_in_railyard_are_remapped_in_two_steps(version, name):
+    nb = FakeNetBox(version=version)
+    assert sync(nb, document(name)).ok
+    doc = document(name)
+    for row in doc["objects"]["front-ports"]:
+        if row["device"] == "PP-1":
+            row["rear_port"] = {"1": "2", "2": "1"}[row["rear_port"]]
+    result = sync(nb, doc)
+    assert result.ok, result.errors
+    assert result.planned["update"] == {"front_port": 2}
+    rear = {r["id"]: r["name"] for r in nb.objects["dcim/rear-ports"].values()}
+    mapped = {}
+    for fp in nb.objects["dcim/front-ports"].values():
+        rear_id = fp["rear_ports"][0]["rear_port"] if fp.get("rear_ports") else fp.get("rear_port")
+        mapped[fp["name"]] = rear[rear_id]
+    assert mapped == {"1": "2", "2": "1"}
+    assert {r["positions"] for r in nb.objects["dcim/rear-ports"].values()} == {1}  # nothing left parked
+    assert sync(nb, doc).diff["update"] == 0
+
+
+def test_a_0u_device_type_is_created_0u():
+    nb = FakeNetBox()
+    assert sync(nb).ok
+    assert nb.one("dcim/device-types", model="PDU1")["u_height"] == 0
+    assert sync(nb).diff["update"] == 0

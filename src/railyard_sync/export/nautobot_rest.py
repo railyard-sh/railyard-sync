@@ -608,11 +608,14 @@ class NautobotFrontPort(_DeleteMixin, models.FrontPort):
 
         def payload():
             data = {k: attrs[k] for k in ("type", "rear_port_position") if k in attrs}
-            if "rear_port" in attrs:
-                rear = adapter.rear_port_id(self.device, attrs["rear_port"])
+            if "rear_port" in attrs or "rear_port_position" in attrs:
+                name = attrs.get("rear_port", self.rear_port)
+                rear = adapter.rear_port_id(self.device, name)
                 if rear is None:
-                    raise NautobotError(f"its rear port {attrs['rear_port']!r} is not synced")
-                data["rear_port"] = rear
+                    raise NautobotError(f"its rear port {name!r} is not synced")
+                position = attrs.get("rear_port_position", self.rear_port_position)
+                adapter.free_rear_slot(self.nb_id, rear, position)  # ports swapped in Railyard: step one
+                data.update({"rear_port": rear, "rear_port_position": position})
             return data
 
         _update(self, payload)
@@ -806,6 +809,7 @@ class NautobotRESTAdapter(OwnershipMixin, Adapter):
         self.report = OwnershipReport()
         self.counts: dict[str, Counter] = {"create": Counter(), "update": Counter(), "delete": Counter()}
         self.renames: list[tuple[str, str, str]] = []  # (old name, new name, Nautobot id)
+        self.parked: dict[str, int] = {}  # rear port id -> its positions before free_rear_slot added one
         #: (model type, unique id) -> the Nautobot object a lookup, a load or a create found.
         self._known: dict[tuple[str, str], dict] = {}
         self._names: dict[tuple[str, str], str] = {}  # (endpoint, id) -> name, for ids nested without one
@@ -916,6 +920,53 @@ class NautobotRESTAdapter(OwnershipMixin, Adapter):
             return None
         found = self.client.first(ENDPOINT["rear_port"], device=owner.nb_id, name=name)
         return found["id"] if found else None
+
+    def free_rear_slot(self, front_id: str | None, rear_id: str, position: int) -> None:
+        """Make a rear port position free for the front port ``front_id`` to map onto it (step one of two).
+
+        When two owned front ports swap rear ports in Railyard, the first update would take a position the other
+        still holds, which Nautobot refuses (one front port per rear port position, and a front port must have a
+        rear port). The holder, which this run re-maps too, is parked on an extra position of the rear port, which
+        :meth:`after_sync` removes once the holder has moved. A holder or a rear port the sync doesn't own is never
+        touched: the update fails instead."""
+        holder = next(
+            (
+                o
+                for o in self.client.list(ENDPOINT["front_port"], rear_port=rear_id)
+                if str(o.get("id")) != str(front_id) and _int(o.get("rear_port_position"), 1) == int(position)
+            ),
+            None,
+        )
+        if holder is None:
+            return
+        if not self.owns("front_port", holder):
+            raise NautobotError(
+                f"rear port position {position} is mapped to front port {holder.get('name')!r}, which this sync "
+                "doesn't own"
+            )
+        rear = self.client.get(ENDPOINT["rear_port"], rear_id) or {}
+        if not self.owns("rear_port", rear):
+            raise NautobotError(f"its rear port is held by front port {holder.get('name')!r} and isn't this sync's")
+        positions = _int(rear.get("positions"), 1)
+        self.parked.setdefault(rear_id, positions)
+        self.client.update(ENDPOINT["rear_port"], rear_id, {"positions": positions + 1})
+        self.client.update(ENDPOINT["front_port"], holder["id"], {"rear_port_position": positions + 1})
+
+    def after_sync(self) -> None:
+        """Remove the extra rear port positions :meth:`free_rear_slot` added, once nothing is parked on them."""
+        for rear_id, positions in self.parked.items():
+            try:
+                fronts = self.client.list(ENDPOINT["front_port"], rear_port=rear_id)
+                if any(_int(o.get("rear_port_position"), 1) > positions for o in fronts):
+                    self.report.warnings.append(
+                        f"rear port {rear_id} keeps an extra position: a front port moved aside to free its position "
+                        "is no longer in Railyard (allow deletes to remove it)"
+                    )
+                    continue
+                self.client.update(ENDPOINT["rear_port"], rear_id, {"positions": positions})
+            except NautobotError as exc:
+                self.report.errors.append(self.client.scrub(f"restore rear port {rear_id} positions: {exc}"))
+        self.parked.clear()
 
     def owned_termination(self, device: str, ct: str, name: str) -> dict | None:
         """A cable end on a device the sync owns (``None`` if the device or component isn't there)."""

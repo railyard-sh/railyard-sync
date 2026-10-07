@@ -290,6 +290,7 @@ def _run(source, target, result: SyncOutcome, *, allow_deletes: bool, endpoints:
     for model in deletes:  # then the rest, dependents before what they depend on
         if model.get_type() != "cable":
             model.delete()
+    target.after_sync()  # undo what the writes needed for a while (rear port positions parked on)
     result = _finish(result, target)
     log.info(
         "Wrote to %s in %.1fs: %d created, %d updated, %d deleted, %d refused",

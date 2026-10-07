@@ -148,7 +148,7 @@ FILTERS = {
     "dcim/devices": {"location", "rack", "role", "status", "device_type", "name__ie"},
     "dcim/interfaces": {"device", "parent_interface", "lag", "bridge", "status"},
     "dcim/rear-ports": {"device"},
-    "dcim/front-ports": {"device", "rear_port"},
+    "dcim/front-ports": {"device", "rear_port"},  # rear_port: an exact filter
     "dcim/power-ports": {"device"},
     "dcim/power-outlets": {"device", "power_port"},
     "dcim/device-bays": {"device"},
@@ -455,6 +455,26 @@ class FakeNautobot:
             rear = self.objects["dcim/rear-ports"].get(obj.get("rear_port"))
             if rear is None or rear["device"] != obj.get("device"):
                 raise Invalid(400, {"rear_port": ["This field is required (a rear port on the same device)."]})
+            position = int(obj.get("rear_port_position") or 1)
+            if position > int(rear.get("positions") or 1):
+                raise Invalid(400, {"rear_port_position": [f"Invalid rear port position ({position})"]})
+            for other in self.objects[endpoint].values():
+                if other["id"] != obj.get("id") and (
+                    other.get("rear_port"),
+                    int(other.get("rear_port_position") or 1),
+                ) == (
+                    obj["rear_port"],
+                    position,
+                ):
+                    raise Invalid(
+                        400, {"__all__": ["Front port with this Rear port and Rear port position already exists."]}
+                    )
+        if endpoint == "dcim/rear-ports" and obj.get("id"):
+            mapped = [int(f.get("rear_port_position") or 1) for f in self.all("dcim/front-ports", rear_port=obj["id"])]
+            if mapped and max(mapped) > int(obj.get("positions") or 1):
+                raise Invalid(
+                    400, {"positions": ["The number of positions cannot be less than the mapped front ports."]}
+                )
         if obj.get("custom_fields"):
             known = {f["key"] for f in self.objects["extras/custom-fields"].values() if ct in f["content_types"]}
             for key in obj["custom_fields"]:

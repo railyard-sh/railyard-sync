@@ -610,7 +610,9 @@ class NetBoxFrontPort(_DeleteMixin, models.FrontPort):
                 rear = adapter.rear_port_id(self.device, name)
                 if rear is None:
                     raise NetBoxError(f"its rear port {name!r} is not synced")
-                data.update(adapter.front_mapping(rear, attrs.get("rear_port_position", self.rear_port_position)))
+                position = attrs.get("rear_port_position", self.rear_port_position)
+                adapter.free_rear_slot(self.nb_id, rear, position)  # ports swapped in Railyard: step one
+                data.update(adapter.front_mapping(rear, position))
             return data
 
         _update(self, attrs, payload)
@@ -792,6 +794,8 @@ class NetBoxRESTAdapter(OwnershipMixin, Adapter):
         self.report = OwnershipReport()
         self.counts: dict[str, Counter] = {"create": Counter(), "update": Counter(), "delete": Counter()}
         self.renames: list[tuple[str, str, int]] = []  # (old name, new name, NetBox id)
+        #: rear port id -> (its positions before free_rear_slot added one, its device id)
+        self.parked: dict[int, tuple[int, int | None]] = {}
         self._cache: dict[tuple, dict] = {}
 
     # -- lookups -------------------------------------------------------------------------------
@@ -853,6 +857,65 @@ class NetBoxRESTAdapter(OwnershipMixin, Adapter):
             return None
         found = self.client.first(ENDPOINT["rear_port"], device_id=owner.nb_id, name=name)
         return found["id"] if found else None
+
+    def free_rear_slot(self, front_id: int | None, rear_id: int, position: int) -> None:
+        """Make a rear port position free for the front port ``front_id`` to map onto it (step one of two).
+
+        When two owned front ports swap rear ports in Railyard, the first update would map onto a position the
+        other still holds, which NetBox refuses (one front port per rear port position). The holder, which this
+        run re-maps too, is moved aside first: from 4.5 it is unmapped; up to 4.4, where a front port must have
+        a rear port, it is parked on an extra position of the rear port, which :meth:`after_sync` removes once
+        the holder has moved. A holder the sync doesn't own is never touched: the update fails instead."""
+        rear = self.client.get(ENDPOINT["rear_port"], rear_id) or {}
+        device_id = _ref_id(rear.get("device"))
+        found = self.client.list(ENDPOINT["front_port"], device_id=device_id) if device_id is not None else []
+        holder = next(
+            (o for o in found if o.get("id") != front_id and front_port_rear(o) == (rear_id, position)),
+            None,
+        )
+        if holder is None:
+            return
+        if self.tag_slug not in tag_slugs(holder):
+            raise NetBoxError(
+                f"rear port position {position} is mapped to front port {holder.get('name')!r}, which this sync "
+                "doesn't own"
+            )
+        if self.port_mappings:
+            mappings = holder.get("rear_ports") or holder.get("mappings") or []
+            keep = [
+                {
+                    "position": m.get("position"),
+                    "rear_port": _ref_id(m.get("rear_port")),
+                    "rear_port_position": m.get("rear_port_position"),
+                }
+                for m in mappings
+                if isinstance(m, dict)
+                and (_ref_id(m.get("rear_port")), _int(m.get("rear_port_position"), 1)) != (rear_id, position)
+            ]
+            self.client.update(ENDPOINT["front_port"], holder["id"], {"rear_ports": keep})
+            return
+        if self.tag_slug not in tag_slugs(rear):
+            raise NetBoxError(f"its rear port is held by front port {holder.get('name')!r} and isn't this sync's")
+        positions = _int(rear.get("positions"), 1)
+        self.parked.setdefault(rear_id, (positions, device_id))
+        self.client.update(ENDPOINT["rear_port"], rear_id, {"positions": positions + 1})
+        self.client.update(ENDPOINT["front_port"], holder["id"], {"rear_port_position": positions + 1})
+
+    def after_sync(self) -> None:
+        """Remove the extra rear port positions :meth:`free_rear_slot` added, once nothing is parked on them."""
+        for rear_id, (positions, device_id) in self.parked.items():
+            try:
+                fronts = self.client.list(ENDPOINT["front_port"], device_id=device_id)
+                if any(front_port_rear(o)[1] > positions for o in fronts if front_port_rear(o)[0] == rear_id):
+                    self.report.warnings.append(
+                        f"rear port {rear_id} keeps an extra position: a front port moved aside to free its position "
+                        "is no longer in Railyard (allow deletes to remove it)"
+                    )
+                    continue
+                self.client.update(ENDPOINT["rear_port"], rear_id, {"positions": positions})
+            except NetBoxError as exc:
+                self.report.errors.append(self.client.scrub(f"restore rear port {rear_id} positions: {exc}"))
+        self.parked.clear()
 
     def front_mapping(self, rear_id: int, rear_pos: int) -> dict:
         """A front port's coupling to its rear port, in the connected NetBox's API shape."""

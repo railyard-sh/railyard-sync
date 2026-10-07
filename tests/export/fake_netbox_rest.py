@@ -330,6 +330,22 @@ class FakeNetBox:
             for m in obj.get("rear_ports") or []:
                 if m.get("rear_port") not in self.objects[endpoint.replace("front", "rear")]:
                     raise Invalid(400, {"rear_ports": ["Related rear port not found"]})
+            # One front port per rear port position, which must exist on the rear port (as NetBox enforces).
+            slots = [(m.get("rear_port"), m.get("rear_port_position")) for m in obj.get("rear_ports") or []]
+            if obj.get("rear_port") is not None:
+                slots.append((obj["rear_port"], obj.get("rear_port_position", 1)))
+            rears = self.objects[endpoint.replace("front", "rear")]
+            for rear_id, position in slots:
+                if rear_id in rears and int(position or 1) > int(rears[rear_id].get("positions") or 1):
+                    raise Invalid(400, {"rear_port_position": [f"Invalid rear port position ({position})"]})
+                for other in self.objects[endpoint].values():
+                    if other["id"] == obj.get("id"):
+                        continue
+                    theirs = [(m.get("rear_port"), m.get("rear_port_position")) for m in other.get("rear_ports") or []]
+                    if other.get("rear_port") is not None:
+                        theirs.append((other["rear_port"], other.get("rear_port_position", 1)))
+                    if (rear_id, position) in theirs:
+                        raise Invalid(400, {"__all__": ["A front port is already mapped to this rear port position."]})
 
     def _create(self, endpoint: str, data: dict) -> dict:
         data["tags"] = self._tags(data.get("tags"))

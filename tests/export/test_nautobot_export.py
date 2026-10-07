@@ -555,3 +555,25 @@ def test_plain_http_warns_that_the_token_travels_in_clear():
     nb.URL = "http://nautobot.example.com"
     result = sync_to_nautobot(document(), nb.URL, nb.token, session=nb, dry_run=True)
     assert any("not https" in w for w in result.warnings)
+
+
+def test_front_ports_swapped_in_railyard_are_remapped_in_two_steps():
+    nb = FakeNautobot()
+    assert sync(nb).ok
+    doc = document()
+    for row in doc["objects"]["front-ports"]:
+        row["rear_port__name"] = {"1": "2", "2": "1"}[row["rear_port__name"]]
+    result = sync(nb, doc)
+    assert result.ok, result.errors
+    assert result.planned["update"] == {"front_port": 2}
+    rear = {r["id"]: r["name"] for r in nb.objects["dcim/rear-ports"].values()}
+    assert {f["name"]: rear[f["rear_port"]] for f in nb.objects["dcim/front-ports"].values()} == {"1": "2", "2": "1"}
+    assert {r["positions"] for r in nb.objects["dcim/rear-ports"].values()} == {1}  # nothing left parked
+    assert sync(nb, doc).diff["update"] == 0
+
+
+def test_a_0u_device_type_is_created_0u():
+    nb = FakeNautobot()
+    assert sync(nb).ok
+    assert nb.one("dcim/device-types", model="PDU1")["u_height"] == 0
+    assert sync(nb).diff["update"] == 0
