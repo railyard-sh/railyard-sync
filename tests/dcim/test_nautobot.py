@@ -436,3 +436,30 @@ def test_a_reimport_from_nautobot_merges_by_its_uuid_ids(nb):
     assert hall["name"] == "Hall One"
     again = merge(result.project, second, prefix="nbt")
     assert not again.diff.changed
+
+
+# ---- the reader seam (what an in-database reader implements) -----------------------------------------
+
+
+class InMemoryReader(nautobot.NautobotReader):
+    """Answers the reader's requests straight from the fake's data: no HTTP, no token, no pagination."""
+
+    def __init__(self, nb: FakeNautobot):
+        self.nb = nb
+        self.url = BASE
+
+    def fetch(self, path, params=None):
+        return self.nb.handle("GET", f"{BASE}{path}", {"Authorization": f"Token {self.nb.token}"}, params).json()
+
+    def fetch_all(self, path, params=None):
+        pairs = list(params or []) + [("limit", 10_000)]
+        yield from self.fetch(path, pairs)["results"]
+
+
+def test_a_reader_subclass_reads_the_same_snapshot_as_the_http_loader(snap):
+    assert InMemoryReader(FakeNautobot()).load(["LDN1"]).to_dict() == snap.to_dict()
+
+
+def test_the_reader_base_has_no_transport():
+    with pytest.raises(NotImplementedError):
+        nautobot.NautobotReader().load(["LDN1"])
