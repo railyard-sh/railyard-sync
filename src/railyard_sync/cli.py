@@ -52,7 +52,6 @@ import re
 import sys
 import time
 import traceback
-import uuid
 from datetime import UTC, datetime
 from typing import Any, TextIO
 
@@ -61,24 +60,23 @@ from .client import RailyardClient
 from .dcim.snapshot import Snapshot
 from .errors import (
     RailyardAPIError,
-    RailyardBadRequestError,
-    RailyardBusyError,
-    RailyardConflictError,
-    RailyardConnectionError,
-    RailyardNotFoundError,
     RailyardPlanError,
     RailyardPlanLimitError,
-    RailyardPreconditionError,
-    RailyardServerError,
-    RailyardTooLargeError,
 )
 from .export.netbox_rest import ENDPOINT, MIN_VERSION, NetBoxClient, NetBoxError, NetBoxVersionError, parse_version
 from .export.policy import DEFAULT_RAILYARD_URL
 from .export.run import SyncRefused, SyncResult, sync_to_netbox
-from .importer.merge import MergeDiff, merge
+from .importer.run import (
+    ImportRefused,
+    ImportRun,
+    check_failure,
+    conflicts_message,
+    import_summary,
+    new_project_id,
+    snapshot_counts,
+)
 from .log import FILE_ONLY, CLILogging, configure_cli, count, human_size, seconds
 from .plans import deliverable_plan_message, plan_limit_message, sentence, upgrade_options
-from .problems import ERROR, ProblemNamer, identity, listing, severity
 
 log = logging.getLogger(__name__)
 
@@ -94,7 +92,7 @@ class UsageError(Exception):
     """A command-line mistake: reported with exit code 2."""
 
 
-class CommandError(Exception):
+class CommandError(ImportRefused):
     """A failure with a message for the user: reported with exit code 1."""
 
 
@@ -116,7 +114,7 @@ class Progress:
             # A refusal (4xx) saved nothing; a failure (5xx, no response) may not say.
             status = getattr(error, "status", None)
             refused = isinstance(status, int) and 400 <= status < 500
-            uncertain = self.save_attempted and not refused and not isinstance(error, CommandError)
+            uncertain = self.save_attempted and not refused and not isinstance(error, ImportRefused)
             lines.append("The save did not complete (see above)." if uncertain else "Nothing was saved to Railyard.")
         return lines
 
@@ -148,10 +146,6 @@ def dcim_errors() -> tuple[type[BaseException], ...]:
     except ImportError:  # pragma: no cover - the loader ships with this package
         return ()
     return (DCIMError,)
-
-
-def new_project_id() -> str:
-    return "ry-" + uuid.uuid4().hex[:20]
 
 
 def today() -> str:
@@ -380,7 +374,7 @@ def main(argv: list[str] | None = None, *, stdout: TextIO | None = None, stderr:
         message = plan_message(e, args) + "".join(f"\n  {hint}" for hint in e.hints)
         _report_failure(err, message, args, logs, progress)
         return EXIT_PLAN
-    except (CommandError, RailyardAPIError, NetBoxError, SyncRefused, *dcim_errors()) as e:
+    except (ImportRefused, RailyardAPIError, NetBoxError, SyncRefused, *dcim_errors()) as e:
         _report_failure(err, f"error: {e}", args, logs, progress)
         return EXIT_ERROR
     except (OSError, ValueError) as e:  # unreadable/unwritable files, a malformed snapshot or sync document
@@ -435,7 +429,7 @@ def _import_netbox(args: argparse.Namespace, out: TextIO, err: TextIO, progress:
             log.warning("not verifying NetBox's TLS certificate (--insecure)")
         sites = None if args.all_sites else list(args.site)
         snapshot = load_netbox_snapshot(args.netbox_url, netbox_token, sites, verify=not args.insecure)
-    read = _snapshot_counts(snapshot)
+    read = snapshot_counts(snapshot)
     log.info("Read %s in %s", read, seconds(time.monotonic() - started))
     progress.done(f"read {_snapshot_source(snapshot, args)}: {read}")
     if args.snapshot_out:
@@ -443,74 +437,50 @@ def _import_netbox(args: argparse.Namespace, out: TextIO, err: TextIO, progress:
         print(f"Snapshot written to {args.snapshot_out}", file=out)
 
     client = _railyard_client(args, railyard_token)
-
-    existing: dict | None = None
-    revision: int | None = None
-    if args.project:
-        log.info("Fetching estate %s from Railyard…", args.project)
-        started = time.monotonic()
-        existing, revision = client.get_project_with_revision(args.project)
-        project_id, name = str(existing["id"]), str(existing.get("name") or args.project)
-        log.info(
-            "Fetched %r (%s) at revision %d: %s, in %s",
-            name,
-            project_id,
-            revision,
-            _doc_counts(existing),
-            seconds(time.monotonic() - started),
-        )
-        progress.done(f"fetched {name!r} ({project_id}) at revision {revision}")
-        _check_same_source(existing, snapshot, args)
-    else:
-        project_id, name = new_project_id(), args.name.strip()
-
-    log.info("Building the Railyard project…")
-    started = time.monotonic()
-    built = build_project(
-        snapshot, project_id=project_id, name=name, catalogue=make_catalogue(client), prefix=NETBOX_PREFIX
+    run = ImportRun(
+        client,
+        snapshot,
+        project=args.project,
+        name=None if args.project else args.name,
+        prefix=NETBOX_PREFIX,
+        allow_deletes=args.allow_deletes,
+        source_url=args.netbox_url or "",
+        requested_sites=args.site,
+        catalogue=make_catalogue(client),
+        build=build_project,
+        project_id=None if args.project else new_project_id(),
+        step=progress.done,
     )
-    imported, report = built.project, built.report
-    log.info("Built %s in %s", _doc_counts(imported), seconds(time.monotonic() - started))
-    progress.done(f"built the Railyard project: {_doc_counts(imported)}")
-    print(_import_summary(snapshot, imported, report), file=out)
+    run.fetch()
+    built = run.build()
+    print(import_summary(snapshot, built.project, built.report), file=out)
 
-    diff: MergeDiff | None = None
-    if existing is not None:
-        log.info("Merging into %r…", name)
-        started = time.monotonic()
-        result = merge(existing, imported, prefix=NETBOX_PREFIX, allow_deletes=args.allow_deletes)
-        document, diff = result.project, result.diff
-        merged = _diff_counts(diff)
-        log.info("Merged in %s: %s", seconds(time.monotonic() - started), merged)
-        progress.done(f"merged it into {name!r}: {merged}")
+    diff = run.merge()
+    if diff is not None:
         print(diff.summary(), file=out)
         if diff.stale_count and not args.allow_deletes:
             print("Objects deleted in NetBox were kept; re-run with --allow-deletes to remove them.", file=out)
-    else:
-        document = imported
+    document, name = run.document, run.name
 
     if args.out:
         _write_json(args.out, document)
         print(f"Project written to {args.out}", file=out)
 
     if args.dry_run:
-        problems = _preflight(client, document, existing, args, progress)
+        problems = run.check(validate=not args.no_validate)
         if problems:
-            print(_preflight_failure(problems, dry_run=True), file=out)
-        action = f"refresh {name!r}" if existing is not None else f"create {name!r} ({project_id})"
+            print(check_failure(problems, dry_run=True), file=out)
+        action = f"refresh {name!r}" if run.refreshing else f"create {name!r} ({run.project_id})"
         print(f"Dry run: would {action}. Nothing was saved.", file=out)
         return EXIT_ERROR if problems else EXIT_OK
-    if diff is not None and diff.conflicts:
-        raise CommandError(
-            f"{len(diff.conflicts)} conflict(s) between Railyard's design and NetBox (listed above); "
-            "resolve them in Railyard, then import again. Nothing was saved."
-        )
-    if existing is not None and _same_design(existing, document):
+    if run.conflicts:
+        raise CommandError(conflicts_message(len(run.conflicts)))
+    if run.up_to_date():
         print(f"{name!r} is already up to date with NetBox; nothing was saved.", file=out)
         return EXIT_OK
-    problems = _preflight(client, document, existing, args, progress)
+    problems = run.check(validate=not args.no_validate)
     if problems:
-        raise CommandError(_preflight_failure(problems, dry_run=False))
+        raise CommandError(check_failure(problems, dry_run=False))
 
     if args.save_document:
         _write_private_json(args.save_document, document)
@@ -519,47 +489,24 @@ def _import_netbox(args: argparse.Namespace, out: TextIO, err: TextIO, progress:
     log.info("Saving to Railyard (%s)…", human_size(size))
     started = time.monotonic()
     progress.save_attempted = True
-    new_revision = _save(client, document, revision, name, args)
+    new_revision = run.save(on_refused=lambda doc, e: _kept_document_lines(doc, args.failed_dir))
     log.info("Saved revision %d in %s", new_revision, seconds(time.monotonic() - started))
-    verb = "Refreshed" if existing is not None else "Created"
-    print(f"{verb} {name!r} ({project_id}) at revision {new_revision}.", file=out)
+    verb = "Refreshed" if run.refreshing else "Created"
+    print(f"{verb} {name!r} ({run.project_id}) at revision {new_revision}.", file=out)
     if args.name_version:
-        _name_version(client, project_id, new_revision, out)
+        _name_version(client, run.project_id, new_revision, out)
     return EXIT_OK
 
 
-def _save(client: RailyardClient, document: dict, revision: int | None, name: str, args: argparse.Namespace) -> int:
-    """PUT the document; on any refusal keep what was sent (``--failed-dir``) and say where."""
-    try:
-        return client.put_project(document, if_match=revision)
-    except RailyardAPIError as e:
-        path = keep_failed_document(document, args.failed_dir)
-        kept = (
-            [
-                f"The document that was sent is in {path} (readable only by you; it holds the estate's design, so "
-                "share it only with Railyard support)."
-            ]
-            if path
-            else []
-        )
-        if isinstance(e, RailyardPreconditionError) and e.status == 412:
-            head = (
-                f"{name!r} changed in Railyard while the import ran, so it was not overwritten. Run the import again: "
-                "it merges onto the latest revision."
-            )
-        elif isinstance(e, RailyardConflictError) and e.code == "name_taken":
-            head = (
-                f"an estate named {name!r} already exists in this organisation: refresh it with --project, or choose "
-                "another --name."
-            )
-        else:
-            e.hints += kept
-            raise
-        raise CommandError("\n  ".join([head, *kept, *_request_id_line(e)])) from None
-
-
-def _request_id_line(e: RailyardAPIError) -> list[str]:
-    return [f"Quote request id {e.request_id} when reporting this."] if e.request_id else []
+def _kept_document_lines(document: dict, directory: str | None) -> list[str]:
+    """Keep the document a refused save sent (``--failed-dir``) and say where, for the error."""
+    path = keep_failed_document(document, directory)
+    if not path:
+        return []
+    return [
+        f"The document that was sent is in {path} (readable only by you; it holds the estate's design, so share it "
+        "only with Railyard support)."
+    ]
 
 
 def keep_failed_document(document: dict, directory: str | None) -> str | None:
@@ -607,126 +554,6 @@ def _name_version(client: RailyardClient, project_id: str, revision: int, out: T
         log.warning("the import was saved, but naming the version failed: %s%s", e, hint)
         return
     print(f"Named the version {title!r}.", file=out)
-
-
-# ---- preflight ------------------------------------------------------------------------------------------
-
-#: Problems a save holds only an existing estate to (Railyard's WriteRuleProblems: a new document is not
-#: held to the rack-name rules at all), so they do not stop a create.
-NEW_DOCUMENT_EXEMPT = ("rack.name-",)
-
-
-def _preflight(
-    client: RailyardClient, document: dict, existing: dict | None, args: argparse.Namespace, progress: Progress
-) -> list[str]:
-    """Check the document with Railyard's ``/api/validate`` and return the errors that should stop the save,
-    as lines naming racks and devices ([] to go ahead). Warnings are logged, not returned.
-
-    /api/validate checks a standalone document, so what a save would accept is not held against the import:
-    for a new estate the rack-name rules (a create is not held to them); for a refresh any error the estate
-    already had (a save compares with the stored document and keeps a legacy finding), and a refusal to load
-    it at all (an older estate may hold values only a new document is refused for). A Railyard that cannot
-    check (no endpoint, too large, busy, failing) is a warning: the save itself is the authority."""
-    if args.no_validate:
-        log.info("Skipping Railyard's check of the document (--no-validate).")
-        progress.done("skipped Railyard's check (--no-validate)")
-        return []
-    log.info("Checking the document with Railyard…")
-    started = time.monotonic()
-    namer = ProblemNamer(document)
-    try:
-        result = client.validate(document)
-    except RailyardNotFoundError:
-        log.warning("this Railyard cannot check documents (no /api/validate); saving without the check.")
-        return []
-    except RailyardTooLargeError as e:
-        log.warning("the document is larger than Railyard's check accepts (%s); saving without the check.", e.message)
-        return []
-    except RailyardBadRequestError as e:
-        said = e.server_message or e.message
-        if existing is not None:
-            log.warning(
-                "Railyard's check could not load the document on its own (%s). An estate saved before Railyard's "
-                "current limits can hold values only a new document is refused for, and the save checks against the "
-                "stored estate, so carrying on.",
-                said,
-            )
-            return []
-        return [f"Railyard cannot load the document: {said}", *listing(e.problems, namer)]
-    except (RailyardBusyError, RailyardServerError, RailyardConnectionError) as e:
-        log.warning("Railyard's check failed (%s); saving without it.", e.message)
-        return []
-
-    problems = result["problems"]
-    errors = [p for p in problems if severity(p) == ERROR]
-    warnings = [p for p in problems if severity(p) != ERROR]
-    exempt: list[dict]
-    if existing is None:
-        exempt = [p for p in errors if str(p.get("code") or "").startswith(NEW_DOCUMENT_EXEMPT)]
-    elif errors:
-        known = _known_problems(client, existing)
-        exempt = [p for p in errors if identity(p) in known]
-    else:
-        exempt = []
-    errors = [p for p in errors if p not in exempt]
-    more = " (Railyard listed only the first ones)" if result.get("truncated") else ""
-    why = (
-        "a new estate is not held to these rules"
-        if existing is None
-        else "the estate already had them before this import, and Railyard keeps saving them"
-    )
-    _log_problems(f"{count(len(exempt), 'error')} that do not stop the import ({why})", exempt, namer)
-    _log_problems(f"{count(len(warnings), 'warning')}{more}; they do not stop the import", warnings, namer)
-    log.info(
-        "Railyard's check found %s and %s in %s",
-        count(len(errors), "error"),
-        count(len(warnings), "warning"),
-        seconds(time.monotonic() - started),
-    )
-    tally = f"{count(len(errors), 'error')}, {count(len(warnings), 'warning')}"
-    progress.done(
-        f"checked it with Railyard: {tally}" + (f" ({len(exempt)} more that do not stop it)" if exempt else "")
-    )
-    return listing(errors, namer) + ([more.strip(" ()").capitalize() + "."] if errors and more else [])
-
-
-def _log_problems(title: str, problems: list[dict], namer: ProblemNamer, shown: int = 10) -> None:
-    """Up to ``shown`` problems as one warning (the rest at debug level, for -v and the log file)."""
-    if not problems:
-        return
-    lines = "\n".join(f"  - {line}" for line in listing(problems, namer, limit=shown))
-    if len(problems) > shown:
-        lines += " (-v lists them all)"
-    log.warning("Railyard's check found %s:\n%s", title, lines)
-    if len(problems) > shown:
-        everything = "\n".join(f"  - {line}" for line in listing(problems, namer, limit=len(problems)))
-        log.debug("All of them:\n%s", everything)
-
-
-def _known_problems(client: RailyardClient, existing: dict) -> set[tuple[str, str, str, str]]:
-    """The findings the estate already had before this import (none when it cannot be checked)."""
-    try:
-        return {identity(p) for p in client.validate(existing)["problems"]}
-    except RailyardAPIError as e:
-        log.debug("Could not check the estate as it was: %s", e.message)
-        return set()
-
-
-def _preflight_failure(problems: list[str], *, dry_run: bool) -> str:
-    errors = len([p for p in problems if not p.startswith("…")])
-    head = (
-        f"Railyard's check found {errors} problem(s) a real import would stop for:"
-        if dry_run
-        else f"Railyard's check found {errors} problem(s) in the document, so it was not saved:"
-    )
-    return "\n  ".join(
-        [
-            head,
-            *(f"- {line}" for line in problems),
-            "Fix them in NetBox (or in Railyard, for objects designed there) and import again, or pass --no-validate "
-            "to let Railyard's save decide.",
-        ]
-    )
 
 
 def _export_netbox(args: argparse.Namespace, out: TextIO, err: TextIO, progress: Progress) -> int:
@@ -796,89 +623,7 @@ def _netbox_release(netbox: NetBoxClient) -> str | None:
     return f"{major}.{minor}"
 
 
-# ---- checks and reporting -----------------------------------------------------------------------------------
-
-
-def _sync_meta(doc: dict) -> dict:
-    meta = doc.get("meta") or {}
-    sync = meta.get("railyardSync") if isinstance(meta, dict) else None
-    return sync if isinstance(sync, dict) else {}
-
-
-def _recorded_source(doc: dict) -> tuple[str, str, list[str]]:
-    """(kind, url, site slugs) an earlier import recorded in meta.railyardSync, as far as it says."""
-    sync = _sync_meta(doc)
-    # The builder writes {"source": "netbox", "url": …, "sites": […]}; accept a nested
-    # {"source": {"kind", "url", "sites"}} too.
-    source = sync.get("source") if isinstance(sync.get("source"), dict) else sync
-    kind = source.get("kind") or (sync.get("source") if isinstance(sync.get("source"), str) else "")
-    sites = source.get("sites") or sync.get("sites") or []
-    slugs = [str(s.get("slug") or s.get("name") or "") if isinstance(s, dict) else str(s) for s in sites]
-    return str(kind or ""), str(source.get("url") or ""), [s for s in slugs if s]
-
-
-def _norm_url(url: str) -> str:
-    return url.strip().rstrip("/").lower()
-
-
-def _check_same_source(existing: dict, snapshot: Snapshot, args: argparse.Namespace) -> None:
-    """Refuse to merge another DCIM into an estate (their ids would collide), or a subset of its sites
-    (the others would all read as deleted)."""
-    kind, url, sites = _recorded_source(existing)
-    if kind and kind != snapshot.source:
-        raise CommandError(
-            f"this estate was imported from {kind}, not {snapshot.source}; it cannot be refreshed from it"
-        )
-    source_url = snapshot.source_url or args.netbox_url or ""
-    if url and source_url and _norm_url(url) != _norm_url(source_url):
-        raise CommandError(
-            f"this estate was imported from {url}, not {source_url}: ids from two NetBox instances would collide. "
-            "Import into a new estate with --name instead."
-        )
-    requested = {s.slug for s in snapshot.sites} | set(args.site)
-    missing = [s for s in sites if s not in requested]
-    if missing:
-        flags = " ".join(f"--site {s}" for s in sites)
-        raise CommandError(
-            f"this estate was imported from site(s) {', '.join(sites)}; import all of them again ({flags}) so the "
-            "objects of the others are not reported as deleted."
-        )
-
-
-def _same_design(existing: dict, document: dict) -> bool:
-    """Whether a refresh changes nothing but the import record (its time), so it need not be saved."""
-
-    def strip(doc: dict) -> dict:
-        doc = dict(doc)
-        meta = dict(doc.get("meta") or {})
-        meta.pop("railyardSync", None)
-        doc["meta"] = meta
-        return doc
-
-    return strip(existing) == strip(document)
-
-
-def _count(doc: dict) -> dict[str, int]:
-    racks = doc.get("racks") or []
-    return {
-        "racks": len(racks),
-        "devices": sum(len(r.get("placements") or []) for r in racks),
-        "cables": len(doc.get("cables") or []),
-        "power links": len(doc.get("powerLinks") or []),
-    }
-
-
-def _snapshot_counts(snapshot: Snapshot) -> str:
-    """``47 racks, 86 devices, 3,343 ports, 53 cables`` (ports: interfaces, front, rear and console ports)."""
-    ports = sum(1 for c in snapshot.components if c.kind in ("interface", "front-port", "rear-port", "console-port"))
-    return ", ".join(
-        [
-            count(len(snapshot.racks), "rack"),
-            count(len(snapshot.devices), "device"),
-            count(ports, "port"),
-            count(len(snapshot.cables), "cable"),
-        ]
-    )
+# ---- reporting -----------------------------------------------------------------------------------
 
 
 def _snapshot_source(snapshot: Snapshot, args: argparse.Namespace) -> str:
@@ -887,42 +632,6 @@ def _snapshot_source(snapshot: Snapshot, args: argparse.Namespace) -> str:
     version = f" ({snapshot.source_version})" if snapshot.source_version else ""
     origin = f"the snapshot {args.from_snapshot} of " if args.from_snapshot else ""
     return f"{origin}{source} {where}{version}, {count(len(snapshot.sites), 'site')}".replace("  ", " ")
-
-
-def _doc_counts(doc: dict) -> str:
-    return ", ".join(count(n, what[:-1], what) for what, n in _count(doc).items())
-
-
-def _diff_counts(diff: MergeDiff) -> str:
-    totals = {word: 0 for word in ("added", "updated", "stale", "removed")}
-    for kind in diff.kinds.values():
-        for word in totals:
-            totals[word] += len(getattr(kind, word))
-    text = ", ".join(f"{n:,} {word}" for word, n in totals.items())
-    return text + (f", {count(len(diff.conflicts), 'conflict')}" if diff.conflicts else "")
-
-
-def _import_summary(snapshot: Snapshot, imported: dict, report: Any) -> str:
-    sites = ", ".join(s.slug for s in snapshot.sites) or "no sites"
-    counts = ", ".join(f"{n} {what if n != 1 else what[:-1]}" for what, n in _count(imported).items())
-    source = SOURCE_NAMES.get(snapshot.source, snapshot.source)
-    lines = [f"Read {source} ({sites}): {counts}."]
-    text = _report_text(report)
-    if text:
-        lines.append(text)
-    return "\n".join(lines)
-
-
-def _report_text(report: Any) -> str:
-    """The builder's report as text: its summary_lines() (an ImportReport) or summary() when it has one."""
-    if report is None:
-        return ""
-    lines = getattr(report, "summary_lines", None)
-    if callable(lines):
-        return "\n".join(str(line) for line in lines()).strip()
-    summary = getattr(report, "summary", None)
-    text = summary() if callable(summary) else str(report)
-    return str(text).strip()
 
 
 # ---- export report ------------------------------------------------------------------------------------------
