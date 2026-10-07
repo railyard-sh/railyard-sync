@@ -19,9 +19,8 @@ from dcim.fake_netbox import BASE as NETBOX, V2_TOKEN, FakeNetBox
 from export.fake_netbox_rest import FakeNetBox as ExportNetBox
 from test_cli import ORGS, PAT, FakeRailyard
 
-from railyard_sync import cli, client as client_module
+from railyard_sync import cli, client as client_module, dcim_http
 from railyard_sync.dcim.netbox import load_netbox_snapshot
-from railyard_sync.export import netbox_rest
 from railyard_sync.export.policy import ownership_tag
 
 ARGS = ["import", "netbox", "--netbox-url", NETBOX, "--site", "ldn1", "--railyard-url", "https://railyard.sh"]
@@ -140,7 +139,7 @@ def test_import_then_export_round_trip(world, tmp_path, monkeypatch):
     served: list[dict] = []
     railyard.deliverable = railyard_deliverable(binary, tmp_path, served)
     target = ExportNetBox(version="4.5.0", token=V2_TOKEN)
-    monkeypatch.setattr(netbox_rest, "_default_session", lambda: target)
+    monkeypatch.setattr(dcim_http, "default_session", lambda: target)
     export = ["export", "netbox", "--railyard-url", "https://railyard.sh", "--org", ORGS[0]["slug"]]
     export += ["--project", project["id"], "--netbox-url", NETBOX]
 
