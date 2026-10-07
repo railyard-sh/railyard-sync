@@ -147,3 +147,26 @@ def test_unknown_deliverable_message_is_kept():
     c, _ = client(Response(404, {"error": 'unknown deliverable "netbox-sync"; known: [cable-schedule]'}))
     with pytest.raises(RailyardNotFoundError, match="unknown deliverable"):
         c.netbox_sync_document("prj1")
+
+
+def test_the_nautobot_sync_document_is_its_own_deliverable_without_options():
+    doc = {"format": "railyard-nautobot-sync", "version": 1}
+    c, session = client(Response(200, doc), org="acme")
+    assert c.nautobot_sync_document("prj1", change_request_id="cr_2") == doc
+    call = session.calls[-1]
+    assert call["url"] == "https://railyard.sh/api/projects/prj1/deliverables/nautobot-sync"
+    assert call["json"] == {"changeRequestId": "cr_2"}
+
+
+def test_a_nautobot_sync_document_that_is_not_an_object_is_an_error():
+    c, _ = client(Response(200, ["not", "a", "document"]))
+    with pytest.raises(RailyardAPIError, match="Nautobot sync document that is not a JSON object"):
+        c.nautobot_sync_document("prj1")
+
+
+def test_the_nautobot_deliverable_is_refused_like_any_other():
+    body = {"error": "deliverables need a paid plan", "code": "plan_required", "deliverable": "nautobot-sync"}
+    c, _ = client(Response(402, body | {"requiredPlans": ["pro"], "projectPass": True, "plan": "community"}))
+    with pytest.raises(RailyardPlanRequiredError) as exc:
+        c.nautobot_sync_document("prj1")
+    assert exc.value.deliverable == "nautobot-sync" and exc.value.required_plans == ["pro"]

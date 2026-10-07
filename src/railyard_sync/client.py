@@ -62,6 +62,7 @@ log = logging.getLogger(__name__)
 
 TOKEN_PREFIX = "ry_"
 NETBOX_SYNC = "netbox-sync"  # the deliverable kind of the NetBox sync document
+NAUTOBOT_SYNC = "nautobot-sync"  # and of the Nautobot sync document
 
 
 class _Response(Protocol):  # the subset of requests.Response we rely on
@@ -570,6 +571,17 @@ class RailyardClient:
         )
         if not isinstance(doc, dict):
             raise RailyardAPIError("Railyard returned a NetBox sync document that is not a JSON object.")
+        return doc
+
+    def nautobot_sync_document(
+        self, project_ref: str, *, change_request_id: str | None = None, org_id: str | None = None
+    ) -> dict:
+        """The project's Nautobot sync document (``POST …/deliverables/nautobot-sync``), the source of
+        :func:`railyard_sync.export.run.sync_to_nautobot`: the rows of Railyard's Nautobot 2.x bundle. A paid
+        deliverable on hosted Railyard, refused like :meth:`deliverable_json`."""
+        doc = self.deliverable_json(project_ref, NAUTOBOT_SYNC, change_request_id=change_request_id, org_id=org_id)
+        if not isinstance(doc, dict):
+            raise RailyardAPIError("Railyard returned a Nautobot sync document that is not a JSON object.")
         return doc
 
     def get_json(self, path: str, params: dict | None = None) -> Any:
