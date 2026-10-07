@@ -556,7 +556,7 @@ def sync_to_nautobot(
     elif missing := sorted(set(nautobot_rest.TAG_CONTENT_TYPES) - set(nautobot_rest.content_types(tag))):
         warnings.append(f"The ownership tag isn't enabled for {', '.join(missing)}; a real run enables it.")
 
-    custom_field = _ensure_nautobot_field(
+    custom_field, _ = _ensure_nautobot_field(
         client,
         nautobot_rest.CUSTOM_FIELD,
         "Railyard ID",
@@ -569,7 +569,7 @@ def sync_to_nautobot(
     if not custom_field:
         for device in source.get_all("device"):
             device.railyard_id = ""
-    owner_field = _ensure_nautobot_field(
+    owner_field, owner_types = _ensure_nautobot_field(
         client,
         nautobot_rest.OWNER_FIELD,
         "Railyard owner",
@@ -589,6 +589,7 @@ def sync_to_nautobot(
         user_tags=user_tags,
         custom_field=custom_field,
         owner_field=owner_field,
+        owner_types=owner_types,
         name="nautobot",
     )
     result = NautobotSyncResult(
@@ -667,27 +668,29 @@ def _ensure_nautobot_field(
     dry_run: bool,
     warnings: list[str],
     without: str,
-) -> bool:
-    """Whether a text custom field ``key`` is available on the ``wanted`` content types. A real run creates or
-    enables it when it may; otherwise ``without`` says what the sync does without it. A dry run never writes: it
-    reports what a real run would do and plans as if the field existed."""
+) -> tuple[bool, set[str]]:
+    """Whether a text custom field ``key`` is available on the ``wanted`` content types, and the content types it is
+    enabled for in Nautobot now (Nautobot filters by a custom field only on those; asking another is a 400).
+
+    A real run creates or enables the field when it may; otherwise ``without`` says what the sync does without it.
+    A dry run never writes: it reports what a real run would do and plans as if the field were available."""
     try:
         found = [f for f in client.list("extras/custom-fields") if (f.get("key") or f.get("name")) == key]
     except NautobotError as exc:
         warnings.append(client.scrub(f"Could not read the {key!r} custom field ({exc}): {without}."))
-        return False
+        return False, set()
     if found:
         field_ = found[0]
         have = nautobot_rest.content_types(field_)
         missing = sorted(set(wanted) - set(have))
         if not missing:
-            return True
+            return True, set(have)
         if dry_run:
             warnings.append(f"The {key!r} custom field isn't enabled for {', '.join(missing)}; a real run enables it.")
-            return True
+            return True, set(have)
         try:
             client.update("extras/custom-fields", field_["id"], {"content_types": sorted(set(have) | set(wanted))})
-            return True
+            return True, set(have) | set(wanted)
         except NautobotError as exc:
             warnings.append(
                 client.scrub(
@@ -695,10 +698,10 @@ def _ensure_nautobot_field(
                     f"({exc}): {without}."
                 )
             )
-            return False
+            return False, set(have)
     if dry_run:
         warnings.append(f"The {key!r} custom field doesn't exist yet; a real run creates it if allowed.")
-        return True
+        return True, set()
     data = {
         "key": key,
         "label": label,
@@ -709,7 +712,7 @@ def _ensure_nautobot_field(
     }
     try:
         client.create("extras/custom-fields", data)
-        return True
+        return True, set(wanted)
     except NautobotError as exc:
         why = "the token may not create custom fields" if isinstance(exc, NautobotPermissionError) else str(exc)
         warnings.append(
@@ -718,7 +721,7 @@ def _ensure_nautobot_field(
                 f"administrator to create it (text, on {', '.join(wanted)})."
             )
         )
-        return False
+        return False, set()
 
 
 def _ensure_nautobot_user_tags(

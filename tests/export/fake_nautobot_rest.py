@@ -342,8 +342,10 @@ class FakeNautobot:
         allowed = {"name", "id", "depth", "limit", "offset"} | FILTERS.get(endpoint, set())
         if endpoint in TAGGABLE:
             allowed.add("tags")
+        ct = CONTENT_TYPE.get(endpoint)
+        fields = {f["key"] for f in self.objects["extras/custom-fields"].values() if ct in f["content_types"]}
         for key, value in params:
-            if key not in allowed and not key.startswith("cf_"):
+            if key not in allowed and not (key.startswith("cf_") and key[3:] in fields):
                 raise Invalid(400, {key: ["Unknown filter field"]})
             if key == "limit":
                 limit = int(value)

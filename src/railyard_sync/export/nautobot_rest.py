@@ -788,6 +788,7 @@ class NautobotRESTAdapter(Adapter):
         user_tags: dict[str, str] | None = None,
         custom_field: bool = True,
         owner_field: bool = True,
+        owner_types: Iterable[str] | None = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -797,7 +798,10 @@ class NautobotRESTAdapter(Adapter):
         self.tag_slug = tag_slug  # the owner custom field's value on untagged models
         self.user_tags = dict(user_tags or {})  # user tag name -> Nautobot id
         self.custom_field = custom_field  # the railyard_id custom field exists on devices
-        self.owner_field = owner_field  # the railyard_owner custom field exists on the untagged models
+        self.owner_field = owner_field  # new untagged objects are marked with the railyard_owner custom field
+        #: The content types the owner field is enabled for in Nautobot now: only those can hold owned objects
+        #: (and be filtered by it). All of them unless told otherwise.
+        self.owner_types = set(OWNER_CONTENT_TYPES if owner_types is None else owner_types)
         self.source: Adapter | None = None
         self.report = OwnershipReport()
         self.counts: dict[str, Counter] = {"create": Counter(), "update": Counter(), "delete": Counter()}
@@ -941,8 +945,8 @@ class NautobotRESTAdapter(Adapter):
     def _owned(self, model_type: str, **extra) -> list[dict]:
         endpoint = ENDPOINT[model_type]
         if model_type in models.UNTAGGED:
-            if not self.owner_field:
-                return []
+            if not self.owner_field or CONTENT_TYPE[model_type] not in self.owner_types:
+                return []  # the field isn't on this model (yet): nothing of this type can be owned
             found = self.client.list(endpoint, depth=1, **{f"cf_{OWNER_FIELD}": self.tag_slug}, **extra)
         else:
             found = self.client.list(endpoint, tags=self.tag_id, depth=1, **extra)
