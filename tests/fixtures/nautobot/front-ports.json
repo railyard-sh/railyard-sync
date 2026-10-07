@@ -1,0 +1,78 @@
+[
+ {
+  "id": "fc813145-e15f-4baf-b227-c0f7bbe45548",
+  "object_type": "dcim.frontport",
+  "display": "F1",
+  "url": "https://nautobot.example.com/api/dcim/front-ports/fc813145-e15f-4baf-b227-c0f7bbe45548/",
+  "natural_slug": "ldn1-pp1__data-hall-1_building-a_ldn1_united-kingdom_europe__f1_ldn1-pp1__data-hall-1_building-a_ldn1_united-kingdom_europe__r1_1_fc81",
+  "cable_peer_type": "dcim.interface",
+  "cable_peer": {
+   "id": "24e260a7-147a-43dd-be22-42a4c792632e",
+   "object_type": "dcim.interface",
+   "url": "https://nautobot.example.com/api/dcim/interfaces/24e260a7-147a-43dd-be22-42a4c792632e/"
+  },
+  "type": {
+   "value": "lc",
+   "label": "LC"
+  },
+  "name": "F1",
+  "label": "",
+  "description": "",
+  "rear_port_position": 1,
+  "device": {
+   "id": "306c987d-505f-4745-baa7-2185f299d68e",
+   "object_type": "dcim.device",
+   "url": "https://nautobot.example.com/api/dcim/devices/306c987d-505f-4745-baa7-2185f299d68e/"
+  },
+  "module": null,
+  "cable": {
+   "id": "1cbff52a-3c44-417b-b4bc-a01ba9173c24",
+   "object_type": "dcim.frontport",
+   "url": "https://nautobot.example.com/api/dcim/cables/1cbff52a-3c44-417b-b4bc-a01ba9173c24/"
+  },
+  "rear_port": {
+   "id": "55f79b60-671a-4960-8800-2e7d597affb6",
+   "object_type": "dcim.rearport",
+   "url": "https://nautobot.example.com/api/dcim/rear-ports/55f79b60-671a-4960-8800-2e7d597affb6/"
+  },
+  "created": "2026-10-07T11:50:06.161290Z",
+  "last_updated": "2026-10-07T11:50:06.344563Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/front-ports/fc813145-e15f-4baf-b227-c0f7bbe45548/notes/",
+  "custom_fields": {},
+  "tags": []
+ },
+ {
+  "id": "8bfdb00c-9e6a-48ff-b970-a225d56a2253",
+  "object_type": "dcim.frontport",
+  "display": "F2",
+  "url": "https://nautobot.example.com/api/dcim/front-ports/8bfdb00c-9e6a-48ff-b970-a225d56a2253/",
+  "natural_slug": "ldn1-pp1__data-hall-1_building-a_ldn1_united-kingdom_europe__f2_ldn1-pp1__data-hall-1_building-a_ldn1_united-kingdom_europe__r2_1_8bfd",
+  "cable_peer_type": null,
+  "cable_peer": null,
+  "type": {
+   "value": "lc",
+   "label": "LC"
+  },
+  "name": "F2",
+  "label": "",
+  "description": "",
+  "rear_port_position": 1,
+  "device": {
+   "id": "306c987d-505f-4745-baa7-2185f299d68e",
+   "object_type": "dcim.device",
+   "url": "https://nautobot.example.com/api/dcim/devices/306c987d-505f-4745-baa7-2185f299d68e/"
+  },
+  "module": null,
+  "cable": null,
+  "rear_port": {
+   "id": "b03c51ec-3e44-45fb-b61a-d63d1654c6cb",
+   "object_type": "dcim.rearport",
+   "url": "https://nautobot.example.com/api/dcim/rear-ports/b03c51ec-3e44-45fb-b61a-d63d1654c6cb/"
+  },
+  "created": "2026-10-07T11:50:06.161320Z",
+  "last_updated": "2026-10-07T11:50:06.161321Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/front-ports/8bfdb00c-9e6a-48ff-b970-a225d56a2253/notes/",
+  "custom_fields": {},
+  "tags": []
+ }
+]

@@ -8,7 +8,7 @@ from.
 
 Conventions:
 
-- ``id`` is the source object's primary key as a string (NetBox and Nautobot use ints and UUIDs).
+- ``id`` is the source object's primary key as a string (NetBox uses ints, Nautobot UUIDs).
   Railyard identities are derived from it, so a re-import finds the same objects again.
 - Lengths are millimetres, masses kilograms, power watts, regardless of the source's units.
 - ``status``, ``type`` and similar enumerations keep the source's slug (``active``, ``cat6a``,
@@ -26,14 +26,20 @@ ComponentKind = Literal["interface", "front-port", "rear-port", "power-port", "p
 
 @dataclass
 class Region:
+    """A grouping above the site: a NetBox region, or a Nautobot location above the imported one."""
+
     id: str
     name: str
     slug: str
     parent_id: str | None = None
+    location_type: str = ""  # Nautobot's location type name; NetBox has none ("Region")
 
 
 @dataclass
 class Site:
+    """What one import is built around: a NetBox site, or the Nautobot location chosen for the import (Nautobot
+    has no sites; the locations below it are the snapshot's :class:`Location` objects)."""
+
     id: str
     name: str
     slug: str
@@ -43,6 +49,7 @@ class Site:
     description: str = ""
     comments: str = ""
     tags: list[str] = field(default_factory=list)
+    location_type: str = ""  # Nautobot's location type name; NetBox has none ("Site")
 
 
 @dataclass

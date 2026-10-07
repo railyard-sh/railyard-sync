@@ -1,0 +1,478 @@
+[
+ {
+  "id": "24e260a7-147a-43dd-be22-42a4c792632e",
+  "object_type": "dcim.interface",
+  "display": "Ethernet1",
+  "url": "https://nautobot.example.com/api/dcim/interfaces/24e260a7-147a-43dd-be22-42a4c792632e/",
+  "cable_peer_type": "dcim.frontport",
+  "cable_peer": {
+   "id": "fc813145-e15f-4baf-b227-c0f7bbe45548",
+   "object_type": "dcim.frontport",
+   "url": "https://nautobot.example.com/api/dcim/front-ports/fc813145-e15f-4baf-b227-c0f7bbe45548/"
+  },
+  "natural_slug": "ldn1-leaf1_acme-ltd_data-hall-1_building-a_ldn1_united-kingdom_europe__ethernet1_24e2",
+  "connected_endpoint_type": "dcim.interface",
+  "connected_endpoint": {
+   "id": "af51bcfa-5a99-44fc-91f6-3fbebbfbe312",
+   "object_type": "dcim.interface",
+   "url": "https://nautobot.example.com/api/dcim/interfaces/af51bcfa-5a99-44fc-91f6-3fbebbfbe312/"
+  },
+  "connected_endpoint_reachable": false,
+  "type": {
+   "value": "25gbase-x-sfp28",
+   "label": "SFP28 (25GE)"
+  },
+  "mode": null,
+  "mac_address": null,
+  "ip_address_count": 0,
+  "speed": null,
+  "duplex": null,
+  "name": "Ethernet1",
+  "label": "",
+  "description": "",
+  "enabled": true,
+  "mtu": null,
+  "mgmt_only": false,
+  "device": {
+   "id": "01a2e50c-0514-4b74-9cfd-e74fae1deadf",
+   "object_type": "dcim.device",
+   "url": "https://nautobot.example.com/api/dcim/devices/01a2e50c-0514-4b74-9cfd-e74fae1deadf/"
+  },
+  "module": null,
+  "cable": {
+   "id": "1cbff52a-3c44-417b-b4bc-a01ba9173c24",
+   "object_type": "dcim.interface",
+   "url": "https://nautobot.example.com/api/dcim/cables/1cbff52a-3c44-417b-b4bc-a01ba9173c24/"
+  },
+  "status": {
+   "id": "483d2847-2f69-466c-a508-87438375ee48",
+   "object_type": "extras.status",
+   "url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/"
+  },
+  "role": null,
+  "parent_interface": null,
+  "bridge": null,
+  "lag": null,
+  "untagged_vlan": null,
+  "vrf": null,
+  "tagged_vlans": [],
+  "ip_addresses": [],
+  "created": "2026-10-07T11:50:06.079883Z",
+  "last_updated": "2026-10-07T11:50:06.343373Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/interfaces/24e260a7-147a-43dd-be22-42a4c792632e/notes/",
+  "custom_fields": {},
+  "tags": []
+ },
+ {
+  "id": "fb1a8c49-84ea-42cc-a3c7-2b8730743bb2",
+  "object_type": "dcim.interface",
+  "display": "Ethernet2",
+  "url": "https://nautobot.example.com/api/dcim/interfaces/fb1a8c49-84ea-42cc-a3c7-2b8730743bb2/",
+  "cable_peer_type": "dcim.interface",
+  "cable_peer": {
+   "id": "b05a1416-9b0a-4ab6-8e7c-f5fce3b867b4",
+   "object_type": "dcim.interface",
+   "url": "https://nautobot.example.com/api/dcim/interfaces/b05a1416-9b0a-4ab6-8e7c-f5fce3b867b4/"
+  },
+  "natural_slug": "ldn1-leaf1_acme-ltd_data-hall-1_building-a_ldn1_united-kingdom_europe__ethernet2_fb1a",
+  "connected_endpoint_type": "dcim.interface",
+  "connected_endpoint": {
+   "id": "b05a1416-9b0a-4ab6-8e7c-f5fce3b867b4",
+   "object_type": "dcim.interface",
+   "url": "https://nautobot.example.com/api/dcim/interfaces/b05a1416-9b0a-4ab6-8e7c-f5fce3b867b4/"
+  },
+  "connected_endpoint_reachable": true,
+  "type": {
+   "value": "25gbase-x-sfp28",
+   "label": "SFP28 (25GE)"
+  },
+  "mode": null,
+  "mac_address": null,
+  "ip_address_count": 0,
+  "speed": null,
+  "duplex": null,
+  "name": "Ethernet2",
+  "label": "",
+  "description": "",
+  "enabled": true,
+  "mtu": null,
+  "mgmt_only": false,
+  "device": {
+   "id": "01a2e50c-0514-4b74-9cfd-e74fae1deadf",
+   "object_type": "dcim.device",
+   "url": "https://nautobot.example.com/api/dcim/devices/01a2e50c-0514-4b74-9cfd-e74fae1deadf/"
+  },
+  "module": null,
+  "cable": {
+   "id": "5012d5dd-a5e3-47f6-9fd2-d29a9bc7e226",
+   "object_type": "dcim.interface",
+   "url": "https://nautobot.example.com/api/dcim/cables/5012d5dd-a5e3-47f6-9fd2-d29a9bc7e226/"
+  },
+  "status": {
+   "id": "483d2847-2f69-466c-a508-87438375ee48",
+   "object_type": "extras.status",
+   "url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/"
+  },
+  "role": null,
+  "parent_interface": null,
+  "bridge": null,
+  "lag": null,
+  "untagged_vlan": null,
+  "vrf": null,
+  "tagged_vlans": [],
+  "ip_addresses": [],
+  "created": "2026-10-07T11:50:06.079930Z",
+  "last_updated": "2026-10-07T11:50:06.399507Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/interfaces/fb1a8c49-84ea-42cc-a3c7-2b8730743bb2/notes/",
+  "custom_fields": {},
+  "tags": []
+ },
+ {
+  "id": "7779c670-923e-48af-8163-704e9b544155",
+  "object_type": "dcim.interface",
+  "display": "Management1",
+  "url": "https://nautobot.example.com/api/dcim/interfaces/7779c670-923e-48af-8163-704e9b544155/",
+  "cable_peer_type": "circuits.circuittermination",
+  "cable_peer": {
+   "id": "6f58e90c-00b6-4b7c-9659-df2f64d46a4b",
+   "object_type": "circuits.circuittermination",
+   "url": "https://nautobot.example.com/api/circuits/circuit-terminations/6f58e90c-00b6-4b7c-9659-df2f64d46a4b/"
+  },
+  "natural_slug": "ldn1-leaf1_acme-ltd_data-hall-1_building-a_ldn1_united-kingdom_europe__management1_7779",
+  "connected_endpoint_type": "circuits.circuittermination",
+  "connected_endpoint": {
+   "id": "6f58e90c-00b6-4b7c-9659-df2f64d46a4b",
+   "object_type": "circuits.circuittermination",
+   "url": "https://nautobot.example.com/api/circuits/circuit-terminations/6f58e90c-00b6-4b7c-9659-df2f64d46a4b/"
+  },
+  "connected_endpoint_reachable": true,
+  "type": {
+   "value": "1000base-t",
+   "label": "1000BASE-T (1GE)"
+  },
+  "mode": null,
+  "mac_address": null,
+  "ip_address_count": 0,
+  "speed": null,
+  "duplex": null,
+  "name": "Management1",
+  "label": "",
+  "description": "",
+  "enabled": true,
+  "mtu": null,
+  "mgmt_only": true,
+  "device": {
+   "id": "01a2e50c-0514-4b74-9cfd-e74fae1deadf",
+   "object_type": "dcim.device",
+   "url": "https://nautobot.example.com/api/dcim/devices/01a2e50c-0514-4b74-9cfd-e74fae1deadf/"
+  },
+  "module": null,
+  "cable": {
+   "id": "7f25c67f-77c5-4d3b-8ed0-e14498d3d93d",
+   "object_type": "dcim.interface",
+   "url": "https://nautobot.example.com/api/dcim/cables/7f25c67f-77c5-4d3b-8ed0-e14498d3d93d/"
+  },
+  "status": {
+   "id": "483d2847-2f69-466c-a508-87438375ee48",
+   "object_type": "extras.status",
+   "url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/"
+  },
+  "role": null,
+  "parent_interface": null,
+  "bridge": null,
+  "lag": null,
+  "untagged_vlan": null,
+  "vrf": null,
+  "tagged_vlans": [],
+  "ip_addresses": [],
+  "created": "2026-10-07T11:50:06.079948Z",
+  "last_updated": "2026-10-07T11:50:06.435718Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/interfaces/7779c670-923e-48af-8163-704e9b544155/notes/",
+  "custom_fields": {},
+  "tags": []
+ },
+ {
+  "id": "a72bc5a6-6e51-461e-b15d-82a3f98f6092",
+  "object_type": "dcim.interface",
+  "display": "eno1",
+  "url": "https://nautobot.example.com/api/dcim/interfaces/a72bc5a6-6e51-461e-b15d-82a3f98f6092/",
+  "cable_peer_type": null,
+  "cable_peer": null,
+  "natural_slug": "ldn1-oob__building-a_ldn1_united-kingdom_europe___eno1_a72b",
+  "connected_endpoint_type": null,
+  "connected_endpoint": null,
+  "connected_endpoint_reachable": null,
+  "type": {
+   "value": "10gbase-x-sfpp",
+   "label": "SFP+ (10GE)"
+  },
+  "mode": null,
+  "mac_address": null,
+  "ip_address_count": 0,
+  "speed": null,
+  "duplex": null,
+  "name": "eno1",
+  "label": "",
+  "description": "",
+  "enabled": true,
+  "mtu": null,
+  "mgmt_only": false,
+  "device": {
+   "id": "66338b7d-0d06-4e2a-a93d-c73ccd3cd16b",
+   "object_type": "dcim.device",
+   "url": "https://nautobot.example.com/api/dcim/devices/66338b7d-0d06-4e2a-a93d-c73ccd3cd16b/"
+  },
+  "module": null,
+  "cable": null,
+  "status": {
+   "id": "483d2847-2f69-466c-a508-87438375ee48",
+   "object_type": "extras.status",
+   "url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/"
+  },
+  "role": null,
+  "parent_interface": null,
+  "bridge": null,
+  "lag": null,
+  "untagged_vlan": null,
+  "vrf": null,
+  "tagged_vlans": [],
+  "ip_addresses": [],
+  "created": "2026-10-07T11:50:06.201379Z",
+  "last_updated": "2026-10-07T11:50:06.201385Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/interfaces/a72bc5a6-6e51-461e-b15d-82a3f98f6092/notes/",
+  "custom_fields": {},
+  "tags": []
+ },
+ {
+  "id": "af51bcfa-5a99-44fc-91f6-3fbebbfbe312",
+  "object_type": "dcim.interface",
+  "display": "eno1",
+  "url": "https://nautobot.example.com/api/dcim/interfaces/af51bcfa-5a99-44fc-91f6-3fbebbfbe312/",
+  "cable_peer_type": "dcim.rearport",
+  "cable_peer": {
+   "id": "55f79b60-671a-4960-8800-2e7d597affb6",
+   "object_type": "dcim.rearport",
+   "url": "https://nautobot.example.com/api/dcim/rear-ports/55f79b60-671a-4960-8800-2e7d597affb6/"
+  },
+  "natural_slug": "ldn1-srv1__data-hall-1_building-a_ldn1_united-kingdom_europe__eno1_af51",
+  "connected_endpoint_type": "dcim.interface",
+  "connected_endpoint": {
+   "id": "24e260a7-147a-43dd-be22-42a4c792632e",
+   "object_type": "dcim.interface",
+   "url": "https://nautobot.example.com/api/dcim/interfaces/24e260a7-147a-43dd-be22-42a4c792632e/"
+  },
+  "connected_endpoint_reachable": false,
+  "type": {
+   "value": "10gbase-x-sfpp",
+   "label": "SFP+ (10GE)"
+  },
+  "mode": null,
+  "mac_address": null,
+  "ip_address_count": 0,
+  "speed": null,
+  "duplex": null,
+  "name": "eno1",
+  "label": "",
+  "description": "",
+  "enabled": true,
+  "mtu": null,
+  "mgmt_only": false,
+  "device": {
+   "id": "9d535856-414f-4166-a6ee-1a12cb521e0a",
+   "object_type": "dcim.device",
+   "url": "https://nautobot.example.com/api/dcim/devices/9d535856-414f-4166-a6ee-1a12cb521e0a/"
+  },
+  "module": null,
+  "cable": {
+   "id": "c113feba-b245-4d1d-aa44-38ea4627e210",
+   "object_type": "dcim.interface",
+   "url": "https://nautobot.example.com/api/dcim/cables/c113feba-b245-4d1d-aa44-38ea4627e210/"
+  },
+  "status": {
+   "id": "483d2847-2f69-466c-a508-87438375ee48",
+   "object_type": "extras.status",
+   "url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/"
+  },
+  "role": null,
+  "parent_interface": null,
+  "bridge": null,
+  "lag": null,
+  "untagged_vlan": null,
+  "vrf": null,
+  "tagged_vlans": [],
+  "ip_addresses": [],
+  "created": "2026-10-07T11:50:06.116138Z",
+  "last_updated": "2026-10-07T11:50:06.374932Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/interfaces/af51bcfa-5a99-44fc-91f6-3fbebbfbe312/notes/",
+  "custom_fields": {},
+  "tags": []
+ },
+ {
+  "id": "b05a1416-9b0a-4ab6-8e7c-f5fce3b867b4",
+  "object_type": "dcim.interface",
+  "display": "Ethernet1",
+  "url": "https://nautobot.example.com/api/dcim/interfaces/b05a1416-9b0a-4ab6-8e7c-f5fce3b867b4/",
+  "cable_peer_type": "dcim.interface",
+  "cable_peer": {
+   "id": "fb1a8c49-84ea-42cc-a3c7-2b8730743bb2",
+   "object_type": "dcim.interface",
+   "url": "https://nautobot.example.com/api/dcim/interfaces/fb1a8c49-84ea-42cc-a3c7-2b8730743bb2/"
+  },
+  "natural_slug": "man1-leaf1__man1_united-kingdom_europe____ethernet1_b05a",
+  "connected_endpoint_type": "dcim.interface",
+  "connected_endpoint": {
+   "id": "fb1a8c49-84ea-42cc-a3c7-2b8730743bb2",
+   "object_type": "dcim.interface",
+   "url": "https://nautobot.example.com/api/dcim/interfaces/fb1a8c49-84ea-42cc-a3c7-2b8730743bb2/"
+  },
+  "connected_endpoint_reachable": true,
+  "type": {
+   "value": "25gbase-x-sfp28",
+   "label": "SFP28 (25GE)"
+  },
+  "mode": null,
+  "mac_address": null,
+  "ip_address_count": 0,
+  "speed": null,
+  "duplex": null,
+  "name": "Ethernet1",
+  "label": "",
+  "description": "",
+  "enabled": true,
+  "mtu": null,
+  "mgmt_only": false,
+  "device": {
+   "id": "65690846-f3f7-406b-88e9-53a1742ad827",
+   "object_type": "dcim.device",
+   "url": "https://nautobot.example.com/api/dcim/devices/65690846-f3f7-406b-88e9-53a1742ad827/"
+  },
+  "module": null,
+  "cable": {
+   "id": "5012d5dd-a5e3-47f6-9fd2-d29a9bc7e226",
+   "object_type": "dcim.interface",
+   "url": "https://nautobot.example.com/api/dcim/cables/5012d5dd-a5e3-47f6-9fd2-d29a9bc7e226/"
+  },
+  "status": {
+   "id": "483d2847-2f69-466c-a508-87438375ee48",
+   "object_type": "extras.status",
+   "url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/"
+  },
+  "role": null,
+  "parent_interface": null,
+  "bridge": null,
+  "lag": null,
+  "untagged_vlan": null,
+  "vrf": null,
+  "tagged_vlans": [],
+  "ip_addresses": [],
+  "created": "2026-10-07T11:50:06.222344Z",
+  "last_updated": "2026-10-07T11:50:06.405902Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/interfaces/b05a1416-9b0a-4ab6-8e7c-f5fce3b867b4/notes/",
+  "custom_fields": {},
+  "tags": []
+ },
+ {
+  "id": "0de771bc-29c3-4c25-80e0-8bd8f556abdd",
+  "object_type": "dcim.interface",
+  "display": "Ethernet2",
+  "url": "https://nautobot.example.com/api/dcim/interfaces/0de771bc-29c3-4c25-80e0-8bd8f556abdd/",
+  "cable_peer_type": null,
+  "cable_peer": null,
+  "natural_slug": "man1-leaf1__man1_united-kingdom_europe____ethernet2_0de7",
+  "connected_endpoint_type": null,
+  "connected_endpoint": null,
+  "connected_endpoint_reachable": null,
+  "type": {
+   "value": "25gbase-x-sfp28",
+   "label": "SFP28 (25GE)"
+  },
+  "mode": null,
+  "mac_address": null,
+  "ip_address_count": 0,
+  "speed": null,
+  "duplex": null,
+  "name": "Ethernet2",
+  "label": "",
+  "description": "",
+  "enabled": true,
+  "mtu": null,
+  "mgmt_only": false,
+  "device": {
+   "id": "65690846-f3f7-406b-88e9-53a1742ad827",
+   "object_type": "dcim.device",
+   "url": "https://nautobot.example.com/api/dcim/devices/65690846-f3f7-406b-88e9-53a1742ad827/"
+  },
+  "module": null,
+  "cable": null,
+  "status": {
+   "id": "483d2847-2f69-466c-a508-87438375ee48",
+   "object_type": "extras.status",
+   "url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/"
+  },
+  "role": null,
+  "parent_interface": null,
+  "bridge": null,
+  "lag": null,
+  "untagged_vlan": null,
+  "vrf": null,
+  "tagged_vlans": [],
+  "ip_addresses": [],
+  "created": "2026-10-07T11:50:06.222386Z",
+  "last_updated": "2026-10-07T11:50:06.222388Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/interfaces/0de771bc-29c3-4c25-80e0-8bd8f556abdd/notes/",
+  "custom_fields": {},
+  "tags": []
+ },
+ {
+  "id": "73014671-8b73-4fcd-bb07-baf44b49eb6e",
+  "object_type": "dcim.interface",
+  "display": "Management1",
+  "url": "https://nautobot.example.com/api/dcim/interfaces/73014671-8b73-4fcd-bb07-baf44b49eb6e/",
+  "cable_peer_type": null,
+  "cable_peer": null,
+  "natural_slug": "man1-leaf1__man1_united-kingdom_europe____management1_7301",
+  "connected_endpoint_type": null,
+  "connected_endpoint": null,
+  "connected_endpoint_reachable": null,
+  "type": {
+   "value": "1000base-t",
+   "label": "1000BASE-T (1GE)"
+  },
+  "mode": null,
+  "mac_address": null,
+  "ip_address_count": 0,
+  "speed": null,
+  "duplex": null,
+  "name": "Management1",
+  "label": "",
+  "description": "",
+  "enabled": true,
+  "mtu": null,
+  "mgmt_only": true,
+  "device": {
+   "id": "65690846-f3f7-406b-88e9-53a1742ad827",
+   "object_type": "dcim.device",
+   "url": "https://nautobot.example.com/api/dcim/devices/65690846-f3f7-406b-88e9-53a1742ad827/"
+  },
+  "module": null,
+  "cable": null,
+  "status": {
+   "id": "483d2847-2f69-466c-a508-87438375ee48",
+   "object_type": "extras.status",
+   "url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/"
+  },
+  "role": null,
+  "parent_interface": null,
+  "bridge": null,
+  "lag": null,
+  "untagged_vlan": null,
+  "vrf": null,
+  "tagged_vlans": [],
+  "ip_addresses": [],
+  "created": "2026-10-07T11:50:06.222403Z",
+  "last_updated": "2026-10-07T11:50:06.222404Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/interfaces/73014671-8b73-4fcd-bb07-baf44b49eb6e/notes/",
+  "custom_fields": {},
+  "tags": []
+ }
+]

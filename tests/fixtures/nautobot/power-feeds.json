@@ -1,0 +1,381 @@
+[
+ {
+  "id": "eefc4dde-a1c5-4c98-a876-19f42cba404d",
+  "object_type": "dcim.powerfeed",
+  "display": "Feed A",
+  "url": "https://nautobot.example.com/api/dcim/power-feeds/eefc4dde-a1c5-4c98-a876-19f42cba404d/",
+  "natural_slug": "pp-a_data-hall-1_building-a_ldn1_united-kingdom_europe_feed-a_eefc",
+  "cable_peer_type": "dcim.powerport",
+  "cable_peer": {
+   "id": "42352ef0-8faa-4932-b7a9-44d4242fbb44",
+   "object_type": "dcim.powerport",
+   "display": "Input",
+   "url": "https://nautobot.example.com/api/dcim/power-ports/42352ef0-8faa-4932-b7a9-44d4242fbb44/",
+   "natural_slug": "ldn1-pdu-a01__data-hall-1_building-a_ldn1_united-kingdom_europe__input_4235",
+   "cable_peer_type": "dcim.powerfeed",
+   "cable_peer": {
+    "id": "eefc4dde-a1c5-4c98-a876-19f42cba404d",
+    "object_type": "dcim.powerfeed",
+    "url": "https://nautobot.example.com/api/dcim/power-feeds/eefc4dde-a1c5-4c98-a876-19f42cba404d/"
+   },
+   "connected_endpoint_type": "dcim.powerfeed",
+   "connected_endpoint": {
+    "id": "eefc4dde-a1c5-4c98-a876-19f42cba404d",
+    "object_type": "dcim.powerfeed",
+    "url": "https://nautobot.example.com/api/dcim/power-feeds/eefc4dde-a1c5-4c98-a876-19f42cba404d/"
+   },
+   "connected_endpoint_reachable": true,
+   "type": {
+    "value": "iec-60309-p-n-e-6h",
+    "label": "P+N+E 6H"
+   },
+   "name": "Input",
+   "label": "",
+   "description": "",
+   "maximum_draw": null,
+   "allocated_draw": null,
+   "power_factor": "0.95",
+   "device": {
+    "id": "304ab72c-5696-458e-b0bf-3cde3c827b10",
+    "object_type": "dcim.device",
+    "url": "https://nautobot.example.com/api/dcim/devices/304ab72c-5696-458e-b0bf-3cde3c827b10/"
+   },
+   "module": null,
+   "cable": {
+    "id": "8e4e41a2-2e5b-4c5f-bd58-ee71bdb3469e",
+    "object_type": "dcim.powerport",
+    "url": "https://nautobot.example.com/api/dcim/cables/8e4e41a2-2e5b-4c5f-bd58-ee71bdb3469e/"
+   },
+   "created": "2026-10-07T11:50:06.126657Z",
+   "last_updated": "2026-10-07T11:50:06.417076Z",
+   "notes_url": "https://nautobot.example.com/api/dcim/power-ports/42352ef0-8faa-4932-b7a9-44d4242fbb44/notes/",
+   "custom_fields": {},
+   "generic_foreign_key": true
+  },
+  "connected_endpoint_type": "dcim.powerport",
+  "connected_endpoint": {
+   "id": "42352ef0-8faa-4932-b7a9-44d4242fbb44",
+   "object_type": "dcim.powerport",
+   "display": "Input",
+   "url": "https://nautobot.example.com/api/dcim/power-ports/42352ef0-8faa-4932-b7a9-44d4242fbb44/",
+   "natural_slug": "ldn1-pdu-a01__data-hall-1_building-a_ldn1_united-kingdom_europe__input_4235",
+   "cable_peer_type": "dcim.powerfeed",
+   "cable_peer": {
+    "id": "eefc4dde-a1c5-4c98-a876-19f42cba404d",
+    "object_type": "dcim.powerfeed",
+    "url": "https://nautobot.example.com/api/dcim/power-feeds/eefc4dde-a1c5-4c98-a876-19f42cba404d/"
+   },
+   "connected_endpoint_type": "dcim.powerfeed",
+   "connected_endpoint": {
+    "id": "eefc4dde-a1c5-4c98-a876-19f42cba404d",
+    "object_type": "dcim.powerfeed",
+    "url": "https://nautobot.example.com/api/dcim/power-feeds/eefc4dde-a1c5-4c98-a876-19f42cba404d/"
+   },
+   "connected_endpoint_reachable": true,
+   "type": {
+    "value": "iec-60309-p-n-e-6h",
+    "label": "P+N+E 6H"
+   },
+   "name": "Input",
+   "label": "",
+   "description": "",
+   "maximum_draw": null,
+   "allocated_draw": null,
+   "power_factor": "0.95",
+   "device": {
+    "id": "304ab72c-5696-458e-b0bf-3cde3c827b10",
+    "object_type": "dcim.device",
+    "url": "https://nautobot.example.com/api/dcim/devices/304ab72c-5696-458e-b0bf-3cde3c827b10/"
+   },
+   "module": null,
+   "cable": {
+    "id": "8e4e41a2-2e5b-4c5f-bd58-ee71bdb3469e",
+    "object_type": "dcim.powerport",
+    "url": "https://nautobot.example.com/api/dcim/cables/8e4e41a2-2e5b-4c5f-bd58-ee71bdb3469e/"
+   },
+   "created": "2026-10-07T11:50:06.126657Z",
+   "last_updated": "2026-10-07T11:50:06.417076Z",
+   "notes_url": "https://nautobot.example.com/api/dcim/power-ports/42352ef0-8faa-4932-b7a9-44d4242fbb44/notes/",
+   "custom_fields": {},
+   "generic_foreign_key": true
+  },
+  "connected_endpoint_reachable": true,
+  "type": {
+   "value": "primary",
+   "label": "Primary"
+  },
+  "power_path": null,
+  "supply": {
+   "value": "ac",
+   "label": "AC"
+  },
+  "phase": {
+   "value": "three-phase",
+   "label": "Three-phase"
+  },
+  "breaker_pole_count": null,
+  "name": "Feed A",
+  "voltage": 400,
+  "amperage": 32,
+  "max_utilization": 80,
+  "breaker_position": null,
+  "available_power": 17736,
+  "comments": "",
+  "cable": {
+   "id": "8e4e41a2-2e5b-4c5f-bd58-ee71bdb3469e",
+   "object_type": "dcim.cable",
+   "display": "#8e4e41a2-2e5b-4c5f-bd58-ee71bdb3469e",
+   "url": "https://nautobot.example.com/api/dcim/cables/8e4e41a2-2e5b-4c5f-bd58-ee71bdb3469e/",
+   "natural_slug": "8e4e41a2-2e5b-4c5f-bd58-ee71bdb3469e_8e4e",
+   "termination_a_type": "dcim.powerport",
+   "termination_b_type": "dcim.powerfeed",
+   "termination_a": {
+    "id": "42352ef0-8faa-4932-b7a9-44d4242fbb44",
+    "object_type": "dcim.powerport",
+    "url": "https://nautobot.example.com/api/dcim/power-ports/42352ef0-8faa-4932-b7a9-44d4242fbb44/"
+   },
+   "termination_b": {
+    "id": "eefc4dde-a1c5-4c98-a876-19f42cba404d",
+    "object_type": "dcim.powerfeed",
+    "url": "https://nautobot.example.com/api/dcim/power-feeds/eefc4dde-a1c5-4c98-a876-19f42cba404d/"
+   },
+   "length_unit": null,
+   "type": {
+    "value": "power",
+    "label": "Power"
+   },
+   "termination_a_id": "42352ef0-8faa-4932-b7a9-44d4242fbb44",
+   "termination_b_id": "eefc4dde-a1c5-4c98-a876-19f42cba404d",
+   "label": "",
+   "color": "",
+   "length": null,
+   "status": {
+    "id": "a8643031-a019-4285-93b2-8835f3957236",
+    "object_type": "extras.status",
+    "url": "https://nautobot.example.com/api/extras/statuses/a8643031-a019-4285-93b2-8835f3957236/"
+   },
+   "created": "2026-10-07T11:50:06.416645Z",
+   "last_updated": "2026-10-07T11:50:06.416651Z",
+   "notes_url": "https://nautobot.example.com/api/dcim/cables/8e4e41a2-2e5b-4c5f-bd58-ee71bdb3469e/notes/",
+   "custom_fields": {}
+  },
+  "power_panel": {
+   "id": "dafc68b2-be05-4ec0-aed5-eabfde926ba7",
+   "object_type": "dcim.powerpanel",
+   "display": "PP-A",
+   "url": "https://nautobot.example.com/api/dcim/power-panels/dafc68b2-be05-4ec0-aed5-eabfde926ba7/",
+   "natural_slug": "pp-a_data-hall-1_building-a_ldn1_united-kingdom_europe_dafc",
+   "panel_type": null,
+   "power_path": null,
+   "name": "PP-A",
+   "breaker_position_count": null,
+   "location": {
+    "id": "c024d50f-198f-45cc-b060-f16a1068591d",
+    "object_type": "dcim.location",
+    "url": "https://nautobot.example.com/api/dcim/locations/c024d50f-198f-45cc-b060-f16a1068591d/"
+   },
+   "rack_group": null,
+   "created": "2026-10-07T11:50:06.410143Z",
+   "last_updated": "2026-10-07T11:50:06.410150Z",
+   "notes_url": "https://nautobot.example.com/api/dcim/power-panels/dafc68b2-be05-4ec0-aed5-eabfde926ba7/notes/",
+   "custom_fields": {}
+  },
+  "destination_panel": null,
+  "rack": {
+   "id": "996661e2-e49e-42dc-ae64-cd5abba0d994",
+   "object_type": "dcim.rack",
+   "display": "A01 (LD8-0401-A01)",
+   "url": "https://nautobot.example.com/api/dcim/racks/996661e2-e49e-42dc-ae64-cd5abba0d994/",
+   "natural_slug": "a01_9966",
+   "type": {
+    "value": "4-post-cabinet",
+    "label": "4-post cabinet"
+   },
+   "width": {
+    "value": 19,
+    "label": "19 inches"
+   },
+   "outer_unit": {
+    "value": "mm",
+    "label": "Millimeters"
+   },
+   "name": "A01",
+   "facility_id": "LD8-0401-A01",
+   "serial": "AR3300-0001",
+   "asset_tag": "LDN1-R-A01",
+   "u_height": 42,
+   "desc_units": false,
+   "outer_width": 600,
+   "outer_depth": 1070,
+   "comments": "Row A rack 1",
+   "status": {
+    "id": "483d2847-2f69-466c-a508-87438375ee48",
+    "object_type": "extras.status",
+    "url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/"
+   },
+   "role": {
+    "id": "1f573f3c-ea48-454d-b223-4d916911219f",
+    "object_type": "extras.role",
+    "url": "https://nautobot.example.com/api/extras/roles/1f573f3c-ea48-454d-b223-4d916911219f/"
+   },
+   "location": {
+    "id": "c024d50f-198f-45cc-b060-f16a1068591d",
+    "object_type": "dcim.location",
+    "url": "https://nautobot.example.com/api/dcim/locations/c024d50f-198f-45cc-b060-f16a1068591d/"
+   },
+   "rack_group": null,
+   "tenant": null,
+   "created": "2026-10-07T11:50:06.033754Z",
+   "last_updated": "2026-10-07T11:50:06.033759Z",
+   "notes_url": "https://nautobot.example.com/api/dcim/racks/996661e2-e49e-42dc-ae64-cd5abba0d994/notes/",
+   "custom_fields": {
+    "support_contract": "RK-1"
+   }
+  },
+  "status": {
+   "id": "483d2847-2f69-466c-a508-87438375ee48",
+   "object_type": "extras.status",
+   "display": "Active",
+   "url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/",
+   "natural_slug": "active_483d",
+   "name": "Active",
+   "color": "4caf50",
+   "description": "Unit is active",
+   "created": "2026-10-07T00:00:00Z",
+   "last_updated": "2026-10-07T11:48:24.055176Z",
+   "notes_url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/notes/",
+   "custom_fields": {}
+  },
+  "created": "2026-10-07T11:50:06.413021Z",
+  "last_updated": "2026-10-07T11:50:06.417657Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/power-feeds/eefc4dde-a1c5-4c98-a876-19f42cba404d/notes/",
+  "custom_fields": {},
+  "tags": []
+ },
+ {
+  "id": "8ff0ef96-018e-4f8f-998d-214fdf7c49db",
+  "object_type": "dcim.powerfeed",
+  "display": "Feed B",
+  "url": "https://nautobot.example.com/api/dcim/power-feeds/8ff0ef96-018e-4f8f-998d-214fdf7c49db/",
+  "natural_slug": "pp-a_data-hall-1_building-a_ldn1_united-kingdom_europe_feed-b_8ff0",
+  "cable_peer_type": null,
+  "cable_peer": null,
+  "connected_endpoint_type": null,
+  "connected_endpoint": null,
+  "connected_endpoint_reachable": null,
+  "type": {
+   "value": "redundant",
+   "label": "Redundant"
+  },
+  "power_path": null,
+  "supply": {
+   "value": "ac",
+   "label": "AC"
+  },
+  "phase": {
+   "value": "single-phase",
+   "label": "Single phase"
+  },
+  "breaker_pole_count": null,
+  "name": "Feed B",
+  "voltage": 230,
+  "amperage": 16,
+  "max_utilization": 80,
+  "breaker_position": null,
+  "available_power": 2944,
+  "comments": "",
+  "cable": null,
+  "power_panel": {
+   "id": "dafc68b2-be05-4ec0-aed5-eabfde926ba7",
+   "object_type": "dcim.powerpanel",
+   "display": "PP-A",
+   "url": "https://nautobot.example.com/api/dcim/power-panels/dafc68b2-be05-4ec0-aed5-eabfde926ba7/",
+   "natural_slug": "pp-a_data-hall-1_building-a_ldn1_united-kingdom_europe_dafc",
+   "panel_type": null,
+   "power_path": null,
+   "name": "PP-A",
+   "breaker_position_count": null,
+   "location": {
+    "id": "c024d50f-198f-45cc-b060-f16a1068591d",
+    "object_type": "dcim.location",
+    "url": "https://nautobot.example.com/api/dcim/locations/c024d50f-198f-45cc-b060-f16a1068591d/"
+   },
+   "rack_group": null,
+   "created": "2026-10-07T11:50:06.410143Z",
+   "last_updated": "2026-10-07T11:50:06.410150Z",
+   "notes_url": "https://nautobot.example.com/api/dcim/power-panels/dafc68b2-be05-4ec0-aed5-eabfde926ba7/notes/",
+   "custom_fields": {}
+  },
+  "destination_panel": null,
+  "rack": {
+   "id": "996661e2-e49e-42dc-ae64-cd5abba0d994",
+   "object_type": "dcim.rack",
+   "display": "A01 (LD8-0401-A01)",
+   "url": "https://nautobot.example.com/api/dcim/racks/996661e2-e49e-42dc-ae64-cd5abba0d994/",
+   "natural_slug": "a01_9966",
+   "type": {
+    "value": "4-post-cabinet",
+    "label": "4-post cabinet"
+   },
+   "width": {
+    "value": 19,
+    "label": "19 inches"
+   },
+   "outer_unit": {
+    "value": "mm",
+    "label": "Millimeters"
+   },
+   "name": "A01",
+   "facility_id": "LD8-0401-A01",
+   "serial": "AR3300-0001",
+   "asset_tag": "LDN1-R-A01",
+   "u_height": 42,
+   "desc_units": false,
+   "outer_width": 600,
+   "outer_depth": 1070,
+   "comments": "Row A rack 1",
+   "status": {
+    "id": "483d2847-2f69-466c-a508-87438375ee48",
+    "object_type": "extras.status",
+    "url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/"
+   },
+   "role": {
+    "id": "1f573f3c-ea48-454d-b223-4d916911219f",
+    "object_type": "extras.role",
+    "url": "https://nautobot.example.com/api/extras/roles/1f573f3c-ea48-454d-b223-4d916911219f/"
+   },
+   "location": {
+    "id": "c024d50f-198f-45cc-b060-f16a1068591d",
+    "object_type": "dcim.location",
+    "url": "https://nautobot.example.com/api/dcim/locations/c024d50f-198f-45cc-b060-f16a1068591d/"
+   },
+   "rack_group": null,
+   "tenant": null,
+   "created": "2026-10-07T11:50:06.033754Z",
+   "last_updated": "2026-10-07T11:50:06.033759Z",
+   "notes_url": "https://nautobot.example.com/api/dcim/racks/996661e2-e49e-42dc-ae64-cd5abba0d994/notes/",
+   "custom_fields": {
+    "support_contract": "RK-1"
+   }
+  },
+  "status": {
+   "id": "483d2847-2f69-466c-a508-87438375ee48",
+   "object_type": "extras.status",
+   "display": "Active",
+   "url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/",
+   "natural_slug": "active_483d",
+   "name": "Active",
+   "color": "4caf50",
+   "description": "Unit is active",
+   "created": "2026-10-07T00:00:00Z",
+   "last_updated": "2026-10-07T11:48:24.055176Z",
+   "notes_url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/notes/",
+   "custom_fields": {}
+  },
+  "created": "2026-10-07T11:50:06.415063Z",
+  "last_updated": "2026-10-07T11:50:06.415069Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/power-feeds/8ff0ef96-018e-4f8f-998d-214fdf7c49db/notes/",
+  "custom_fields": {},
+  "tags": []
+ }
+]

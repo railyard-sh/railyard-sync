@@ -40,12 +40,11 @@ exception message or the loader's ``repr``.
 from __future__ import annotations
 
 import logging
-import re
 from typing import Any
 
 from ..dcim_http import NETBOX, Session
 from ..log import count
-from .errors import DCIMError, DCIMNotFoundError, DCIMVersionError
+from .errors import DCIMNotFoundError, DCIMVersionError
 from .rest import RESTReader, unique
 from .snapshot import (
     Cable,
@@ -64,6 +63,19 @@ from .snapshot import (
     Snapshot,
     Termination,
 )
+from .values import (
+    convert as _convert,  # noqa: F401 - kept for callers of the old private name
+    integer as _int,
+    kg as _kg,
+    metres as _metres,
+    mm as _mm,
+    name_of as _name,
+    number as _number,
+    parse_version,
+    ref_id as _ref_id,
+    tag_names as _tags,
+    value as _value,
+)
 
 log = logging.getLogger(__name__)
 
@@ -71,9 +83,6 @@ MIN_VERSION = (4, 0)
 MAX_TESTED_VERSION = (4, 6)
 V2_TOKEN_PREFIX = "nbt_"
 
-_MM_PER = {"mm": 1.0, "cm": 10.0, "m": 1000.0, "in": 25.4, "ft": 304.8}
-_KG_PER = {"kg": 1.0, "g": 0.001, "lb": 0.45359237, "oz": 0.028349523125}
-_M_PER = {"km": 1000.0, "m": 1.0, "cm": 0.01, "mi": 1609.344, "ft": 0.3048, "in": 0.0254}
 
 # Device component endpoints, and the cable termination type for each kind.
 _COMPONENT_ENDPOINTS: list[tuple[ComponentKind, str, str]] = [
@@ -101,81 +110,6 @@ _TEMPLATE_ORDER: list[ComponentKind] = [
     "power-outlet",
     "console-port",
 ]
-
-
-# ---- small readers for NetBox's JSON shapes ---------------------------------------------------
-
-
-def _value(field: Any, default: str = "") -> str:
-    """An enumeration's slug: NetBox returns choice fields as ``{"value", "label"}``."""
-    if isinstance(field, dict):
-        field = field.get("value")
-    if field is None:
-        return default
-    return str(field)
-
-
-def _ref_id(field: Any) -> str | None:
-    """The id of a nested object (``{"id": 7, …}``) or a bare id, as a string."""
-    if isinstance(field, dict):
-        field = field.get("id")
-    if field is None or field == "":
-        return None
-    return str(field)
-
-
-def _name(field: Any) -> str:
-    """The name of a nested object (role, tenant, platform, manufacturer…), or ""."""
-    if isinstance(field, dict):
-        return str(field.get("name") or field.get("display") or "")
-    return "" if field is None else str(field)
-
-
-def _tags(item: dict) -> list[str]:
-    return [str(t.get("name") if isinstance(t, dict) else t) for t in item.get("tags") or []]
-
-
-def _number(value: Any) -> float | None:
-    if value is None or value == "":
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
-
-
-def _int(value: Any, default: int) -> int:
-    number = _number(value)
-    return default if number is None else int(number)
-
-
-def _convert(value: Any, unit: Any, table: dict[str, float], default_unit: str) -> float | None:
-    number = _number(value)
-    if number is None:
-        return None
-    factor = table.get(_value(unit, default_unit).lower())
-    if factor is None:
-        raise DCIMError(f"Unknown unit {_value(unit)!r} (expected one of {', '.join(table)}).")
-    return round(number * factor, 6)
-
-
-def _mm(value: Any, unit: Any) -> float | None:
-    return _convert(value, unit, _MM_PER, "mm")
-
-
-def _kg(value: Any, unit: Any) -> float | None:
-    return _convert(value, unit, _KG_PER, "kg")
-
-
-def _metres(value: Any, unit: Any) -> float | None:
-    return _convert(value, unit, _M_PER, "m")
-
-
-def _parse_version(text: str) -> tuple[int, int, int]:
-    match = re.match(r"\s*v?(\d+)\.(\d+)(?:\.(\d+))?", text or "")
-    if not match:
-        raise DCIMVersionError(f"Could not read the NetBox version from /api/status/ ({text!r}).")
-    return int(match.group(1)), int(match.group(2)), int(match.group(3) or 0)
 
 
 def _first_mapping(port: dict) -> tuple[Any, int, int]:
@@ -219,7 +153,7 @@ class NetBoxLoader(RESTReader):
         """Read ``/api/status/`` and return NetBox's version; refuse anything below 4.0 or from 5.0."""
         status = self._get("/api/status/")
         text = str((status or {}).get("netbox-version") or "")
-        major_minor = _parse_version(text)[:2]
+        major_minor = parse_version(text, "NetBox")[:2]
         if major_minor < MIN_VERSION:
             raise DCIMVersionError(f"NetBox {text} is not supported: railyard-sync needs NetBox 4.0 or later.")
         if major_minor[0] > MAX_TESTED_VERSION[0]:
@@ -239,7 +173,7 @@ class NetBoxLoader(RESTReader):
         if sites is not None and not sites:
             raise ValueError("at least one site is required")
         version = self.check_version()
-        major_minor = _parse_version(version)[:2]
+        major_minor = parse_version(version, "NetBox")[:2]
         snap = Snapshot(source="netbox", source_url=self.url, source_version=version)
         if major_minor > MAX_TESTED_VERSION:
             snap.warnings.append(

@@ -1,0 +1,60 @@
+[
+ {
+  "id": "dafc68b2-be05-4ec0-aed5-eabfde926ba7",
+  "object_type": "dcim.powerpanel",
+  "display": "PP-A",
+  "url": "https://nautobot.example.com/api/dcim/power-panels/dafc68b2-be05-4ec0-aed5-eabfde926ba7/",
+  "natural_slug": "pp-a_data-hall-1_building-a_ldn1_united-kingdom_europe_dafc",
+  "panel_type": null,
+  "power_path": null,
+  "power_feed_count": 2,
+  "name": "PP-A",
+  "breaker_position_count": null,
+  "location": {
+   "id": "c024d50f-198f-45cc-b060-f16a1068591d",
+   "object_type": "dcim.location",
+   "display": "Europe → United Kingdom → LDN1 → Building A → Data Hall 1",
+   "url": "https://nautobot.example.com/api/dcim/locations/c024d50f-198f-45cc-b060-f16a1068591d/",
+   "natural_slug": "data-hall-1_building-a_ldn1_united-kingdom_europe_c024",
+   "time_zone": null,
+   "name": "Data Hall 1",
+   "description": "",
+   "facility": "DH1",
+   "asn": null,
+   "physical_address": "",
+   "shipping_address": "",
+   "latitude": null,
+   "longitude": null,
+   "contact_name": "",
+   "contact_phone": "",
+   "contact_email": "",
+   "comments": "",
+   "parent": {
+    "id": "3d404b8b-1431-4623-8527-c4f3bcefb488",
+    "object_type": "dcim.location",
+    "url": "https://nautobot.example.com/api/dcim/locations/3d404b8b-1431-4623-8527-c4f3bcefb488/"
+   },
+   "location_type": {
+    "id": "9b9dac2a-f8c5-49e6-97ea-638e852e3fba",
+    "object_type": "dcim.locationtype",
+    "url": "https://nautobot.example.com/api/dcim/location-types/9b9dac2a-f8c5-49e6-97ea-638e852e3fba/"
+   },
+   "status": {
+    "id": "77aa3dc5-9c78-4ba2-b533-b29738bca21a",
+    "object_type": "extras.status",
+    "url": "https://nautobot.example.com/api/extras/statuses/77aa3dc5-9c78-4ba2-b533-b29738bca21a/"
+   },
+   "tenant": null,
+   "created": "2026-10-07T11:50:05.807556Z",
+   "last_updated": "2026-10-07T11:50:05.807563Z",
+   "notes_url": "https://nautobot.example.com/api/dcim/locations/c024d50f-198f-45cc-b060-f16a1068591d/notes/",
+   "custom_fields": {}
+  },
+  "rack_group": null,
+  "created": "2026-10-07T11:50:06.410143Z",
+  "last_updated": "2026-10-07T11:50:06.410150Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/power-panels/dafc68b2-be05-4ec0-aed5-eabfde926ba7/notes/",
+  "custom_fields": {},
+  "tags": []
+ }
+]

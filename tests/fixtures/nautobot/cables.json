@@ -1,0 +1,887 @@
+[
+ {
+  "id": "1cbff52a-3c44-417b-b4bc-a01ba9173c24",
+  "object_type": "dcim.cable",
+  "display": "L1",
+  "url": "https://nautobot.example.com/api/dcim/cables/1cbff52a-3c44-417b-b4bc-a01ba9173c24/",
+  "natural_slug": "1cbff52a-3c44-417b-b4bc-a01ba9173c24_1cbf",
+  "termination_a_type": "dcim.interface",
+  "termination_b_type": "dcim.frontport",
+  "termination_a": {
+   "id": "24e260a7-147a-43dd-be22-42a4c792632e",
+   "object_type": "dcim.interface",
+   "display": "Ethernet1",
+   "url": "https://nautobot.example.com/api/dcim/interfaces/24e260a7-147a-43dd-be22-42a4c792632e/",
+   "cable_peer_type": "dcim.frontport",
+   "cable_peer": {
+    "id": "fc813145-e15f-4baf-b227-c0f7bbe45548",
+    "object_type": "dcim.frontport",
+    "url": "https://nautobot.example.com/api/dcim/front-ports/fc813145-e15f-4baf-b227-c0f7bbe45548/"
+   },
+   "natural_slug": "ldn1-leaf1_acme-ltd_data-hall-1_building-a_ldn1_united-kingdom_europe__ethernet1_24e2",
+   "connected_endpoint_type": "dcim.interface",
+   "connected_endpoint": {
+    "id": "af51bcfa-5a99-44fc-91f6-3fbebbfbe312",
+    "object_type": "dcim.interface",
+    "url": "https://nautobot.example.com/api/dcim/interfaces/af51bcfa-5a99-44fc-91f6-3fbebbfbe312/"
+   },
+   "connected_endpoint_reachable": false,
+   "type": {
+    "value": "25gbase-x-sfp28",
+    "label": "SFP28 (25GE)"
+   },
+   "mode": null,
+   "mac_address": null,
+   "speed": null,
+   "duplex": null,
+   "name": "Ethernet1",
+   "label": "",
+   "description": "",
+   "enabled": true,
+   "mtu": null,
+   "mgmt_only": false,
+   "device": {
+    "id": "01a2e50c-0514-4b74-9cfd-e74fae1deadf",
+    "object_type": "dcim.device",
+    "url": "https://nautobot.example.com/api/dcim/devices/01a2e50c-0514-4b74-9cfd-e74fae1deadf/"
+   },
+   "module": null,
+   "cable": {
+    "id": "1cbff52a-3c44-417b-b4bc-a01ba9173c24",
+    "object_type": "dcim.interface",
+    "url": "https://nautobot.example.com/api/dcim/cables/1cbff52a-3c44-417b-b4bc-a01ba9173c24/"
+   },
+   "status": {
+    "id": "483d2847-2f69-466c-a508-87438375ee48",
+    "object_type": "extras.status",
+    "url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/"
+   },
+   "role": null,
+   "parent_interface": null,
+   "bridge": null,
+   "lag": null,
+   "untagged_vlan": null,
+   "vrf": null,
+   "created": "2026-10-07T11:50:06.079883Z",
+   "last_updated": "2026-10-07T11:50:06.343373Z",
+   "notes_url": "https://nautobot.example.com/api/dcim/interfaces/24e260a7-147a-43dd-be22-42a4c792632e/notes/",
+   "custom_fields": {},
+   "generic_foreign_key": true
+  },
+  "termination_b": {
+   "id": "fc813145-e15f-4baf-b227-c0f7bbe45548",
+   "object_type": "dcim.frontport",
+   "display": "F1",
+   "url": "https://nautobot.example.com/api/dcim/front-ports/fc813145-e15f-4baf-b227-c0f7bbe45548/",
+   "natural_slug": "ldn1-pp1__data-hall-1_building-a_ldn1_united-kingdom_europe__f1_ldn1-pp1__data-hall-1_building-a_ldn1_united-kingdom_europe__r1_1_fc81",
+   "cable_peer_type": "dcim.interface",
+   "cable_peer": {
+    "id": "24e260a7-147a-43dd-be22-42a4c792632e",
+    "object_type": "dcim.interface",
+    "url": "https://nautobot.example.com/api/dcim/interfaces/24e260a7-147a-43dd-be22-42a4c792632e/"
+   },
+   "type": {
+    "value": "lc",
+    "label": "LC"
+   },
+   "name": "F1",
+   "label": "",
+   "description": "",
+   "rear_port_position": 1,
+   "device": {
+    "id": "306c987d-505f-4745-baa7-2185f299d68e",
+    "object_type": "dcim.device",
+    "url": "https://nautobot.example.com/api/dcim/devices/306c987d-505f-4745-baa7-2185f299d68e/"
+   },
+   "module": null,
+   "cable": {
+    "id": "1cbff52a-3c44-417b-b4bc-a01ba9173c24",
+    "object_type": "dcim.frontport",
+    "url": "https://nautobot.example.com/api/dcim/cables/1cbff52a-3c44-417b-b4bc-a01ba9173c24/"
+   },
+   "rear_port": {
+    "id": "55f79b60-671a-4960-8800-2e7d597affb6",
+    "object_type": "dcim.rearport",
+    "url": "https://nautobot.example.com/api/dcim/rear-ports/55f79b60-671a-4960-8800-2e7d597affb6/"
+   },
+   "created": "2026-10-07T11:50:06.161290Z",
+   "last_updated": "2026-10-07T11:50:06.344563Z",
+   "notes_url": "https://nautobot.example.com/api/dcim/front-ports/fc813145-e15f-4baf-b227-c0f7bbe45548/notes/",
+   "custom_fields": {},
+   "generic_foreign_key": true
+  },
+  "length_unit": {
+   "value": "m",
+   "label": "Meters"
+  },
+  "type": {
+   "value": "mmf-om4",
+   "label": "Multimode Fiber (OM4)"
+  },
+  "termination_a_id": "24e260a7-147a-43dd-be22-42a4c792632e",
+  "termination_b_id": "fc813145-e15f-4baf-b227-c0f7bbe45548",
+  "label": "L1",
+  "color": "ff0000",
+  "length": 3,
+  "status": {
+   "id": "a8643031-a019-4285-93b2-8835f3957236",
+   "object_type": "extras.status",
+   "display": "Connected",
+   "url": "https://nautobot.example.com/api/extras/statuses/a8643031-a019-4285-93b2-8835f3957236/",
+   "natural_slug": "connected_a864",
+   "name": "Connected",
+   "color": "4caf50",
+   "description": "Cable is connected",
+   "created": "2026-10-07T00:00:00Z",
+   "last_updated": "2026-10-07T11:48:24.058110Z",
+   "notes_url": "https://nautobot.example.com/api/extras/statuses/a8643031-a019-4285-93b2-8835f3957236/notes/",
+   "custom_fields": {}
+  },
+  "created": "2026-10-07T11:50:06.237331Z",
+  "last_updated": "2026-10-07T11:50:06.237341Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/cables/1cbff52a-3c44-417b-b4bc-a01ba9173c24/notes/",
+  "custom_fields": {},
+  "tags": [
+   {
+    "id": "380971ce-050c-45e5-9d0b-beaa9828bbdc",
+    "object_type": "extras.tag",
+    "display": "production",
+    "url": "https://nautobot.example.com/api/extras/tags/380971ce-050c-45e5-9d0b-beaa9828bbdc/",
+    "natural_slug": "production_3809",
+    "name": "production",
+    "color": "00ff00",
+    "description": "",
+    "created": "2026-10-07T11:50:05.818844Z",
+    "last_updated": "2026-10-07T11:50:05.818854Z",
+    "notes_url": "https://nautobot.example.com/api/extras/tags/380971ce-050c-45e5-9d0b-beaa9828bbdc/notes/",
+    "custom_fields": {}
+   }
+  ]
+ },
+ {
+  "id": "7f25c67f-77c5-4d3b-8ed0-e14498d3d93d",
+  "object_type": "dcim.cable",
+  "display": "Uplink",
+  "url": "https://nautobot.example.com/api/dcim/cables/7f25c67f-77c5-4d3b-8ed0-e14498d3d93d/",
+  "natural_slug": "7f25c67f-77c5-4d3b-8ed0-e14498d3d93d_7f25",
+  "termination_a_type": "dcim.interface",
+  "termination_b_type": "circuits.circuittermination",
+  "termination_a": {
+   "id": "7779c670-923e-48af-8163-704e9b544155",
+   "object_type": "dcim.interface",
+   "display": "Management1",
+   "url": "https://nautobot.example.com/api/dcim/interfaces/7779c670-923e-48af-8163-704e9b544155/",
+   "cable_peer_type": "circuits.circuittermination",
+   "cable_peer": {
+    "id": "6f58e90c-00b6-4b7c-9659-df2f64d46a4b",
+    "object_type": "circuits.circuittermination",
+    "url": "https://nautobot.example.com/api/circuits/circuit-terminations/6f58e90c-00b6-4b7c-9659-df2f64d46a4b/"
+   },
+   "natural_slug": "ldn1-leaf1_acme-ltd_data-hall-1_building-a_ldn1_united-kingdom_europe__management1_7779",
+   "connected_endpoint_type": "circuits.circuittermination",
+   "connected_endpoint": {
+    "id": "6f58e90c-00b6-4b7c-9659-df2f64d46a4b",
+    "object_type": "circuits.circuittermination",
+    "url": "https://nautobot.example.com/api/circuits/circuit-terminations/6f58e90c-00b6-4b7c-9659-df2f64d46a4b/"
+   },
+   "connected_endpoint_reachable": true,
+   "type": {
+    "value": "1000base-t",
+    "label": "1000BASE-T (1GE)"
+   },
+   "mode": null,
+   "mac_address": null,
+   "speed": null,
+   "duplex": null,
+   "name": "Management1",
+   "label": "",
+   "description": "",
+   "enabled": true,
+   "mtu": null,
+   "mgmt_only": true,
+   "device": {
+    "id": "01a2e50c-0514-4b74-9cfd-e74fae1deadf",
+    "object_type": "dcim.device",
+    "url": "https://nautobot.example.com/api/dcim/devices/01a2e50c-0514-4b74-9cfd-e74fae1deadf/"
+   },
+   "module": null,
+   "cable": {
+    "id": "7f25c67f-77c5-4d3b-8ed0-e14498d3d93d",
+    "object_type": "dcim.interface",
+    "url": "https://nautobot.example.com/api/dcim/cables/7f25c67f-77c5-4d3b-8ed0-e14498d3d93d/"
+   },
+   "status": {
+    "id": "483d2847-2f69-466c-a508-87438375ee48",
+    "object_type": "extras.status",
+    "url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/"
+   },
+   "role": null,
+   "parent_interface": null,
+   "bridge": null,
+   "lag": null,
+   "untagged_vlan": null,
+   "vrf": null,
+   "created": "2026-10-07T11:50:06.079948Z",
+   "last_updated": "2026-10-07T11:50:06.435718Z",
+   "notes_url": "https://nautobot.example.com/api/dcim/interfaces/7779c670-923e-48af-8163-704e9b544155/notes/",
+   "custom_fields": {},
+   "generic_foreign_key": true
+  },
+  "termination_b": {
+   "id": "6f58e90c-00b6-4b7c-9659-df2f64d46a4b",
+   "object_type": "circuits.circuittermination",
+   "display": "Termination A: LDN1",
+   "url": "https://nautobot.example.com/api/circuits/circuit-terminations/6f58e90c-00b6-4b7c-9659-df2f64d46a4b/",
+   "natural_slug": "colt_colt-1_a_6f58",
+   "cable_peer_type": "dcim.interface",
+   "cable_peer": {
+    "id": "7779c670-923e-48af-8163-704e9b544155",
+    "object_type": "dcim.interface",
+    "url": "https://nautobot.example.com/api/dcim/interfaces/7779c670-923e-48af-8163-704e9b544155/"
+   },
+   "connected_endpoint_type": "dcim.interface",
+   "connected_endpoint": {
+    "id": "7779c670-923e-48af-8163-704e9b544155",
+    "object_type": "dcim.interface",
+    "url": "https://nautobot.example.com/api/dcim/interfaces/7779c670-923e-48af-8163-704e9b544155/"
+   },
+   "connected_endpoint_reachable": true,
+   "term_side": "A",
+   "port_speed": null,
+   "upstream_speed": null,
+   "xconnect_id": "",
+   "pp_info": "",
+   "description": "",
+   "cable": {
+    "id": "7f25c67f-77c5-4d3b-8ed0-e14498d3d93d",
+    "object_type": "circuits.circuittermination",
+    "url": "https://nautobot.example.com/api/dcim/cables/7f25c67f-77c5-4d3b-8ed0-e14498d3d93d/"
+   },
+   "circuit": {
+    "id": "84c98aa9-31da-4e87-9559-cdb67e7300b4",
+    "object_type": "circuits.circuit",
+    "url": "https://nautobot.example.com/api/circuits/circuits/84c98aa9-31da-4e87-9559-cdb67e7300b4/"
+   },
+   "location": {
+    "id": "7e3d2ecd-a86a-4482-8644-83d05ef339ed",
+    "object_type": "dcim.location",
+    "url": "https://nautobot.example.com/api/dcim/locations/7e3d2ecd-a86a-4482-8644-83d05ef339ed/"
+   },
+   "provider_network": null,
+   "cloud_network": null,
+   "created": "2026-10-07T11:50:06.426272Z",
+   "last_updated": "2026-10-07T11:50:06.436350Z",
+   "notes_url": "https://nautobot.example.com/api/circuits/circuit-terminations/6f58e90c-00b6-4b7c-9659-df2f64d46a4b/notes/",
+   "custom_fields": {},
+   "generic_foreign_key": true
+  },
+  "length_unit": null,
+  "type": null,
+  "termination_a_id": "7779c670-923e-48af-8163-704e9b544155",
+  "termination_b_id": "6f58e90c-00b6-4b7c-9659-df2f64d46a4b",
+  "label": "Uplink",
+  "color": "",
+  "length": null,
+  "status": {
+   "id": "a8643031-a019-4285-93b2-8835f3957236",
+   "object_type": "extras.status",
+   "display": "Connected",
+   "url": "https://nautobot.example.com/api/extras/statuses/a8643031-a019-4285-93b2-8835f3957236/",
+   "natural_slug": "connected_a864",
+   "name": "Connected",
+   "color": "4caf50",
+   "description": "Cable is connected",
+   "created": "2026-10-07T00:00:00Z",
+   "last_updated": "2026-10-07T11:48:24.058110Z",
+   "notes_url": "https://nautobot.example.com/api/extras/statuses/a8643031-a019-4285-93b2-8835f3957236/notes/",
+   "custom_fields": {}
+  },
+  "created": "2026-10-07T11:50:06.428832Z",
+  "last_updated": "2026-10-07T11:50:06.428838Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/cables/7f25c67f-77c5-4d3b-8ed0-e14498d3d93d/notes/",
+  "custom_fields": {},
+  "tags": []
+ },
+ {
+  "id": "5012d5dd-a5e3-47f6-9fd2-d29a9bc7e226",
+  "object_type": "dcim.cable",
+  "display": "WAN",
+  "url": "https://nautobot.example.com/api/dcim/cables/5012d5dd-a5e3-47f6-9fd2-d29a9bc7e226/",
+  "natural_slug": "5012d5dd-a5e3-47f6-9fd2-d29a9bc7e226_5012",
+  "termination_a_type": "dcim.interface",
+  "termination_b_type": "dcim.interface",
+  "termination_a": {
+   "id": "fb1a8c49-84ea-42cc-a3c7-2b8730743bb2",
+   "object_type": "dcim.interface",
+   "display": "Ethernet2",
+   "url": "https://nautobot.example.com/api/dcim/interfaces/fb1a8c49-84ea-42cc-a3c7-2b8730743bb2/",
+   "cable_peer_type": "dcim.interface",
+   "cable_peer": {
+    "id": "b05a1416-9b0a-4ab6-8e7c-f5fce3b867b4",
+    "object_type": "dcim.interface",
+    "url": "https://nautobot.example.com/api/dcim/interfaces/b05a1416-9b0a-4ab6-8e7c-f5fce3b867b4/"
+   },
+   "natural_slug": "ldn1-leaf1_acme-ltd_data-hall-1_building-a_ldn1_united-kingdom_europe__ethernet2_fb1a",
+   "connected_endpoint_type": "dcim.interface",
+   "connected_endpoint": {
+    "id": "b05a1416-9b0a-4ab6-8e7c-f5fce3b867b4",
+    "object_type": "dcim.interface",
+    "url": "https://nautobot.example.com/api/dcim/interfaces/b05a1416-9b0a-4ab6-8e7c-f5fce3b867b4/"
+   },
+   "connected_endpoint_reachable": true,
+   "type": {
+    "value": "25gbase-x-sfp28",
+    "label": "SFP28 (25GE)"
+   },
+   "mode": null,
+   "mac_address": null,
+   "speed": null,
+   "duplex": null,
+   "name": "Ethernet2",
+   "label": "",
+   "description": "",
+   "enabled": true,
+   "mtu": null,
+   "mgmt_only": false,
+   "device": {
+    "id": "01a2e50c-0514-4b74-9cfd-e74fae1deadf",
+    "object_type": "dcim.device",
+    "url": "https://nautobot.example.com/api/dcim/devices/01a2e50c-0514-4b74-9cfd-e74fae1deadf/"
+   },
+   "module": null,
+   "cable": {
+    "id": "5012d5dd-a5e3-47f6-9fd2-d29a9bc7e226",
+    "object_type": "dcim.interface",
+    "url": "https://nautobot.example.com/api/dcim/cables/5012d5dd-a5e3-47f6-9fd2-d29a9bc7e226/"
+   },
+   "status": {
+    "id": "483d2847-2f69-466c-a508-87438375ee48",
+    "object_type": "extras.status",
+    "url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/"
+   },
+   "role": null,
+   "parent_interface": null,
+   "bridge": null,
+   "lag": null,
+   "untagged_vlan": null,
+   "vrf": null,
+   "created": "2026-10-07T11:50:06.079930Z",
+   "last_updated": "2026-10-07T11:50:06.399507Z",
+   "notes_url": "https://nautobot.example.com/api/dcim/interfaces/fb1a8c49-84ea-42cc-a3c7-2b8730743bb2/notes/",
+   "custom_fields": {},
+   "generic_foreign_key": true
+  },
+  "termination_b": {
+   "id": "b05a1416-9b0a-4ab6-8e7c-f5fce3b867b4",
+   "object_type": "dcim.interface",
+   "display": "Ethernet1",
+   "url": "https://nautobot.example.com/api/dcim/interfaces/b05a1416-9b0a-4ab6-8e7c-f5fce3b867b4/",
+   "cable_peer_type": "dcim.interface",
+   "cable_peer": {
+    "id": "fb1a8c49-84ea-42cc-a3c7-2b8730743bb2",
+    "object_type": "dcim.interface",
+    "url": "https://nautobot.example.com/api/dcim/interfaces/fb1a8c49-84ea-42cc-a3c7-2b8730743bb2/"
+   },
+   "natural_slug": "man1-leaf1__man1_united-kingdom_europe____ethernet1_b05a",
+   "connected_endpoint_type": "dcim.interface",
+   "connected_endpoint": {
+    "id": "fb1a8c49-84ea-42cc-a3c7-2b8730743bb2",
+    "object_type": "dcim.interface",
+    "url": "https://nautobot.example.com/api/dcim/interfaces/fb1a8c49-84ea-42cc-a3c7-2b8730743bb2/"
+   },
+   "connected_endpoint_reachable": true,
+   "type": {
+    "value": "25gbase-x-sfp28",
+    "label": "SFP28 (25GE)"
+   },
+   "mode": null,
+   "mac_address": null,
+   "speed": null,
+   "duplex": null,
+   "name": "Ethernet1",
+   "label": "",
+   "description": "",
+   "enabled": true,
+   "mtu": null,
+   "mgmt_only": false,
+   "device": {
+    "id": "65690846-f3f7-406b-88e9-53a1742ad827",
+    "object_type": "dcim.device",
+    "url": "https://nautobot.example.com/api/dcim/devices/65690846-f3f7-406b-88e9-53a1742ad827/"
+   },
+   "module": null,
+   "cable": {
+    "id": "5012d5dd-a5e3-47f6-9fd2-d29a9bc7e226",
+    "object_type": "dcim.interface",
+    "url": "https://nautobot.example.com/api/dcim/cables/5012d5dd-a5e3-47f6-9fd2-d29a9bc7e226/"
+   },
+   "status": {
+    "id": "483d2847-2f69-466c-a508-87438375ee48",
+    "object_type": "extras.status",
+    "url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/"
+   },
+   "role": null,
+   "parent_interface": null,
+   "bridge": null,
+   "lag": null,
+   "untagged_vlan": null,
+   "vrf": null,
+   "created": "2026-10-07T11:50:06.222344Z",
+   "last_updated": "2026-10-07T11:50:06.405902Z",
+   "notes_url": "https://nautobot.example.com/api/dcim/interfaces/b05a1416-9b0a-4ab6-8e7c-f5fce3b867b4/notes/",
+   "custom_fields": {},
+   "generic_foreign_key": true
+  },
+  "length_unit": null,
+  "type": {
+   "value": "smf-os2",
+   "label": "Singlemode Fiber (OS2)"
+  },
+  "termination_a_id": "fb1a8c49-84ea-42cc-a3c7-2b8730743bb2",
+  "termination_b_id": "b05a1416-9b0a-4ab6-8e7c-f5fce3b867b4",
+  "label": "WAN",
+  "color": "",
+  "length": null,
+  "status": {
+   "id": "a8643031-a019-4285-93b2-8835f3957236",
+   "object_type": "extras.status",
+   "display": "Connected",
+   "url": "https://nautobot.example.com/api/extras/statuses/a8643031-a019-4285-93b2-8835f3957236/",
+   "natural_slug": "connected_a864",
+   "name": "Connected",
+   "color": "4caf50",
+   "description": "Cable is connected",
+   "created": "2026-10-07T00:00:00Z",
+   "last_updated": "2026-10-07T11:48:24.058110Z",
+   "notes_url": "https://nautobot.example.com/api/extras/statuses/a8643031-a019-4285-93b2-8835f3957236/notes/",
+   "custom_fields": {}
+  },
+  "created": "2026-10-07T11:50:06.393381Z",
+  "last_updated": "2026-10-07T11:50:06.393387Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/cables/5012d5dd-a5e3-47f6-9fd2-d29a9bc7e226/notes/",
+  "custom_fields": {},
+  "tags": []
+ },
+ {
+  "id": "1782811b-d5a7-4775-a64b-f9c7d25c5033",
+  "object_type": "dcim.cable",
+  "display": "#1782811b-d5a7-4775-a64b-f9c7d25c5033",
+  "url": "https://nautobot.example.com/api/dcim/cables/1782811b-d5a7-4775-a64b-f9c7d25c5033/",
+  "natural_slug": "1782811b-d5a7-4775-a64b-f9c7d25c5033_1782",
+  "termination_a_type": "dcim.powerport",
+  "termination_b_type": "dcim.poweroutlet",
+  "termination_a": {
+   "id": "2e498aa3-444f-4df9-85a3-0ef672eba1c2",
+   "object_type": "dcim.powerport",
+   "display": "PSU1",
+   "url": "https://nautobot.example.com/api/dcim/power-ports/2e498aa3-444f-4df9-85a3-0ef672eba1c2/",
+   "natural_slug": "ldn1-srv1__data-hall-1_building-a_ldn1_united-kingdom_europe__psu1_2e49",
+   "cable_peer_type": "dcim.poweroutlet",
+   "cable_peer": {
+    "id": "6fe3c509-6da9-4a76-811f-cb79b1f6d2fb",
+    "object_type": "dcim.poweroutlet",
+    "url": "https://nautobot.example.com/api/dcim/power-outlets/6fe3c509-6da9-4a76-811f-cb79b1f6d2fb/"
+   },
+   "connected_endpoint_type": "dcim.poweroutlet",
+   "connected_endpoint": {
+    "id": "6fe3c509-6da9-4a76-811f-cb79b1f6d2fb",
+    "object_type": "dcim.poweroutlet",
+    "url": "https://nautobot.example.com/api/dcim/power-outlets/6fe3c509-6da9-4a76-811f-cb79b1f6d2fb/"
+   },
+   "connected_endpoint_reachable": true,
+   "type": {
+    "value": "iec-60320-c14",
+    "label": "C14"
+   },
+   "name": "PSU1",
+   "label": "",
+   "description": "",
+   "maximum_draw": 800,
+   "allocated_draw": 400,
+   "power_factor": "0.95",
+   "device": {
+    "id": "9d535856-414f-4166-a6ee-1a12cb521e0a",
+    "object_type": "dcim.device",
+    "url": "https://nautobot.example.com/api/dcim/devices/9d535856-414f-4166-a6ee-1a12cb521e0a/"
+   },
+   "module": null,
+   "cable": {
+    "id": "1782811b-d5a7-4775-a64b-f9c7d25c5033",
+    "object_type": "dcim.powerport",
+    "url": "https://nautobot.example.com/api/dcim/cables/1782811b-d5a7-4775-a64b-f9c7d25c5033/"
+   },
+   "created": "2026-10-07T11:50:06.111986Z",
+   "last_updated": "2026-10-07T11:50:06.388156Z",
+   "notes_url": "https://nautobot.example.com/api/dcim/power-ports/2e498aa3-444f-4df9-85a3-0ef672eba1c2/notes/",
+   "custom_fields": {},
+   "generic_foreign_key": true
+  },
+  "termination_b": {
+   "id": "6fe3c509-6da9-4a76-811f-cb79b1f6d2fb",
+   "object_type": "dcim.poweroutlet",
+   "display": "Outlet 1",
+   "url": "https://nautobot.example.com/api/dcim/power-outlets/6fe3c509-6da9-4a76-811f-cb79b1f6d2fb/",
+   "natural_slug": "ldn1-pdu-a01__data-hall-1_building-a_ldn1_united-kingdom_europe__outlet-1_6fe3",
+   "cable_peer_type": "dcim.powerport",
+   "cable_peer": {
+    "id": "2e498aa3-444f-4df9-85a3-0ef672eba1c2",
+    "object_type": "dcim.powerport",
+    "url": "https://nautobot.example.com/api/dcim/power-ports/2e498aa3-444f-4df9-85a3-0ef672eba1c2/"
+   },
+   "connected_endpoint_type": "dcim.powerport",
+   "connected_endpoint": {
+    "id": "2e498aa3-444f-4df9-85a3-0ef672eba1c2",
+    "object_type": "dcim.powerport",
+    "url": "https://nautobot.example.com/api/dcim/power-ports/2e498aa3-444f-4df9-85a3-0ef672eba1c2/"
+   },
+   "connected_endpoint_reachable": true,
+   "type": {
+    "value": "iec-60320-c13",
+    "label": "C13"
+   },
+   "feed_leg": {
+    "value": "A",
+    "label": "A"
+   },
+   "name": "Outlet 1",
+   "label": "",
+   "description": "",
+   "device": {
+    "id": "304ab72c-5696-458e-b0bf-3cde3c827b10",
+    "object_type": "dcim.device",
+    "url": "https://nautobot.example.com/api/dcim/devices/304ab72c-5696-458e-b0bf-3cde3c827b10/"
+   },
+   "module": null,
+   "cable": {
+    "id": "1782811b-d5a7-4775-a64b-f9c7d25c5033",
+    "object_type": "dcim.poweroutlet",
+    "url": "https://nautobot.example.com/api/dcim/cables/1782811b-d5a7-4775-a64b-f9c7d25c5033/"
+   },
+   "power_port": null,
+   "created": "2026-10-07T11:50:06.129622Z",
+   "last_updated": "2026-10-07T11:50:06.388770Z",
+   "notes_url": "https://nautobot.example.com/api/dcim/power-outlets/6fe3c509-6da9-4a76-811f-cb79b1f6d2fb/notes/",
+   "custom_fields": {},
+   "generic_foreign_key": true
+  },
+  "length_unit": null,
+  "type": {
+   "value": "power",
+   "label": "Power"
+  },
+  "termination_a_id": "2e498aa3-444f-4df9-85a3-0ef672eba1c2",
+  "termination_b_id": "6fe3c509-6da9-4a76-811f-cb79b1f6d2fb",
+  "label": "",
+  "color": "",
+  "length": null,
+  "status": {
+   "id": "a8643031-a019-4285-93b2-8835f3957236",
+   "object_type": "extras.status",
+   "display": "Connected",
+   "url": "https://nautobot.example.com/api/extras/statuses/a8643031-a019-4285-93b2-8835f3957236/",
+   "natural_slug": "connected_a864",
+   "name": "Connected",
+   "color": "4caf50",
+   "description": "Cable is connected",
+   "created": "2026-10-07T00:00:00Z",
+   "last_updated": "2026-10-07T11:48:24.058110Z",
+   "notes_url": "https://nautobot.example.com/api/extras/statuses/a8643031-a019-4285-93b2-8835f3957236/notes/",
+   "custom_fields": {}
+  },
+  "created": "2026-10-07T11:50:06.387632Z",
+  "last_updated": "2026-10-07T11:50:06.387641Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/cables/1782811b-d5a7-4775-a64b-f9c7d25c5033/notes/",
+  "custom_fields": {},
+  "tags": []
+ },
+ {
+  "id": "8e4e41a2-2e5b-4c5f-bd58-ee71bdb3469e",
+  "object_type": "dcim.cable",
+  "display": "#8e4e41a2-2e5b-4c5f-bd58-ee71bdb3469e",
+  "url": "https://nautobot.example.com/api/dcim/cables/8e4e41a2-2e5b-4c5f-bd58-ee71bdb3469e/",
+  "natural_slug": "8e4e41a2-2e5b-4c5f-bd58-ee71bdb3469e_8e4e",
+  "termination_a_type": "dcim.powerport",
+  "termination_b_type": "dcim.powerfeed",
+  "termination_a": {
+   "id": "42352ef0-8faa-4932-b7a9-44d4242fbb44",
+   "object_type": "dcim.powerport",
+   "display": "Input",
+   "url": "https://nautobot.example.com/api/dcim/power-ports/42352ef0-8faa-4932-b7a9-44d4242fbb44/",
+   "natural_slug": "ldn1-pdu-a01__data-hall-1_building-a_ldn1_united-kingdom_europe__input_4235",
+   "cable_peer_type": "dcim.powerfeed",
+   "cable_peer": {
+    "id": "eefc4dde-a1c5-4c98-a876-19f42cba404d",
+    "object_type": "dcim.powerfeed",
+    "url": "https://nautobot.example.com/api/dcim/power-feeds/eefc4dde-a1c5-4c98-a876-19f42cba404d/"
+   },
+   "connected_endpoint_type": "dcim.powerfeed",
+   "connected_endpoint": {
+    "id": "eefc4dde-a1c5-4c98-a876-19f42cba404d",
+    "object_type": "dcim.powerfeed",
+    "url": "https://nautobot.example.com/api/dcim/power-feeds/eefc4dde-a1c5-4c98-a876-19f42cba404d/"
+   },
+   "connected_endpoint_reachable": true,
+   "type": {
+    "value": "iec-60309-p-n-e-6h",
+    "label": "P+N+E 6H"
+   },
+   "name": "Input",
+   "label": "",
+   "description": "",
+   "maximum_draw": null,
+   "allocated_draw": null,
+   "power_factor": "0.95",
+   "device": {
+    "id": "304ab72c-5696-458e-b0bf-3cde3c827b10",
+    "object_type": "dcim.device",
+    "url": "https://nautobot.example.com/api/dcim/devices/304ab72c-5696-458e-b0bf-3cde3c827b10/"
+   },
+   "module": null,
+   "cable": {
+    "id": "8e4e41a2-2e5b-4c5f-bd58-ee71bdb3469e",
+    "object_type": "dcim.powerport",
+    "url": "https://nautobot.example.com/api/dcim/cables/8e4e41a2-2e5b-4c5f-bd58-ee71bdb3469e/"
+   },
+   "created": "2026-10-07T11:50:06.126657Z",
+   "last_updated": "2026-10-07T11:50:06.417076Z",
+   "notes_url": "https://nautobot.example.com/api/dcim/power-ports/42352ef0-8faa-4932-b7a9-44d4242fbb44/notes/",
+   "custom_fields": {},
+   "generic_foreign_key": true
+  },
+  "termination_b": {
+   "id": "eefc4dde-a1c5-4c98-a876-19f42cba404d",
+   "object_type": "dcim.powerfeed",
+   "display": "Feed A",
+   "url": "https://nautobot.example.com/api/dcim/power-feeds/eefc4dde-a1c5-4c98-a876-19f42cba404d/",
+   "natural_slug": "pp-a_data-hall-1_building-a_ldn1_united-kingdom_europe_feed-a_eefc",
+   "cable_peer_type": "dcim.powerport",
+   "cable_peer": {
+    "id": "42352ef0-8faa-4932-b7a9-44d4242fbb44",
+    "object_type": "dcim.powerport",
+    "url": "https://nautobot.example.com/api/dcim/power-ports/42352ef0-8faa-4932-b7a9-44d4242fbb44/"
+   },
+   "connected_endpoint_type": "dcim.powerport",
+   "connected_endpoint": {
+    "id": "42352ef0-8faa-4932-b7a9-44d4242fbb44",
+    "object_type": "dcim.powerport",
+    "url": "https://nautobot.example.com/api/dcim/power-ports/42352ef0-8faa-4932-b7a9-44d4242fbb44/"
+   },
+   "connected_endpoint_reachable": true,
+   "type": {
+    "value": "primary",
+    "label": "Primary"
+   },
+   "power_path": null,
+   "supply": {
+    "value": "ac",
+    "label": "AC"
+   },
+   "phase": {
+    "value": "three-phase",
+    "label": "Three-phase"
+   },
+   "breaker_pole_count": null,
+   "name": "Feed A",
+   "voltage": 400,
+   "amperage": 32,
+   "max_utilization": 80,
+   "breaker_position": null,
+   "available_power": 17736,
+   "comments": "",
+   "cable": {
+    "id": "8e4e41a2-2e5b-4c5f-bd58-ee71bdb3469e",
+    "object_type": "dcim.cable",
+    "url": "https://nautobot.example.com/api/dcim/cables/8e4e41a2-2e5b-4c5f-bd58-ee71bdb3469e/"
+   },
+   "power_panel": {
+    "id": "dafc68b2-be05-4ec0-aed5-eabfde926ba7",
+    "object_type": "dcim.powerpanel",
+    "url": "https://nautobot.example.com/api/dcim/power-panels/dafc68b2-be05-4ec0-aed5-eabfde926ba7/"
+   },
+   "destination_panel": null,
+   "rack": {
+    "id": "996661e2-e49e-42dc-ae64-cd5abba0d994",
+    "object_type": "dcim.rack",
+    "url": "https://nautobot.example.com/api/dcim/racks/996661e2-e49e-42dc-ae64-cd5abba0d994/"
+   },
+   "status": {
+    "id": "483d2847-2f69-466c-a508-87438375ee48",
+    "object_type": "extras.status",
+    "url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/"
+   },
+   "created": "2026-10-07T11:50:06.413021Z",
+   "last_updated": "2026-10-07T11:50:06.417657Z",
+   "notes_url": "https://nautobot.example.com/api/dcim/power-feeds/eefc4dde-a1c5-4c98-a876-19f42cba404d/notes/",
+   "custom_fields": {},
+   "generic_foreign_key": true
+  },
+  "length_unit": null,
+  "type": {
+   "value": "power",
+   "label": "Power"
+  },
+  "termination_a_id": "42352ef0-8faa-4932-b7a9-44d4242fbb44",
+  "termination_b_id": "eefc4dde-a1c5-4c98-a876-19f42cba404d",
+  "label": "",
+  "color": "",
+  "length": null,
+  "status": {
+   "id": "a8643031-a019-4285-93b2-8835f3957236",
+   "object_type": "extras.status",
+   "display": "Connected",
+   "url": "https://nautobot.example.com/api/extras/statuses/a8643031-a019-4285-93b2-8835f3957236/",
+   "natural_slug": "connected_a864",
+   "name": "Connected",
+   "color": "4caf50",
+   "description": "Cable is connected",
+   "created": "2026-10-07T00:00:00Z",
+   "last_updated": "2026-10-07T11:48:24.058110Z",
+   "notes_url": "https://nautobot.example.com/api/extras/statuses/a8643031-a019-4285-93b2-8835f3957236/notes/",
+   "custom_fields": {}
+  },
+  "created": "2026-10-07T11:50:06.416645Z",
+  "last_updated": "2026-10-07T11:50:06.416651Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/cables/8e4e41a2-2e5b-4c5f-bd58-ee71bdb3469e/notes/",
+  "custom_fields": {},
+  "tags": []
+ },
+ {
+  "id": "c113feba-b245-4d1d-aa44-38ea4627e210",
+  "object_type": "dcim.cable",
+  "display": "L2",
+  "url": "https://nautobot.example.com/api/dcim/cables/c113feba-b245-4d1d-aa44-38ea4627e210/",
+  "natural_slug": "c113feba-b245-4d1d-aa44-38ea4627e210_c113",
+  "termination_a_type": "dcim.rearport",
+  "termination_b_type": "dcim.interface",
+  "termination_a": {
+   "id": "55f79b60-671a-4960-8800-2e7d597affb6",
+   "object_type": "dcim.rearport",
+   "display": "R1",
+   "url": "https://nautobot.example.com/api/dcim/rear-ports/55f79b60-671a-4960-8800-2e7d597affb6/",
+   "natural_slug": "ldn1-pp1__data-hall-1_building-a_ldn1_united-kingdom_europe__r1_55f7",
+   "cable_peer_type": "dcim.interface",
+   "cable_peer": {
+    "id": "af51bcfa-5a99-44fc-91f6-3fbebbfbe312",
+    "object_type": "dcim.interface",
+    "url": "https://nautobot.example.com/api/dcim/interfaces/af51bcfa-5a99-44fc-91f6-3fbebbfbe312/"
+   },
+   "type": {
+    "value": "lc",
+    "label": "LC"
+   },
+   "name": "R1",
+   "label": "",
+   "description": "",
+   "positions": 1,
+   "device": {
+    "id": "306c987d-505f-4745-baa7-2185f299d68e",
+    "object_type": "dcim.device",
+    "url": "https://nautobot.example.com/api/dcim/devices/306c987d-505f-4745-baa7-2185f299d68e/"
+   },
+   "module": null,
+   "cable": {
+    "id": "c113feba-b245-4d1d-aa44-38ea4627e210",
+    "object_type": "dcim.rearport",
+    "url": "https://nautobot.example.com/api/dcim/cables/c113feba-b245-4d1d-aa44-38ea4627e210/"
+   },
+   "created": "2026-10-07T11:50:06.151989Z",
+   "last_updated": "2026-10-07T11:50:06.367013Z",
+   "notes_url": "https://nautobot.example.com/api/dcim/rear-ports/55f79b60-671a-4960-8800-2e7d597affb6/notes/",
+   "custom_fields": {},
+   "generic_foreign_key": true
+  },
+  "termination_b": {
+   "id": "af51bcfa-5a99-44fc-91f6-3fbebbfbe312",
+   "object_type": "dcim.interface",
+   "display": "eno1",
+   "url": "https://nautobot.example.com/api/dcim/interfaces/af51bcfa-5a99-44fc-91f6-3fbebbfbe312/",
+   "cable_peer_type": "dcim.rearport",
+   "cable_peer": {
+    "id": "55f79b60-671a-4960-8800-2e7d597affb6",
+    "object_type": "dcim.rearport",
+    "url": "https://nautobot.example.com/api/dcim/rear-ports/55f79b60-671a-4960-8800-2e7d597affb6/"
+   },
+   "natural_slug": "ldn1-srv1__data-hall-1_building-a_ldn1_united-kingdom_europe__eno1_af51",
+   "connected_endpoint_type": "dcim.interface",
+   "connected_endpoint": {
+    "id": "24e260a7-147a-43dd-be22-42a4c792632e",
+    "object_type": "dcim.interface",
+    "url": "https://nautobot.example.com/api/dcim/interfaces/24e260a7-147a-43dd-be22-42a4c792632e/"
+   },
+   "connected_endpoint_reachable": false,
+   "type": {
+    "value": "10gbase-x-sfpp",
+    "label": "SFP+ (10GE)"
+   },
+   "mode": null,
+   "mac_address": null,
+   "speed": null,
+   "duplex": null,
+   "name": "eno1",
+   "label": "",
+   "description": "",
+   "enabled": true,
+   "mtu": null,
+   "mgmt_only": false,
+   "device": {
+    "id": "9d535856-414f-4166-a6ee-1a12cb521e0a",
+    "object_type": "dcim.device",
+    "url": "https://nautobot.example.com/api/dcim/devices/9d535856-414f-4166-a6ee-1a12cb521e0a/"
+   },
+   "module": null,
+   "cable": {
+    "id": "c113feba-b245-4d1d-aa44-38ea4627e210",
+    "object_type": "dcim.interface",
+    "url": "https://nautobot.example.com/api/dcim/cables/c113feba-b245-4d1d-aa44-38ea4627e210/"
+   },
+   "status": {
+    "id": "483d2847-2f69-466c-a508-87438375ee48",
+    "object_type": "extras.status",
+    "url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/"
+   },
+   "role": null,
+   "parent_interface": null,
+   "bridge": null,
+   "lag": null,
+   "untagged_vlan": null,
+   "vrf": null,
+   "created": "2026-10-07T11:50:06.116138Z",
+   "last_updated": "2026-10-07T11:50:06.374932Z",
+   "notes_url": "https://nautobot.example.com/api/dcim/interfaces/af51bcfa-5a99-44fc-91f6-3fbebbfbe312/notes/",
+   "custom_fields": {},
+   "generic_foreign_key": true
+  },
+  "length_unit": {
+   "value": "cm",
+   "label": "Centimeters"
+  },
+  "type": {
+   "value": "mmf-om4",
+   "label": "Multimode Fiber (OM4)"
+  },
+  "termination_a_id": "55f79b60-671a-4960-8800-2e7d597affb6",
+  "termination_b_id": "af51bcfa-5a99-44fc-91f6-3fbebbfbe312",
+  "label": "L2",
+  "color": "",
+  "length": 150,
+  "status": {
+   "id": "77aa3dc5-9c78-4ba2-b533-b29738bca21a",
+   "object_type": "extras.status",
+   "display": "Planned",
+   "url": "https://nautobot.example.com/api/extras/statuses/77aa3dc5-9c78-4ba2-b533-b29738bca21a/",
+   "natural_slug": "planned_77aa",
+   "name": "Planned",
+   "color": "00bcd4",
+   "description": "Unit has been planned",
+   "created": "2026-10-07T00:00:00Z",
+   "last_updated": "2026-10-07T11:48:24.052830Z",
+   "notes_url": "https://nautobot.example.com/api/extras/statuses/77aa3dc5-9c78-4ba2-b533-b29738bca21a/notes/",
+   "custom_fields": {}
+  },
+  "created": "2026-10-07T11:50:06.365758Z",
+  "last_updated": "2026-10-07T11:50:06.365767Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/cables/c113feba-b245-4d1d-aa44-38ea4627e210/notes/",
+  "custom_fields": {},
+  "tags": []
+ }
+]

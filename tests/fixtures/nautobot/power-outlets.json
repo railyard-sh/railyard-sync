@@ -1,0 +1,122 @@
+[
+ {
+  "id": "6fe3c509-6da9-4a76-811f-cb79b1f6d2fb",
+  "object_type": "dcim.poweroutlet",
+  "display": "Outlet 1",
+  "url": "https://nautobot.example.com/api/dcim/power-outlets/6fe3c509-6da9-4a76-811f-cb79b1f6d2fb/",
+  "natural_slug": "ldn1-pdu-a01__data-hall-1_building-a_ldn1_united-kingdom_europe__outlet-1_6fe3",
+  "cable_peer_type": "dcim.powerport",
+  "cable_peer": {
+   "id": "2e498aa3-444f-4df9-85a3-0ef672eba1c2",
+   "object_type": "dcim.powerport",
+   "url": "https://nautobot.example.com/api/dcim/power-ports/2e498aa3-444f-4df9-85a3-0ef672eba1c2/"
+  },
+  "connected_endpoint_type": "dcim.powerport",
+  "connected_endpoint": {
+   "id": "2e498aa3-444f-4df9-85a3-0ef672eba1c2",
+   "object_type": "dcim.powerport",
+   "url": "https://nautobot.example.com/api/dcim/power-ports/2e498aa3-444f-4df9-85a3-0ef672eba1c2/"
+  },
+  "connected_endpoint_reachable": true,
+  "type": {
+   "value": "iec-60320-c13",
+   "label": "C13"
+  },
+  "feed_leg": {
+   "value": "A",
+   "label": "A"
+  },
+  "name": "Outlet 1",
+  "label": "",
+  "description": "",
+  "device": {
+   "id": "304ab72c-5696-458e-b0bf-3cde3c827b10",
+   "object_type": "dcim.device",
+   "url": "https://nautobot.example.com/api/dcim/devices/304ab72c-5696-458e-b0bf-3cde3c827b10/"
+  },
+  "module": null,
+  "cable": {
+   "id": "1782811b-d5a7-4775-a64b-f9c7d25c5033",
+   "object_type": "dcim.poweroutlet",
+   "url": "https://nautobot.example.com/api/dcim/cables/1782811b-d5a7-4775-a64b-f9c7d25c5033/"
+  },
+  "power_port": null,
+  "created": "2026-10-07T11:50:06.129622Z",
+  "last_updated": "2026-10-07T11:50:06.388770Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/power-outlets/6fe3c509-6da9-4a76-811f-cb79b1f6d2fb/notes/",
+  "custom_fields": {},
+  "tags": []
+ },
+ {
+  "id": "9f5e8714-3183-4485-bd9d-13a093519217",
+  "object_type": "dcim.poweroutlet",
+  "display": "Outlet 2",
+  "url": "https://nautobot.example.com/api/dcim/power-outlets/9f5e8714-3183-4485-bd9d-13a093519217/",
+  "natural_slug": "ldn1-pdu-a01__data-hall-1_building-a_ldn1_united-kingdom_europe__outlet-2_9f5e",
+  "cable_peer_type": null,
+  "cable_peer": null,
+  "connected_endpoint_type": null,
+  "connected_endpoint": null,
+  "connected_endpoint_reachable": null,
+  "type": {
+   "value": "iec-60320-c13",
+   "label": "C13"
+  },
+  "feed_leg": {
+   "value": "A",
+   "label": "A"
+  },
+  "name": "Outlet 2",
+  "label": "",
+  "description": "",
+  "device": {
+   "id": "304ab72c-5696-458e-b0bf-3cde3c827b10",
+   "object_type": "dcim.device",
+   "url": "https://nautobot.example.com/api/dcim/devices/304ab72c-5696-458e-b0bf-3cde3c827b10/"
+  },
+  "module": null,
+  "cable": null,
+  "power_port": null,
+  "created": "2026-10-07T11:50:06.129750Z",
+  "last_updated": "2026-10-07T11:50:06.129757Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/power-outlets/9f5e8714-3183-4485-bd9d-13a093519217/notes/",
+  "custom_fields": {},
+  "tags": []
+ },
+ {
+  "id": "e0c24c26-862f-4916-a9cf-8b0ebbc00110",
+  "object_type": "dcim.poweroutlet",
+  "display": "Outlet 3",
+  "url": "https://nautobot.example.com/api/dcim/power-outlets/e0c24c26-862f-4916-a9cf-8b0ebbc00110/",
+  "natural_slug": "ldn1-pdu-a01__data-hall-1_building-a_ldn1_united-kingdom_europe__outlet-3_e0c2",
+  "cable_peer_type": null,
+  "cable_peer": null,
+  "connected_endpoint_type": null,
+  "connected_endpoint": null,
+  "connected_endpoint_reachable": null,
+  "type": {
+   "value": "iec-60320-c13",
+   "label": "C13"
+  },
+  "feed_leg": {
+   "value": "A",
+   "label": "A"
+  },
+  "name": "Outlet 3",
+  "label": "",
+  "description": "",
+  "device": {
+   "id": "304ab72c-5696-458e-b0bf-3cde3c827b10",
+   "object_type": "dcim.device",
+   "url": "https://nautobot.example.com/api/dcim/devices/304ab72c-5696-458e-b0bf-3cde3c827b10/"
+  },
+  "module": null,
+  "cable": null,
+  "power_port": null,
+  "created": "2026-10-07T11:50:06.129779Z",
+  "last_updated": "2026-10-07T11:50:06.129781Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/power-outlets/e0c24c26-862f-4916-a9cf-8b0ebbc00110/notes/",
+  "custom_fields": {},
+  "tags": []
+ }
+]

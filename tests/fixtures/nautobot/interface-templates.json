@@ -1,0 +1,110 @@
+[
+ {
+  "id": "a6bdb860-4161-416e-a59f-86ca5db25ac6",
+  "object_type": "dcim.interfacetemplate",
+  "display": "Ethernet1",
+  "url": "https://nautobot.example.com/api/dcim/interface-templates/a6bdb860-4161-416e-a59f-86ca5db25ac6/",
+  "natural_slug": "arista_dcs-7050sx3-48yc8___ethernet1_a6bd",
+  "notes_url": null,
+  "type": {
+   "value": "25gbase-x-sfp28",
+   "label": "SFP28 (25GE)"
+  },
+  "name": "Ethernet1",
+  "label": "",
+  "description": "",
+  "mgmt_only": false,
+  "speed": null,
+  "duplex": "",
+  "device_type": {
+   "id": "a47a3dac-a1d4-47c7-bcf2-578a628a6501",
+   "object_type": "dcim.devicetype",
+   "url": "https://nautobot.example.com/api/dcim/device-types/a47a3dac-a1d4-47c7-bcf2-578a628a6501/"
+  },
+  "module_type": null,
+  "created": "2026-10-07T11:50:05.996327Z",
+  "last_updated": "2026-10-07T11:50:05.996334Z",
+  "custom_fields": {}
+ },
+ {
+  "id": "a735b34a-8743-4367-915b-c8b42d958dde",
+  "object_type": "dcim.interfacetemplate",
+  "display": "Ethernet2",
+  "url": "https://nautobot.example.com/api/dcim/interface-templates/a735b34a-8743-4367-915b-c8b42d958dde/",
+  "natural_slug": "arista_dcs-7050sx3-48yc8___ethernet2_a735",
+  "notes_url": null,
+  "type": {
+   "value": "25gbase-x-sfp28",
+   "label": "SFP28 (25GE)"
+  },
+  "name": "Ethernet2",
+  "label": "",
+  "description": "",
+  "mgmt_only": false,
+  "speed": null,
+  "duplex": "",
+  "device_type": {
+   "id": "a47a3dac-a1d4-47c7-bcf2-578a628a6501",
+   "object_type": "dcim.devicetype",
+   "url": "https://nautobot.example.com/api/dcim/device-types/a47a3dac-a1d4-47c7-bcf2-578a628a6501/"
+  },
+  "module_type": null,
+  "created": "2026-10-07T11:50:06.004061Z",
+  "last_updated": "2026-10-07T11:50:06.004070Z",
+  "custom_fields": {}
+ },
+ {
+  "id": "c41e808e-f1bc-4ec3-b31b-f395bcd0c85d",
+  "object_type": "dcim.interfacetemplate",
+  "display": "Management1",
+  "url": "https://nautobot.example.com/api/dcim/interface-templates/c41e808e-f1bc-4ec3-b31b-f395bcd0c85d/",
+  "natural_slug": "arista_dcs-7050sx3-48yc8___management1_c41e",
+  "notes_url": null,
+  "type": {
+   "value": "1000base-t",
+   "label": "1000BASE-T (1GE)"
+  },
+  "name": "Management1",
+  "label": "",
+  "description": "",
+  "mgmt_only": true,
+  "speed": null,
+  "duplex": "",
+  "device_type": {
+   "id": "a47a3dac-a1d4-47c7-bcf2-578a628a6501",
+   "object_type": "dcim.devicetype",
+   "url": "https://nautobot.example.com/api/dcim/device-types/a47a3dac-a1d4-47c7-bcf2-578a628a6501/"
+  },
+  "module_type": null,
+  "created": "2026-10-07T11:50:06.004479Z",
+  "last_updated": "2026-10-07T11:50:06.004483Z",
+  "custom_fields": {}
+ },
+ {
+  "id": "f272fc52-0303-4a2d-a0d0-3d1108b972dd",
+  "object_type": "dcim.interfacetemplate",
+  "display": "eno1",
+  "url": "https://nautobot.example.com/api/dcim/interface-templates/f272fc52-0303-4a2d-a0d0-3d1108b972dd/",
+  "natural_slug": "dell_poweredge-r650___eno1_f272",
+  "notes_url": null,
+  "type": {
+   "value": "10gbase-x-sfpp",
+   "label": "SFP+ (10GE)"
+  },
+  "name": "eno1",
+  "label": "",
+  "description": "",
+  "mgmt_only": false,
+  "speed": null,
+  "duplex": "",
+  "device_type": {
+   "id": "6fd7a422-c6af-4b91-8bc3-a5a404351bfd",
+   "object_type": "dcim.devicetype",
+   "url": "https://nautobot.example.com/api/dcim/device-types/6fd7a422-c6af-4b91-8bc3-a5a404351bfd/"
+  },
+  "module_type": null,
+  "created": "2026-10-07T11:50:06.012945Z",
+  "last_updated": "2026-10-07T11:50:06.012954Z",
+  "custom_fields": {}
+ }
+]

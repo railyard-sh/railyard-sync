@@ -1,0 +1,395 @@
+[
+ {
+  "id": "73ac1b48-69a8-4bbe-8a46-1c344f494824",
+  "object_type": "dcim.rack",
+  "display": "B01",
+  "url": "https://nautobot.example.com/api/dcim/racks/73ac1b48-69a8-4bbe-8a46-1c344f494824/",
+  "natural_slug": "b01_73ac",
+  "type": {
+   "value": "2-post-frame",
+   "label": "2-post frame"
+  },
+  "width": {
+   "value": 23,
+   "label": "23 inches"
+  },
+  "outer_unit": null,
+  "device_count": 0,
+  "power_feed_count": 0,
+  "name": "B01",
+  "facility_id": null,
+  "serial": "",
+  "asset_tag": null,
+  "u_height": 45,
+  "desc_units": false,
+  "outer_width": null,
+  "outer_depth": null,
+  "comments": "",
+  "status": {
+   "id": "77aa3dc5-9c78-4ba2-b533-b29738bca21a",
+   "object_type": "extras.status",
+   "display": "Planned",
+   "url": "https://nautobot.example.com/api/extras/statuses/77aa3dc5-9c78-4ba2-b533-b29738bca21a/",
+   "natural_slug": "planned_77aa",
+   "name": "Planned",
+   "color": "00bcd4",
+   "description": "Unit has been planned",
+   "created": "2026-10-07T00:00:00Z",
+   "last_updated": "2026-10-07T11:48:24.052830Z",
+   "notes_url": "https://nautobot.example.com/api/extras/statuses/77aa3dc5-9c78-4ba2-b533-b29738bca21a/notes/",
+   "custom_fields": {}
+  },
+  "role": null,
+  "location": {
+   "id": "3d404b8b-1431-4623-8527-c4f3bcefb488",
+   "object_type": "dcim.location",
+   "display": "Europe → United Kingdom → LDN1 → Building A",
+   "url": "https://nautobot.example.com/api/dcim/locations/3d404b8b-1431-4623-8527-c4f3bcefb488/",
+   "natural_slug": "building-a_ldn1_united-kingdom_europe_3d40",
+   "time_zone": null,
+   "name": "Building A",
+   "description": "",
+   "facility": "",
+   "asn": null,
+   "physical_address": "",
+   "shipping_address": "",
+   "latitude": null,
+   "longitude": null,
+   "contact_name": "",
+   "contact_phone": "",
+   "contact_email": "",
+   "comments": "",
+   "parent": {
+    "id": "7e3d2ecd-a86a-4482-8644-83d05ef339ed",
+    "object_type": "dcim.location",
+    "url": "https://nautobot.example.com/api/dcim/locations/7e3d2ecd-a86a-4482-8644-83d05ef339ed/"
+   },
+   "location_type": {
+    "id": "ae10bbd3-1218-4711-aa87-b1e346f58c77",
+    "object_type": "dcim.locationtype",
+    "url": "https://nautobot.example.com/api/dcim/location-types/ae10bbd3-1218-4711-aa87-b1e346f58c77/"
+   },
+   "status": {
+    "id": "483d2847-2f69-466c-a508-87438375ee48",
+    "object_type": "extras.status",
+    "url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/"
+   },
+   "tenant": null,
+   "created": "2026-10-07T11:50:05.803918Z",
+   "last_updated": "2026-10-07T11:50:05.803926Z",
+   "notes_url": "https://nautobot.example.com/api/dcim/locations/3d404b8b-1431-4623-8527-c4f3bcefb488/notes/",
+   "custom_fields": {}
+  },
+  "rack_group": null,
+  "tenant": null,
+  "created": "2026-10-07T11:50:06.044009Z",
+  "last_updated": "2026-10-07T11:50:06.044012Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/racks/73ac1b48-69a8-4bbe-8a46-1c344f494824/notes/",
+  "custom_fields": {
+   "support_contract": null
+  },
+  "tags": []
+ },
+ {
+  "id": "996661e2-e49e-42dc-ae64-cd5abba0d994",
+  "object_type": "dcim.rack",
+  "display": "A01 (LD8-0401-A01)",
+  "url": "https://nautobot.example.com/api/dcim/racks/996661e2-e49e-42dc-ae64-cd5abba0d994/",
+  "natural_slug": "a01_9966",
+  "type": {
+   "value": "4-post-cabinet",
+   "label": "4-post cabinet"
+  },
+  "width": {
+   "value": 19,
+   "label": "19 inches"
+  },
+  "outer_unit": {
+   "value": "mm",
+   "label": "Millimeters"
+  },
+  "device_count": 4,
+  "power_feed_count": 2,
+  "name": "A01",
+  "facility_id": "LD8-0401-A01",
+  "serial": "AR3300-0001",
+  "asset_tag": "LDN1-R-A01",
+  "u_height": 42,
+  "desc_units": false,
+  "outer_width": 600,
+  "outer_depth": 1070,
+  "comments": "Row A rack 1",
+  "status": {
+   "id": "483d2847-2f69-466c-a508-87438375ee48",
+   "object_type": "extras.status",
+   "display": "Active",
+   "url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/",
+   "natural_slug": "active_483d",
+   "name": "Active",
+   "color": "4caf50",
+   "description": "Unit is active",
+   "created": "2026-10-07T00:00:00Z",
+   "last_updated": "2026-10-07T11:48:24.055176Z",
+   "notes_url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/notes/",
+   "custom_fields": {}
+  },
+  "role": {
+   "id": "1f573f3c-ea48-454d-b223-4d916911219f",
+   "object_type": "extras.role",
+   "display": "Network",
+   "url": "https://nautobot.example.com/api/extras/roles/1f573f3c-ea48-454d-b223-4d916911219f/",
+   "natural_slug": "network_1f57",
+   "name": "Network",
+   "color": "0000ff",
+   "description": "",
+   "weight": null,
+   "created": "2026-10-07T11:50:05.873539Z",
+   "last_updated": "2026-10-07T11:50:05.873549Z",
+   "notes_url": "https://nautobot.example.com/api/extras/roles/1f573f3c-ea48-454d-b223-4d916911219f/notes/",
+   "custom_fields": {}
+  },
+  "location": {
+   "id": "c024d50f-198f-45cc-b060-f16a1068591d",
+   "object_type": "dcim.location",
+   "display": "Europe → United Kingdom → LDN1 → Building A → Data Hall 1",
+   "url": "https://nautobot.example.com/api/dcim/locations/c024d50f-198f-45cc-b060-f16a1068591d/",
+   "natural_slug": "data-hall-1_building-a_ldn1_united-kingdom_europe_c024",
+   "time_zone": null,
+   "name": "Data Hall 1",
+   "description": "",
+   "facility": "DH1",
+   "asn": null,
+   "physical_address": "",
+   "shipping_address": "",
+   "latitude": null,
+   "longitude": null,
+   "contact_name": "",
+   "contact_phone": "",
+   "contact_email": "",
+   "comments": "",
+   "parent": {
+    "id": "3d404b8b-1431-4623-8527-c4f3bcefb488",
+    "object_type": "dcim.location",
+    "url": "https://nautobot.example.com/api/dcim/locations/3d404b8b-1431-4623-8527-c4f3bcefb488/"
+   },
+   "location_type": {
+    "id": "9b9dac2a-f8c5-49e6-97ea-638e852e3fba",
+    "object_type": "dcim.locationtype",
+    "url": "https://nautobot.example.com/api/dcim/location-types/9b9dac2a-f8c5-49e6-97ea-638e852e3fba/"
+   },
+   "status": {
+    "id": "77aa3dc5-9c78-4ba2-b533-b29738bca21a",
+    "object_type": "extras.status",
+    "url": "https://nautobot.example.com/api/extras/statuses/77aa3dc5-9c78-4ba2-b533-b29738bca21a/"
+   },
+   "tenant": null,
+   "created": "2026-10-07T11:50:05.807556Z",
+   "last_updated": "2026-10-07T11:50:05.807563Z",
+   "notes_url": "https://nautobot.example.com/api/dcim/locations/c024d50f-198f-45cc-b060-f16a1068591d/notes/",
+   "custom_fields": {}
+  },
+  "rack_group": null,
+  "tenant": null,
+  "created": "2026-10-07T11:50:06.033754Z",
+  "last_updated": "2026-10-07T11:50:06.033759Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/racks/996661e2-e49e-42dc-ae64-cd5abba0d994/notes/",
+  "custom_fields": {
+   "support_contract": "RK-1"
+  },
+  "tags": [
+   {
+    "id": "380971ce-050c-45e5-9d0b-beaa9828bbdc",
+    "object_type": "extras.tag",
+    "display": "production",
+    "url": "https://nautobot.example.com/api/extras/tags/380971ce-050c-45e5-9d0b-beaa9828bbdc/",
+    "natural_slug": "production_3809",
+    "name": "production",
+    "color": "00ff00",
+    "description": "",
+    "created": "2026-10-07T11:50:05.818844Z",
+    "last_updated": "2026-10-07T11:50:05.818854Z",
+    "notes_url": "https://nautobot.example.com/api/extras/tags/380971ce-050c-45e5-9d0b-beaa9828bbdc/notes/",
+    "custom_fields": {}
+   }
+  ]
+ },
+ {
+  "id": "85d6b0ea-01dc-4ab7-a607-112d0ac6ab17",
+  "object_type": "dcim.rack",
+  "display": "A02",
+  "url": "https://nautobot.example.com/api/dcim/racks/85d6b0ea-01dc-4ab7-a607-112d0ac6ab17/",
+  "natural_slug": "a02_85d6",
+  "type": null,
+  "width": {
+   "value": 19,
+   "label": "19 inches"
+  },
+  "outer_unit": {
+   "value": "in",
+   "label": "Inches"
+  },
+  "device_count": 2,
+  "power_feed_count": 0,
+  "name": "A02",
+  "facility_id": null,
+  "serial": "",
+  "asset_tag": null,
+  "u_height": 42,
+  "desc_units": true,
+  "outer_width": 24,
+  "outer_depth": 42,
+  "comments": "",
+  "status": {
+   "id": "483d2847-2f69-466c-a508-87438375ee48",
+   "object_type": "extras.status",
+   "display": "Active",
+   "url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/",
+   "natural_slug": "active_483d",
+   "name": "Active",
+   "color": "4caf50",
+   "description": "Unit is active",
+   "created": "2026-10-07T00:00:00Z",
+   "last_updated": "2026-10-07T11:48:24.055176Z",
+   "notes_url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/notes/",
+   "custom_fields": {}
+  },
+  "role": null,
+  "location": {
+   "id": "c024d50f-198f-45cc-b060-f16a1068591d",
+   "object_type": "dcim.location",
+   "display": "Europe → United Kingdom → LDN1 → Building A → Data Hall 1",
+   "url": "https://nautobot.example.com/api/dcim/locations/c024d50f-198f-45cc-b060-f16a1068591d/",
+   "natural_slug": "data-hall-1_building-a_ldn1_united-kingdom_europe_c024",
+   "time_zone": null,
+   "name": "Data Hall 1",
+   "description": "",
+   "facility": "DH1",
+   "asn": null,
+   "physical_address": "",
+   "shipping_address": "",
+   "latitude": null,
+   "longitude": null,
+   "contact_name": "",
+   "contact_phone": "",
+   "contact_email": "",
+   "comments": "",
+   "parent": {
+    "id": "3d404b8b-1431-4623-8527-c4f3bcefb488",
+    "object_type": "dcim.location",
+    "url": "https://nautobot.example.com/api/dcim/locations/3d404b8b-1431-4623-8527-c4f3bcefb488/"
+   },
+   "location_type": {
+    "id": "9b9dac2a-f8c5-49e6-97ea-638e852e3fba",
+    "object_type": "dcim.locationtype",
+    "url": "https://nautobot.example.com/api/dcim/location-types/9b9dac2a-f8c5-49e6-97ea-638e852e3fba/"
+   },
+   "status": {
+    "id": "77aa3dc5-9c78-4ba2-b533-b29738bca21a",
+    "object_type": "extras.status",
+    "url": "https://nautobot.example.com/api/extras/statuses/77aa3dc5-9c78-4ba2-b533-b29738bca21a/"
+   },
+   "tenant": null,
+   "created": "2026-10-07T11:50:05.807556Z",
+   "last_updated": "2026-10-07T11:50:05.807563Z",
+   "notes_url": "https://nautobot.example.com/api/dcim/locations/c024d50f-198f-45cc-b060-f16a1068591d/notes/",
+   "custom_fields": {}
+  },
+  "rack_group": null,
+  "tenant": null,
+  "created": "2026-10-07T11:50:06.043589Z",
+  "last_updated": "2026-10-07T11:50:06.043599Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/racks/85d6b0ea-01dc-4ab7-a607-112d0ac6ab17/notes/",
+  "custom_fields": {
+   "support_contract": null
+  },
+  "tags": []
+ },
+ {
+  "id": "35b8f3a6-afb6-437f-991f-df288affaa6c",
+  "object_type": "dcim.rack",
+  "display": "M01",
+  "url": "https://nautobot.example.com/api/dcim/racks/35b8f3a6-afb6-437f-991f-df288affaa6c/",
+  "natural_slug": "m01_35b8",
+  "type": null,
+  "width": {
+   "value": 19,
+   "label": "19 inches"
+  },
+  "outer_unit": null,
+  "device_count": 1,
+  "power_feed_count": 0,
+  "name": "M01",
+  "facility_id": null,
+  "serial": "",
+  "asset_tag": null,
+  "u_height": 42,
+  "desc_units": false,
+  "outer_width": null,
+  "outer_depth": null,
+  "comments": "",
+  "status": {
+   "id": "483d2847-2f69-466c-a508-87438375ee48",
+   "object_type": "extras.status",
+   "display": "Active",
+   "url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/",
+   "natural_slug": "active_483d",
+   "name": "Active",
+   "color": "4caf50",
+   "description": "Unit is active",
+   "created": "2026-10-07T00:00:00Z",
+   "last_updated": "2026-10-07T11:48:24.055176Z",
+   "notes_url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/notes/",
+   "custom_fields": {}
+  },
+  "role": null,
+  "location": {
+   "id": "bde7e159-2008-45ca-82a7-29ba1fdb9ec0",
+   "object_type": "dcim.location",
+   "display": "Europe → United Kingdom → MAN1",
+   "url": "https://nautobot.example.com/api/dcim/locations/bde7e159-2008-45ca-82a7-29ba1fdb9ec0/",
+   "natural_slug": "man1_united-kingdom_europe_bde7",
+   "time_zone": null,
+   "name": "MAN1",
+   "description": "",
+   "facility": "",
+   "asn": null,
+   "physical_address": "",
+   "shipping_address": "",
+   "latitude": null,
+   "longitude": null,
+   "contact_name": "",
+   "contact_phone": "",
+   "contact_email": "",
+   "comments": "",
+   "parent": {
+    "id": "6936d14e-0b64-45bc-976a-cb0d64bf7401",
+    "object_type": "dcim.location",
+    "url": "https://nautobot.example.com/api/dcim/locations/6936d14e-0b64-45bc-976a-cb0d64bf7401/"
+   },
+   "location_type": {
+    "id": "2ac9b611-f771-403d-9162-8a26a7222082",
+    "object_type": "dcim.locationtype",
+    "url": "https://nautobot.example.com/api/dcim/location-types/2ac9b611-f771-403d-9162-8a26a7222082/"
+   },
+   "status": {
+    "id": "483d2847-2f69-466c-a508-87438375ee48",
+    "object_type": "extras.status",
+    "url": "https://nautobot.example.com/api/extras/statuses/483d2847-2f69-466c-a508-87438375ee48/"
+   },
+   "tenant": null,
+   "created": "2026-10-07T11:50:05.811362Z",
+   "last_updated": "2026-10-07T11:50:05.811371Z",
+   "notes_url": "https://nautobot.example.com/api/dcim/locations/bde7e159-2008-45ca-82a7-29ba1fdb9ec0/notes/",
+   "custom_fields": {}
+  },
+  "rack_group": null,
+  "tenant": null,
+  "created": "2026-10-07T11:50:06.044524Z",
+  "last_updated": "2026-10-07T11:50:06.044530Z",
+  "notes_url": "https://nautobot.example.com/api/dcim/racks/35b8f3a6-afb6-437f-991f-df288affaa6c/notes/",
+  "custom_fields": {
+   "support_contract": null
+  },
+  "tags": []
+ }
+]

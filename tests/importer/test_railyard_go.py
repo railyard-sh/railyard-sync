@@ -23,8 +23,11 @@ import subprocess
 
 import ldn1
 import pytest
+from dcim.fake_nautobot import BASE as NAUTOBOT, FakeNautobot
 from importer_helpers import build
 from test_build import _power_cable, _power_snapshot
+
+from railyard_sync.dcim.nautobot import NautobotLoader
 
 HERE = pathlib.Path(__file__).parent
 
@@ -34,7 +37,13 @@ def _projects() -> dict[str, dict]:
         "ldn1": build(ldn1.snapshot(), catalogue=ldn1.FakeCatalogue()).project,
         "ldn1-custom": build(ldn1.snapshot(), prefix="nbt").project,
         "power": build(_power_snapshot(_power_cable("1", "11", "107"))).project,
+        "nautobot": build(_nautobot_snapshot(), prefix="nbt").project,
     }
+
+
+def _nautobot_snapshot():
+    nb = FakeNautobot()
+    return NautobotLoader(NAUTOBOT, nb.token, session=nb.session).load(None)
 
 
 @pytest.fixture

@@ -1,0 +1,8 @@
+{
+ "django-version": "4.2.30",
+ "nautobot-version": "2.4.43",
+ "nautobot-apps": {},
+ "plugins": {},
+ "python-version": "3.12.12",
+ "celery-workers-running": 0
+}

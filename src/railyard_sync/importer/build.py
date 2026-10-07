@@ -5,7 +5,9 @@ JSON document, ready to ``PUT``, plus an :class:`~railyard_sync.importer.report.
 mapping and identity scheme are set out in this repository's ``CLAUDE.md``; in short:
 
 - regions are ``group`` containers, a site a ``floor`` container (with its ``dataCentres`` record) and
-  its locations ``group`` containers below it; every ``group`` container has a ``locations`` record;
+  its locations ``group`` containers below it; every ``group`` container has a ``locations`` record.
+  From Nautobot, which has no sites, the imported location is the site, the locations above it are
+  the regions and those below it the locations, each container typed by its Nautobot location type;
 - racks keep their size, numbering, status, role and load rating, and their primary power feeds
   become ``powerCapacityW``;
 - racked devices become placements with their real ports and power inputs; 0U devices are side
@@ -304,7 +306,8 @@ class _Builder:
             parent = emit_region(region.parent_id, (*trail, region_id)) if region.parent_id else None
             container_id = self.ident("region", region.id)
             name = self.fit((region.name or region.slug or region.id).strip(), MAX_IDENTIFIER, f"region {region.id}")
-            self.add_group(container_id, name, "Region", parent)
+            type_ = self.fit((region.location_type or "Region").strip() or "Region", MAX_IDENTIFIER, "region type")
+            self.add_group(container_id, name, type_, parent)
             emitted[region_id] = container_id
             self.report.count("regions")
             return container_id
@@ -318,7 +321,8 @@ class _Builder:
             site_id = self.ident("site", site.id)
             name = self.fit((site.name or site.slug or site.id).strip(), MAX_IDENTIFIER, f"site {site.id}")
             status = m.status_label(site.status)
-            container: dict[str, Any] = {"id": site_id, "name": name, "type": "Site"}
+            type_ = self.fit((site.location_type or "Site").strip() or "Site", MAX_IDENTIFIER, "site type")
+            container: dict[str, Any] = {"id": site_id, "name": name, "type": type_}
             if region:
                 container["parentId"] = region
             container["layout"] = "floor"

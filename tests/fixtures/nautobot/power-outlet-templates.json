@@ -1,0 +1,89 @@
+[
+ {
+  "id": "7a64ced0-5885-4cfc-902d-579f6a0fa796",
+  "object_type": "dcim.poweroutlettemplate",
+  "display": "Outlet 1",
+  "url": "https://nautobot.example.com/api/dcim/power-outlet-templates/7a64ced0-5885-4cfc-902d-579f6a0fa796/",
+  "natural_slug": "apc_ap8868___outlet-1_7a64",
+  "notes_url": null,
+  "type": {
+   "value": "iec-60320-c13",
+   "label": "C13"
+  },
+  "feed_leg": {
+   "value": "A",
+   "label": "A"
+  },
+  "name": "Outlet 1",
+  "label": "",
+  "description": "",
+  "device_type": {
+   "id": "81d019e0-d417-4a19-8200-cb85ed05ad39",
+   "object_type": "dcim.devicetype",
+   "url": "https://nautobot.example.com/api/dcim/device-types/81d019e0-d417-4a19-8200-cb85ed05ad39/"
+  },
+  "module_type": null,
+  "power_port_template": null,
+  "created": "2026-10-07T11:50:06.015061Z",
+  "last_updated": "2026-10-07T11:50:06.015063Z",
+  "custom_fields": {}
+ },
+ {
+  "id": "dbbeb537-3762-49e9-a728-819b6f09786e",
+  "object_type": "dcim.poweroutlettemplate",
+  "display": "Outlet 2",
+  "url": "https://nautobot.example.com/api/dcim/power-outlet-templates/dbbeb537-3762-49e9-a728-819b6f09786e/",
+  "natural_slug": "apc_ap8868___outlet-2_dbbe",
+  "notes_url": null,
+  "type": {
+   "value": "iec-60320-c13",
+   "label": "C13"
+  },
+  "feed_leg": {
+   "value": "A",
+   "label": "A"
+  },
+  "name": "Outlet 2",
+  "label": "",
+  "description": "",
+  "device_type": {
+   "id": "81d019e0-d417-4a19-8200-cb85ed05ad39",
+   "object_type": "dcim.devicetype",
+   "url": "https://nautobot.example.com/api/dcim/device-types/81d019e0-d417-4a19-8200-cb85ed05ad39/"
+  },
+  "module_type": null,
+  "power_port_template": null,
+  "created": "2026-10-07T11:50:06.018544Z",
+  "last_updated": "2026-10-07T11:50:06.018550Z",
+  "custom_fields": {}
+ },
+ {
+  "id": "7d9ef3d8-3b0c-4409-8af1-3a20f6743e83",
+  "object_type": "dcim.poweroutlettemplate",
+  "display": "Outlet 3",
+  "url": "https://nautobot.example.com/api/dcim/power-outlet-templates/7d9ef3d8-3b0c-4409-8af1-3a20f6743e83/",
+  "natural_slug": "apc_ap8868___outlet-3_7d9e",
+  "notes_url": null,
+  "type": {
+   "value": "iec-60320-c13",
+   "label": "C13"
+  },
+  "feed_leg": {
+   "value": "A",
+   "label": "A"
+  },
+  "name": "Outlet 3",
+  "label": "",
+  "description": "",
+  "device_type": {
+   "id": "81d019e0-d417-4a19-8200-cb85ed05ad39",
+   "object_type": "dcim.devicetype",
+   "url": "https://nautobot.example.com/api/dcim/device-types/81d019e0-d417-4a19-8200-cb85ed05ad39/"
+  },
+  "module_type": null,
+  "power_port_template": null,
+  "created": "2026-10-07T11:50:06.019300Z",
+  "last_updated": "2026-10-07T11:50:06.019309Z",
+  "custom_fields": {}
+ }
+]
