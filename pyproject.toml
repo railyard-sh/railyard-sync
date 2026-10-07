@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "railyard-sync"
-version = "0.1.0"
+version = "0.2.0"
 description = "Sync Railyard estates with NetBox and Nautobot: import a DCIM site as a re-importable Railyard baseline, and the shared core of the Railyard NetBox and Nautobot plugins."
 readme = "README.md"
 requires-python = ">=3.12"

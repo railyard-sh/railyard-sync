@@ -1,19 +1,19 @@
 # railyard-sync
 
-Bring an existing **NetBox** site into **[Railyard](https://railyard.sh)** as a design baseline, and
-refresh it later without losing what you designed; then push the design back out into NetBox. It is
-also the shared core of Railyard's NetBox (and, later, Nautobot) plugins.
+Bring an existing **NetBox** site or **Nautobot** location into **[Railyard](https://railyard.sh)** as a
+design baseline, and refresh it later without losing what you designed; then push the design back out into
+NetBox or Nautobot. It is also the shared core of Railyard's NetBox plugin and Nautobot app.
 
-> Status: **early development (0.1).** NetBox import and export work; Nautobot follows.
+> Status: **early development (0.2).** NetBox (4.0–4.6) and Nautobot (2.x) import and export work.
 
 ## What it does
 
 ```
-NetBox REST API ──► Snapshot (sites, racks, devices, ports, cables, power) ──► Railyard project
-                                                                                  │
-                         re-import: merge into the existing estate ◄──────────────┘
+NetBox / Nautobot REST API ──► Snapshot (sites, racks, devices, ports, cables, power) ──► Railyard project
+                                                                                             │
+                                    re-import: merge into the existing estate ◄──────────────┘
 
-Railyard project ──► NetBox sync document (a Railyard deliverable) ──► NetBox REST API (export)
+Railyard project ──► NetBox / Nautobot sync document (a Railyard deliverable) ──► the DCIM's REST API (export)
 ```
 
 - **Import a site:** spaces from the site's locations, racks, device types (matched to Railyard's
@@ -102,6 +102,41 @@ railyard-sync export netbox --org my-org --project ldn1-design \
 Exit codes: `0` done, `1` NetBox refused writes or there are conflicts (both listed; the rest is
 written, and running the export again converges), `2` usage, `3` refused by the Railyard plan.
 
+### Nautobot
+
+Nautobot 2.x has no sites: every place is a location, typed by a location type (Region → Site → Building →
+Room, as your Nautobot defines them). An import is built around the locations you name with `--location`
+(a name, or the UUID when a name is not unique): each becomes a data centre in Railyard, the locations below
+it its rooms and rows (keeping their location types), and the ones above it the groups it sits in.
+`--all-locations` takes every location of the first type down the tree that may hold racks or devices (your
+sites, typically).
+
+```bash
+export NAUTOBOT_TOKEN=…      # a Nautobot API token (read-only for an import)
+export RAILYARD_TOKEN=ry_…
+
+railyard-sync import nautobot --nautobot-url https://nautobot.example.com --location LDN1 \
+  --org my-org --name "LDN1 baseline"
+
+railyard-sync export nautobot --org my-org --project ldn1-design \
+  --nautobot-url https://nautobot.example.com          # a dry run; add --apply to write
+```
+
+Everything else is as for NetBox: the same flags, refreshes, dry runs, exit codes and troubleshooting. What
+differs on export:
+
+- **Ownership.** Objects the export creates carry the project's ownership tag, enabled for every model it
+  tags. Nautobot's location types, statuses, manufacturers and roles cannot be tagged, so for those the
+  export records the owner in a `railyard_owner` custom field (it creates the field when the token may; if
+  not, it creates those objects without an owner and never changes them afterwards). Devices carry their
+  Railyard id in the `railyard_id` custom field, as in NetBox.
+- **Statuses, roles and location types are shared.** One that already exists is used as it is; if it is not
+  enabled for what uses it (a role for devices, a location type for racks), the objects that need it are
+  reported as conflicts rather than written. Design tags are created enabled for racks and devices; an
+  existing tag that is not is left off those objects, with a warning.
+- **Versions.** Nautobot 2.0 to 2.4 (tested with 2.4); 3.x is read with a warning; 1.x is refused.
+- **A paid deliverable on hosted Railyard**, like the NetBox document.
+
 ## Troubleshooting
 
 Results (the import summary, the re-import diff, the export report, `--json`) go to **stdout**; progress,
@@ -153,7 +188,10 @@ python3.12 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/ruff check . && .venv/bin/ruff format --check . && .venv/bin/pytest
 ```
 
-See `CLAUDE.md` for the design: the snapshot contract, the identity scheme and the re-import policy.
+See `CLAUDE.md` for the design: the snapshot contract, the identity scheme and the re-import policy. With
+`RAILYARD_BIN` set to a built Railyard CLI (`go build -o /tmp/railyard ./cmd/railyard` in `railyard/backend`)
+the suite also round-trips imported estates back out through Railyard's own `netbox-sync` and `nautobot-sync`
+documents.
 
 ## Licence
 

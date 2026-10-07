@@ -2,15 +2,16 @@
 
 The shared Python core of Railyard's DCIM integrations, and the `railyard-sync` CLI.
 
-- **Import (DCIM → Railyard):** read a NetBox (later Nautobot) site, build a Railyard project from it,
+- **Import (DCIM → Railyard):** read a NetBox site or a Nautobot location, build a Railyard project from it,
   and re-import it later as a refreshed baseline without losing what was designed in Railyard.
-- **Export (Railyard → DCIM):** the DiffSync models and Railyard source adapter that
-  `netbox-plugin-railyard` (and a future Nautobot plugin) sync from. Extracted from that plugin's
-  `netbox_railyard/railyard/` core; keep it in step with Railyard's Go export
-  (`railyard/backend/internal/export/`).
+- **Export (Railyard → DCIM):** the DiffSync models, source adapters (over Railyard's `netbox-sync` and
+  `nautobot-sync` deliverables) and REST targets that `netbox-plugin-railyard`, `nautobot-app-railyard` and
+  the CLI sync with. Keep it in step with Railyard's Go export (`railyard/backend/internal/export/`).
 
 The plugins depend on this package. Nothing here may import Django, NetBox or Nautobot: a plugin
-reads its own ORM into a `Snapshot` and calls the same importer the CLI uses.
+reads its own data into a `Snapshot` and calls the same import flow the CLI uses
+(`importer/flow.py`). The Nautobot app runs the Nautobot loader and REST target in-process, over Nautobot's
+own API views (an injected session), so their semantics are tested here once.
 
 ## Layout
 
@@ -19,12 +20,13 @@ reads its own ORM into a `Snapshot` and calls the same importer the CLI uses.
 | `src/railyard_sync/client.py`, `errors.py`, `project.py` | Railyard REST client (`Authorization: Bearer ry_…`, `X-Org-Id`, an `X-Request-ID` per request; projects, named versions, `validate()` for `/api/validate`, `deliverable_json()` / `netbox_sync_document()`), typed errors, Project JSON wrapper. `client._error` maps every failed status to an error carrying method, path, status, the server's `error`/`code`/details and the request id, with what to do in `hints` (`str(e)` ends with the request id to quote); 429/503 are retried (bounded) for GETs, `/api/validate` and a PUT with `If-Match`, never a PUT without it. Every 402 is parsed in one place (`client._plan_error`) into the one `RailyardPlanError` family (`RailyardPlanLimitError` / `RailyardPlanRequiredError`), carrying plan, resource, limit, current, scope, required plans, Project Pass, feature and deliverable |
 | `src/railyard_sync/export/` | Railyard → DCIM: canonical DiffSync models, source adapter, mappings and cabling plan (ports of the Go export) |
 | `src/railyard_sync/export/sync_document.py` | Source adapter over Railyard's `netbox-sync` deliverable (the NetBox bundle as JSON rows). **All knowledge of that document's shape lives here** |
-| `src/railyard_sync/export/netbox_rest.py`, `run.py`, `policy.py` | NetBox REST target (the plugin's ownership rules: tag-owned objects only, shared objects used as-is, conflicts skipped, guarded deletes) and `sync_to_netbox()`; `policy.py` is the plugin's ownership tag, byte for byte |
+| `src/railyard_sync/export/netbox_rest.py`, `run.py`, `policy.py` | NetBox REST target (the plugin's ownership rules: tag-owned objects only, shared objects used as-is, conflicts skipped, guarded deletes) and `sync_to_netbox()`; `policy.py` is the plugin's ownership tag, byte for byte. `run._run` is the plan/apply flow both targets share |
+| `src/railyard_sync/export/nautobot_models.py`, `nautobot_document.py`, `nautobot_rest.py` | Nautobot 2.x: canonical models where NetBox's don't fit (location types, statuses, roles, locations by name, slug-less types; ports, power and cables reuse `models.py`), `NautobotSyncDocumentAdapter` over the `nautobot-sync` document (**all knowledge of its shape**), and the REST target with the same ownership rules; `run.sync_to_nautobot()` |
 | `src/railyard_sync/dcim/snapshot.py` | **The contract**: a DCIM site as plain dataclasses (sites, locations, racks, device types, devices, components, cables, power panels/feeds), source-neutral, mm/kg/W units |
-| `src/railyard_sync/dcim/netbox.py` | NetBox REST loader → `Snapshot` (one or more sites) |
-| `src/railyard_sync/importer/` | `build_project(snapshot)` → Railyard Project JSON; `merge(existing, imported)` for re-import; the import report |
-| `src/railyard_sync/log.py`, `problems.py`, `netbox_http.py` | Logging (the CLI's handlers, the redacting filter, `log_http`, size/count formatting); Railyard validation problems named by rack and device (`ProblemNamer`); NetBox's error `detail`, request id and the permission a 403 needed (shared by the loader and the export client) |
-| `src/railyard_sync/cli.py` | `railyard-sync import netbox …` and `railyard-sync export netbox …` (shared argument, token and client helpers; exit codes: 0 ok, 1 error — for export also conflicts — 2 usage, 3 plan) |
+| `src/railyard_sync/dcim/netbox.py`, `nautobot.py`, `rest.py`, `values.py` | NetBox REST loader → `Snapshot` (one or more sites); Nautobot REST loader → `Snapshot` (one or more locations); the paginated reader and JSON value readers they share |
+| `src/railyard_sync/importer/` | `build_project(snapshot)` → Railyard Project JSON; `merge(existing, imported)` for re-import; the import report; `flow.py`, the import's steps for every front end (plan, preflight, save) |
+| `src/railyard_sync/log.py`, `problems.py`, `dcim_http.py`, `netbox_http.py` | Logging (the CLI's handlers, the redacting filter, `log_http`, size/count formatting); Railyard validation problems named by rack and device (`ProblemNamer`); `dcim_http`: each DCIM's error `detail`, request id, the permission a 403 needed and where to make a token, worded per product (`failure()`), and `RESTClient`, which both export clients extend (`netbox_http` keeps NetBox's names for it) |
+| `src/railyard_sync/cli.py` | `railyard-sync import netbox|nautobot …` and `railyard-sync export netbox|nautobot …` (one parser per DCIM from a `DCIM` descriptor; exit codes: 0 ok, 1 error — for export also conflicts — 2 usage, 3 plan) |
 
 ## The Railyard side (facts the importer depends on)
 
@@ -55,7 +57,8 @@ Every object the importer creates gets a **deterministic id** from its source pr
 `nb-site-<id>`, `nb-loc-<id>`, `nb-rack-<id>`, `nb-dev-<id>`, `nb-if-<id>`, `nb-fp-<id>`, `nb-rp-<id>`,
 `nb-pp-<id>` (power port → placement power inlet), `nb-cable-<id>`, `nb-power-<cable id>` (power link),
 `nb-dt-<slug>` (custom device types), `nb-rt-<slug>` (rack types). Nautobot uses `nbt-` with the same
-suffixes. `project.meta.railyardSync` records the source (kind, URL, version, sites), the last import
+suffixes and its UUIDs (`nbt-dev-<uuid>`: 44 characters, well inside the 256/200 limits); a device type's
+slug is derived from its manufacturer and model (Nautobot 2 has none). `project.meta.railyardSync` records the source (kind, URL, version, sites), the last import
 time and what was not modelled (power panels and feeds, device statuses, skipped objects).
 
 Anything **without** that prefix was designed in Railyard and is never touched by a re-import.
@@ -76,14 +79,46 @@ Dry run unless `--apply`; `--json` prints `SyncResult.as_dict()`. The document i
 hosted Railyard (402 `plan_required` / `plan_limit` → exit 3; a billing-off server allows it). diffsync logs
 through structlog, which prints to stdout by default: the CLI routes it through the standard library
 (`_configure_logging`) so stdout carries only its own output. `tests/test_cli_export.py` covers the CLI;
-`tests/test_end_to_end.py` round-trips an imported site back out when `RAILYARD_BIN` is set.
+`tests/test_end_to_end.py` round-trips an imported site back out when `RAILYARD_BIN` is set
+(`tests/test_cli_nautobot.py` does the same for Nautobot).
+
+## Export (Railyard → Nautobot, `sync_to_nautobot`)
+
+The same rules as NetBox over Nautobot 2.x's REST API (`?depth=1` where names are needed; UUID ids, checked as
+UUIDs before they go into a path). Differences, all in `nautobot_rest.py`:
+
+- The ownership tag has no slug in Nautobot: it is recognised by its exact description and enabled for every
+  model it marks (`TAG_CONTENT_TYPES`). Organisational models (location types, statuses, manufacturers,
+  roles) cannot be tagged: their owner is the `railyard_owner` custom field holding the tag's slug
+  (`filter_logic: exact`; the adapter re-checks the value, as a loose filter matches substrings). Without that
+  field (no permission) they are created unowned and are shared objects from then on.
+- A status, role or location type used as it is must be enabled for what uses it; otherwise the objects that
+  need it are conflicts (`unusable`), with their dependents. A location type must also allow racks/devices
+  where the design puts them. Statuses the document names but does not list (built-ins) are checked too.
+- Locations are found by name and parent (Nautobot names are unique per parent); racks by location and name;
+  a device conflicts with another of its name in the same location.
+- Nautobot refuses filters it does not know (400) and filter values naming no object (400): only filter by ids
+  just read. Deletes: Nautobot's PROTECT refusals keep the object (reported); cascades and SET_NULLs that
+  reach unowned objects are checked first (`_DEPENDENTS`, device bays with installed devices).
+- `tests/export/fake_nautobot_rest.py` validates writes as Nautobot 2.4 does; the Nautobot app's integration
+  tests run the same adapter against a real Nautobot.
+
+## Import from Nautobot (`dcim/nautobot.py`)
+
+The imported location is the snapshot's site (Railyard's floor container), its ancestors the regions and its
+descendants the locations, each with `location_type`. Reads are filtered by the subtree's location ids
+(`location=` on racks/devices/panels/feeds — a tree filter —, `location=` on components — the device's own
+location —, `location_id=` on cables). Components and templates are read at depth 0, everything else at depth 1.
+Fixtures in `tests/fixtures/nautobot/` were captured from a real Nautobot 2.4 by `scripts/populate.py` (a site
+with a building and a room, racks in both, a chassis with a blade, an unracked server, a patch panel, a PDU on a
+feed, cables to a circuit and to another site) and `scripts/capture.py`; regenerating them changes every UUID.
 
 ## Mapping (DCIM → Railyard)
 
 | DCIM | Railyard |
 |---|---|
-| Region chain above the site | `group` containers (type "Region") |
-| Site | `floor` container (type "Site", `exportSite: true`) + `dataCentres` record |
+| Region chain above the site (Nautobot: the locations above the imported one) | `group` containers (type "Region", or the Nautobot location type) |
+| Site (Nautobot: the imported location) | `floor` container (type "Site" or the location type, `exportSite: true`) + `dataCentres` record |
 | Location (nested) | `group` containers under the site (type = Nautobot location type, else "Location") |
 | Rack | rack in its location (or the site): `uHeight`, `startingUnit`, `descendingUnits`, width 19"→600 mm / 23"→800 mm unless an outer width is given, `depthMm` from outer depth, `status`, `role`, `maxLoadKg`, `rackTypeKey`, tags, comments → notes |
 | Rack type | `rackTypes` entry (`nb-rt-<slug>`, `formFactor` in NetBox spelling) |
