@@ -118,7 +118,8 @@ def plan_import(
 
     ``build(snapshot, project_id=, name=, catalogue=, prefix=)`` is :func:`railyard_sync.importer.build_project`
     (injected so a front end can wrap it). ``requested`` are the site or location references the user named,
-    which :func:`check_same_source` accepts for the estate's recorded ones (``place_flag`` is how to name more).
+    which :func:`check_same_source` accepts for the estate's recorded ones (``place_flag`` is how to name more on a
+    command line; blank, the message just lists them).
     Raises :class:`ImportRefused` for a refresh from another source, another DCIM or a subset of its sites."""
     if (project is None) == (name is None):
         raise ValueError("pass either project (a refresh) or name (a new estate)")
@@ -234,7 +235,7 @@ def check_same_source(
     if missing:
         shown = [str(s.get("name") if snapshot.source == "nautobot" else s.get("slug")) or s.get("id") for s in sites]
         listed = ", ".join(str(s) for s in shown)
-        flags = " ".join(f"{place_flag} {_quote(str(s))}" for s in shown)
+        flags = " ".join(f"{place_flag} {_quote(str(s))}" for s in shown) if place_flag else listed
         what = "location(s)" if snapshot.source == "nautobot" else "site(s)"
         raise ImportRefused(
             f"this estate was imported from {what} {listed}; import all of them again ({flags}) so the objects of "
