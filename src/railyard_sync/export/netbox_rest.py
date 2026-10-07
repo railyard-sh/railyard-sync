@@ -43,7 +43,6 @@ import logging
 import re
 from collections import Counter
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass, field
 from typing import Any
 
 from diffsync import Adapter
@@ -54,6 +53,7 @@ from ..dcim_http import NETBOX, APIError, RESTClient
 from . import models
 from .devicetype_library import DeviceTypeLibrary
 from .mappings import slugify
+from .ownership import COMPONENT_TYPES, OwnershipMixin, OwnershipReport
 
 log = logging.getLogger(__name__)
 
@@ -89,7 +89,6 @@ CT_MODEL = {
     "dcim.powerport": "power_port",
     "dcim.poweroutlet": "power_outlet",
 }
-COMPONENT_TYPES = ("interface", "rear_port", "front_port", "power_outlet", "power_port")
 
 
 # ---- errors --------------------------------------------------------------------------------------
@@ -209,23 +208,6 @@ def front_port_rear(obj: dict) -> tuple[int | None, int]:
             first = min(mappings, key=lambda m: _int(m.get("position"), 1) if isinstance(m, dict) else 0)
             return _ref_id(first.get("rear_port")), _int(first.get("rear_port_position"), 1)
     return _ref_id(obj.get("rear_port")), _int(obj.get("rear_port_position"), 1)
-
-
-# ---- report --------------------------------------------------------------------------------------
-
-
-@dataclass
-class OwnershipReport:
-    """What the sync decided about objects it doesn't own, and what went wrong, for the result."""
-
-    referenced: list[str] = field(default_factory=list)  # existing shared objects used as-is
-    conflicts: list[str] = field(default_factory=list)  # skipped: would need an object the sync doesn't own
-    dependents_skipped: int = 0  # components/cables skipped because what they hang off was skipped
-    adopted: list[str] = field(default_factory=list)  # components on owned devices brought under the tag
-    renamed: list[str] = field(default_factory=list)  # owned devices renamed in Railyard
-    kept: list[str] = field(default_factory=list)  # deletes refused
-    warnings: list[str] = field(default_factory=list)
-    errors: list[str] = field(default_factory=list)  # writes NetBox refused
 
 
 # ---- write helpers -------------------------------------------------------------------------------
@@ -766,7 +748,7 @@ def _noun(endpoint: str, n: int) -> str:
 # ---- adapter -------------------------------------------------------------------------------------
 
 
-class NetBoxRESTAdapter(Adapter):
+class NetBoxRESTAdapter(OwnershipMixin, Adapter):
     manufacturer = NetBoxManufacturer
     device_type = NetBoxDeviceType
     device_role = NetBoxDeviceRole
@@ -1076,7 +1058,7 @@ class NetBoxRESTAdapter(Adapter):
         """
         self.source = source
         report = self.report
-        self._detect_renames(source)
+        self.detect_renames(source)
         drop: list = []
         skipped_types: set[tuple[str, str]] = set()
         skipped_devices: set[str] = set()
@@ -1175,49 +1157,15 @@ class NetBoxRESTAdapter(Adapter):
             source.remove(model)
         return report
 
+    def device_named(self, site: str, name: str) -> int | None:
+        found = self._device_in_site(site, name)
+        return found.get("id") if found else None
+
     def _device_in_site(self, site_name: str, name: str) -> dict | None:
         site = self.find("site", site_name)
         if site is None:
             return None
         return self.client.first(ENDPOINT["device"], site_id=site["id"], name__ie=name, exclude="config_context")
-
-    def _detect_renames(self, source: Adapter) -> None:
-        """Owned devices whose Railyard id now has another name: re-key them (with their components and
-        cables) under the new name, so the diff lines up, and remember the rename for ``apply_renames``."""
-        by_rid = {d.railyard_id: d for d in source.get_all("device") if d.railyard_id}
-        for dev in list(self.get_all("device")):
-            new = by_rid.get(dev.railyard_id) if dev.railyard_id else None
-            if new is None or new.name == dev.name or dev.nb_id is None:
-                continue
-            if source.get_or_none("device", dev.name) is not None or self.get_or_none("device", new.name) is not None:
-                continue  # names swapped between devices: leave it to create/update/delete
-            existing = self._device_in_site(new.site, new.name)
-            if existing is not None and existing.get("id") != dev.nb_id:
-                continue  # the new name is taken in NetBox: reconcile reports the conflict
-            self._rekey_device(dev.name, new.name)
-            self.renames.append((dev.name, new.name, dev.nb_id))
-            self.report.renamed.append(f"device {dev.name} → {new.name}")
-
-    def _rekey_device(self, old: str, new: str) -> None:
-        def copy(model, **changes):
-            data = {**model.get_identifiers(), **model.get_attrs(), "nb_id": model.nb_id, **changes}
-            return type(model)(**data)
-
-        moved = []
-        for type_name in ("device", *COMPONENT_TYPES, "cable"):
-            for model in list(self.get_all(type_name)):
-                changes = {}
-                if type_name == "device" and model.name == old:
-                    changes["name"] = new
-                elif type_name in COMPONENT_TYPES and model.device == old:
-                    changes["device"] = new
-                elif type_name == "cable":
-                    changes = {f"{s}_device": new for s in ("a", "b") if getattr(model, f"{s}_device") == old}
-                if changes:
-                    self.remove(model)
-                    moved.append(copy(model, **changes))
-        for model in moved:
-            self._add(model)
 
     def apply_renames(self) -> None:
         """Rename the NetBox devices ``reconcile`` found renamed in Railyard (a real run only)."""
@@ -1286,13 +1234,6 @@ class NetBoxRESTAdapter(Adapter):
                     )
 
     # -- deletes -------------------------------------------------------------------------------
-
-    def delete_candidates(self, source: Adapter) -> list:
-        """Owned objects no longer in Railyard, in a safe deletion order (dependents first)."""
-        out = []
-        for type_name in reversed(self.top_level):
-            out += [m for m in self.get_all(type_name) if source.get_or_none(type_name, m.get_unique_id()) is None]
-        return out
 
     def preview_delete(self, model, scheduled: set[tuple[str, int]]) -> list[str]:
         """Why deleting ``model`` would be refused (empty if it wouldn't), ignoring blockers that this run

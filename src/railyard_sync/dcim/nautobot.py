@@ -47,7 +47,7 @@ from ..dcim_http import NAUTOBOT, Session
 from ..export.mappings import slugify
 from ..log import count
 from .errors import DCIMError, DCIMNotFoundError, DCIMVersionError
-from .rest import RESTReader, unique
+from .rest import DCIMReader, RESTReader, unique
 from .snapshot import (
     Cable,
     Component,
@@ -117,29 +117,20 @@ def is_uuid(text: str) -> bool:
     return bool(_UUID.match(text or ""))
 
 
-class NautobotLoader(RESTReader):
-    """Reads Nautobot locations into a :class:`Snapshot`. One instance can serve several loads."""
+class NautobotReader(DCIMReader):
+    """Turns Nautobot's answers, in its REST API's shape, into a :class:`Snapshot`: everything one load
+    asks for and how each answer maps onto the snapshot. It asks only through ``fetch`` and ``fetch_all``
+    (``DCIMReader``): :class:`NautobotLoader` answers them over HTTP, and a plugin may answer them from its own
+    database in the same shape, so both read the same snapshot."""
 
     product = NAUTOBOT
     id_chunk = ID_CHUNK
-
-    def __init__(
-        self,
-        url: str,
-        token: str,
-        *,
-        session: Session | None = None,
-        verify: bool | str = True,
-        timeout: float = 30,
-        page_size: int = 1000,
-    ) -> None:
-        super().__init__(url, token, session=session, verify=verify, timeout=timeout, page_size=page_size, log=log)
 
     # -- version ---------------------------------------------------------------------------------
 
     def check_version(self) -> str:
         """Read ``/api/status/`` and return Nautobot's version; refuse 1.x (it has sites) and unknown majors."""
-        status = self._get("/api/status/")
+        status = self.fetch("/api/status/")
         text = str((status or {}).get("nautobot-version") or "")
         major_minor = parse_version(text, "Nautobot")[:2]
         if major_minor < MIN_VERSION:
@@ -170,7 +161,7 @@ class NautobotLoader(RESTReader):
                 f"({MAX_TESTED_VERSION[0]}.{MAX_TESTED_VERSION[1]}); check the import report carefully."
             )
 
-        tree = _Tree(self._list("/api/dcim/locations/", [("depth", 1)]))
+        tree = _Tree(self.fetch_all("/api/dcim/locations/", [("depth", 1)]))
         chosen = self._find_locations(tree, locations) if locations is not None else self._top_locations(tree)
         chosen = self._outermost(tree, chosen, snap.warnings)
         names = [tree.items[i].get("name") or i for i in chosen]
@@ -259,7 +250,7 @@ class NautobotLoader(RESTReader):
     def _top_locations(self, tree: _Tree) -> list[str]:
         """The locations where a data centre starts: of a type that holds racks or devices, below none such."""
         holds: dict[str, bool] = {}
-        for item in self._list("/api/dcim/location-types/", [("depth", 1)]):
+        for item in self.fetch_all("/api/dcim/location-types/", [("depth", 1)]):
             types = {str(t) for t in item.get("content_types") or []}
             holds[str(item["id"])] = bool(types & _HOLDS)
 
@@ -564,6 +555,22 @@ class NautobotLoader(RESTReader):
             return False
         device_id = ref_id(obj.get("device")) if isinstance(obj, dict) else None
         return device_id is None or device_id not in devices
+
+
+class NautobotLoader(RESTReader, NautobotReader):
+    """Reads Nautobot locations into a :class:`Snapshot`. One instance can serve several loads."""
+
+    def __init__(
+        self,
+        url: str,
+        token: str,
+        *,
+        session: Session | None = None,
+        verify: bool | str = True,
+        timeout: float = 30,
+        page_size: int = 1000,
+    ) -> None:
+        super().__init__(url, token, session=session, verify=verify, timeout=timeout, page_size=page_size, log=log)
 
 
 class _Tree:

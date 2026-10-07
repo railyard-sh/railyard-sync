@@ -45,7 +45,7 @@ from typing import Any
 from ..dcim_http import NETBOX, Session
 from ..log import count
 from .errors import DCIMNotFoundError, DCIMVersionError
-from .rest import RESTReader, unique
+from .rest import DCIMReader, RESTReader, unique
 from .snapshot import (
     Cable,
     Component,
@@ -127,31 +127,19 @@ def _first_mapping(port: dict) -> tuple[Any, int, int]:
 # ---- the loader -------------------------------------------------------------------------------
 
 
-class NetBoxLoader(RESTReader):
-    """Reads NetBox sites into a :class:`Snapshot`. One instance can serve several loads."""
+class NetBoxReader(DCIMReader):
+    """Turns NetBox's answers, in its REST API's shape, into a :class:`Snapshot`: everything one load
+    asks for and how each answer maps onto the snapshot. It asks only through ``fetch`` and ``fetch_all``
+    (``DCIMReader``): :class:`NetBoxLoader` answers them over HTTP, and a plugin may answer them from its own
+    database in the same shape, so both read the same snapshot."""
 
     product = NETBOX
-
-    def __init__(
-        self,
-        url: str,
-        token: str,
-        *,
-        session: Session | None = None,
-        verify: bool | str = True,
-        timeout: float = 30,
-        page_size: int = 1000,
-    ) -> None:
-        super().__init__(url, token, session=session, verify=verify, timeout=timeout, page_size=page_size, log=log)
-
-    def auth_header(self) -> str:
-        return f"Bearer {self._token}" if self._token.startswith(V2_TOKEN_PREFIX) else f"Token {self._token}"
 
     # -- load ------------------------------------------------------------------------------------
 
     def check_version(self) -> str:
         """Read ``/api/status/`` and return NetBox's version; refuse anything below 4.0 or from 5.0."""
-        status = self._get("/api/status/")
+        status = self.fetch("/api/status/")
         text = str((status or {}).get("netbox-version") or "")
         major_minor = parse_version(text, "NetBox")[:2]
         if major_minor < MIN_VERSION:
@@ -190,10 +178,10 @@ class NetBoxLoader(RESTReader):
 
         snap.regions = self._load_regions(raw_sites)
         snap.sites = [self._site(s) for s in raw_sites]
-        snap.locations = [self._location(x) for x in self._list("/api/dcim/locations/", by_site)]
+        snap.locations = [self._location(x) for x in self.fetch_all("/api/dcim/locations/", by_site)]
         log.debug("Read %s and %s", count(len(snap.regions), "region"), count(len(snap.locations), "location"))
 
-        raw_racks = list(self._list("/api/dcim/racks/", by_site))
+        raw_racks = list(self.fetch_all("/api/dcim/racks/", by_site))
         snap.racks = [self._rack(r) for r in raw_racks]
         rack_type_ids = unique(r.rack_type_id for r in snap.racks)
         if rack_type_ids and major_minor >= (4, 1):
@@ -201,7 +189,7 @@ class NetBoxLoader(RESTReader):
             snap.rack_types = [self._rack_type(t) for t in raw_types]
 
         devices_params = by_site + [("exclude", "config_context")]
-        snap.devices = [self._device(d) for d in self._list("/api/dcim/devices/", devices_params)]
+        snap.devices = [self._device(d) for d in self.fetch_all("/api/dcim/devices/", devices_params)]
         log.debug("Read %s and %s", count(len(snap.racks), "rack"), count(len(snap.devices), "device"))
         snap.device_types = self._load_device_types(unique(d.device_type_id for d in snap.devices), snap.warnings)
         log.debug("Read %s with their component templates", count(len(snap.device_types), "device type"))
@@ -209,14 +197,14 @@ class NetBoxLoader(RESTReader):
         loaded_devices = {d.id for d in snap.devices}
         for kind, endpoint, _ in _COMPONENT_ENDPOINTS:
             before = len(snap.components)
-            for item in self._list(f"/api/dcim/{endpoint}/", by_site):
+            for item in self.fetch_all(f"/api/dcim/{endpoint}/", by_site):
                 component = self._component(kind, item, snap.warnings)
                 if component.device_id in loaded_devices:
                     snap.components.append(component)
             log.debug("Read %s", count(len(snap.components) - before, kind.replace("-", " ")))
 
-        snap.power_panels = [self._power_panel(p) for p in self._list("/api/dcim/power-panels/", by_site)]
-        snap.power_feeds = [self._power_feed(f) for f in self._list("/api/dcim/power-feeds/", by_site)]
+        snap.power_panels = [self._power_panel(p) for p in self.fetch_all("/api/dcim/power-panels/", by_site)]
+        snap.power_feeds = [self._power_feed(f) for f in self.fetch_all("/api/dcim/power-feeds/", by_site)]
         snap.cables = self._load_cables(by_site, snap)
         log.debug(
             "Read %s, %s and %s",
@@ -230,7 +218,7 @@ class NetBoxLoader(RESTReader):
 
     def _all_sites(self) -> list[dict]:
         """Every site the token can see, in NetBox's order."""
-        sites = list(self._list("/api/dcim/sites/"))
+        sites = list(self.fetch_all("/api/dcim/sites/"))
         if not sites:
             raise DCIMNotFoundError("This NetBox has no sites the token can see.")
         return sites
@@ -245,7 +233,7 @@ class NetBoxLoader(RESTReader):
             lookups += [("slug", needle), ("name", needle)]
             match = None
             for key, value in lookups:
-                results = list(self._list("/api/dcim/sites/", [(key, value)]))
+                results = list(self.fetch_all("/api/dcim/sites/", [(key, value)]))
                 if results:
                     match = results[0]
                     break
@@ -261,7 +249,7 @@ class NetBoxLoader(RESTReader):
             chain: list[Region] = []
             region_id = _ref_id(raw.get("region"))
             while region_id is not None and region_id not in regions and all(r.id != region_id for r in chain):
-                item = self._get(f"/api/dcim/regions/{region_id}/")
+                item = self.fetch(f"/api/dcim/regions/{region_id}/")
                 region = Region(
                     id=str(item["id"]),
                     name=str(item.get("name") or ""),
@@ -520,7 +508,7 @@ class NetBoxLoader(RESTReader):
         loaded |= {("dcim.powerfeed", f.id) for f in snap.power_feeds}
         devices = {d.id for d in snap.devices}
         cables: dict[str, Cable] = {}
-        for item in self._list("/api/dcim/cables/", by_site):
+        for item in self.fetch_all("/api/dcim/cables/", by_site):
             cable_id = str(item["id"])
             if cable_id in cables:
                 continue
@@ -565,6 +553,25 @@ class NetBoxLoader(RESTReader):
         obj = raw.get("object")
         device_id = _ref_id(obj.get("device")) if isinstance(obj, dict) else None
         return device_id is None or device_id not in devices
+
+
+class NetBoxLoader(RESTReader, NetBoxReader):
+    """Reads NetBox sites into a :class:`Snapshot`. One instance can serve several loads."""
+
+    def __init__(
+        self,
+        url: str,
+        token: str,
+        *,
+        session: Session | None = None,
+        verify: bool | str = True,
+        timeout: float = 30,
+        page_size: int = 1000,
+    ) -> None:
+        super().__init__(url, token, session=session, verify=verify, timeout=timeout, page_size=page_size, log=log)
+
+    def auth_header(self) -> str:
+        return f"Bearer {self._token}" if self._token.startswith(V2_TOKEN_PREFIX) else f"Token {self._token}"
 
 
 def load_netbox_snapshot(

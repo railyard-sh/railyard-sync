@@ -22,7 +22,7 @@
 replays one saved with ``--snapshot-out``), builds a Railyard project from it (device types matched against
 Railyard's catalogue), and then either creates a new estate (``--name``) or refreshes an existing one
 (``--project``) by merging the import into it, saving it with ``If-Match`` so a change made in Railyard meanwhile is
-never overwritten. The steps are :mod:`railyard_sync.importer.flow`'s, which the DCIM plugins' import jobs share.
+never overwritten. The steps are :class:`railyard_sync.importer.run.ImportRun`'s, which the plugins' import jobs share.
 ``--dry-run`` shows what would happen and saves nothing.
 
 **Export** fetches the estate's sync document from Railyard (a paid deliverable on hosted Railyard; a self-hosted
@@ -58,7 +58,6 @@ import re
 import sys
 import time
 import traceback
-import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, TextIO
@@ -67,21 +66,24 @@ from . import __version__
 from .client import RailyardClient
 from .dcim.snapshot import Snapshot
 from .dcim_http import APIError
-from .errors import (
-    RailyardAPIError,
-    RailyardConflictError,
-    RailyardPlanError,
-    RailyardPlanLimitError,
-    RailyardPlanRequiredError,
-    RailyardPreconditionError,
-)
+from .errors import RailyardAPIError, RailyardPlanError, RailyardPlanLimitError
 from .export import nautobot_rest, netbox_rest
 from .export.netbox_rest import MIN_VERSION, NetBoxClient, NetBoxVersionError, parse_version
 from .export.policy import DEFAULT_RAILYARD_URL
 from .export.run import NautobotSyncResult, SyncOutcome, SyncRefused, sync_to_nautobot, sync_to_netbox
-from .importer import flow
-from .importer.flow import ImportPlan, ImportRefused
+from .importer.run import (
+    SOURCE_NAMES,
+    ImportRefused,
+    ImportRun,
+    check_failure,
+    conflicts_message,
+    import_summary,
+    new_project_id,
+    snapshot_counts,
+    source_name,
+)
 from .log import FILE_ONLY, CLILogging, configure_cli, count, human_size, seconds
+from .plans import PLAN_NAMES, deliverable_plan_message, plan_limit_message, sentence, upgrade_options
 
 log = logging.getLogger(__name__)
 
@@ -92,18 +94,7 @@ RAILYARD_TOKEN_ENV = "RAILYARD_TOKEN"
 NETBOX_PREFIX = "nb"
 NAUTOBOT_PREFIX = "nbt"
 
-SOURCE_NAMES = flow.SOURCE_NAMES
-
-# Display names for the plan ids Railyard reports (backend/internal/plans/catalogue.json).
-PLAN_NAMES = {
-    "community": "Community",
-    "project-pass": "Project Pass",
-    "pro": "Pro",
-    "team": "Team",
-    "partner": "Partner",
-    "self-hosted": "Self-hosted",
-    "enterprise": "Enterprise",
-}
+__all__ = ["PLAN_NAMES", "SOURCE_NAMES", "deliverable_plan_message", "main", "plan_limit_message"]
 
 
 @dataclass(frozen=True)
@@ -154,7 +145,7 @@ class UsageError(Exception):
     """A command-line mistake: reported with exit code 2."""
 
 
-class CommandError(Exception):
+class CommandError(ImportRefused):
     """A failure with a message for the user: reported with exit code 1."""
 
 
@@ -176,7 +167,7 @@ class Progress:
             # A refusal (4xx) saved nothing; a failure (5xx, no response) may not say.
             status = getattr(error, "status", None)
             refused = isinstance(status, int) and 400 <= status < 500
-            uncertain = self.save_attempted and not refused and not isinstance(error, CommandError | ImportRefused)
+            uncertain = self.save_attempted and not refused and not isinstance(error, ImportRefused)
             lines.append("The save did not complete (see above)." if uncertain else "Nothing was saved to Railyard.")
         return lines
 
@@ -214,10 +205,6 @@ def dcim_errors() -> tuple[type[BaseException], ...]:
     except ImportError:  # pragma: no cover - the loader ships with this package
         return ()
     return (DCIMError,)
-
-
-def new_project_id() -> str:
-    return "ry-" + uuid.uuid4().hex[:20]
 
 
 def today() -> str:
@@ -460,7 +447,7 @@ def main(argv: list[str] | None = None, *, stdout: TextIO | None = None, stderr:
         message = plan_message(e, args) + "".join(f"\n  {hint}" for hint in e.hints)
         _report_failure(err, message, args, logs, progress)
         return EXIT_PLAN
-    except (CommandError, ImportRefused, RailyardAPIError, APIError, SyncRefused, *dcim_errors()) as e:
+    except (ImportRefused, RailyardAPIError, APIError, SyncRefused, *dcim_errors()) as e:
         _report_failure(err, f"error: {e}", args, logs, progress)
         return EXIT_ERROR
     except (OSError, ValueError) as e:  # unreadable/unwritable files, a malformed snapshot or sync document
@@ -512,7 +499,7 @@ def _read_snapshot(args: argparse.Namespace, dcim: DCIM) -> Snapshot:
             snapshot = Snapshot.from_dict(json.load(fh))
         if snapshot.source != dcim.key:
             raise CommandError(
-                f"the snapshot {args.from_snapshot} was read from {flow.source_name(snapshot.source)}, not "
+                f"the snapshot {args.from_snapshot} was read from {source_name(snapshot.source)}, not "
                 f"{dcim.name}: replay it with 'railyard-sync import {snapshot.source}'."
             )
         return snapshot
@@ -528,7 +515,7 @@ def _import(args: argparse.Namespace, out: TextIO, err: TextIO, progress: Progre
     railyard_token = _env_token(RAILYARD_TOKEN_ENV, "a Railyard personal access token (ry_…)")
     started = time.monotonic()
     snapshot = _read_snapshot(args, dcim)
-    read = flow.snapshot_counts(snapshot)
+    read = snapshot_counts(snapshot)
     log.info("Read %s in %s", read, seconds(time.monotonic() - started))
     progress.done(f"read {_snapshot_source(snapshot, args)}: {read}")
     if args.snapshot_out:
@@ -536,109 +523,76 @@ def _import(args: argparse.Namespace, out: TextIO, err: TextIO, progress: Progre
         print(f"Snapshot written to {args.snapshot_out}", file=out)
 
     client = _railyard_client(args, railyard_token)
-    plan = flow.plan_import(
+    run = ImportRun(
         client,
         snapshot,
         project=args.project,
         name=None if args.project else args.name,
-        build=build_project,
-        catalogue=make_catalogue(client),
         allow_deletes=args.allow_deletes,
-        requested=list(args.places),
-        place_flag=dcim.place_flag,
         source_url=args.dcim_url or "",
-        new_id=new_project_id,
-        on_step=progress.done,
+        requested_sites=args.places,
+        catalogue=make_catalogue(client),
+        build=build_project,
+        project_id=None if args.project else new_project_id(),
+        step=progress.done,
+        place_flag=dcim.place_flag,
     )
-    name, project_id = plan.name, plan.project_id
-    print(flow.import_summary(snapshot, plan.imported, plan.report), file=out)
-    if plan.diff is not None:
-        print(plan.diff.summary(), file=out)
-        if plan.diff.stale_count and not args.allow_deletes:
+    run.fetch()
+    built = run.build()
+    print(import_summary(snapshot, built.project, built.report), file=out)
+
+    diff = run.merge()
+    if diff is not None:
+        print(diff.summary(), file=out)
+        if diff.stale_count and not args.allow_deletes:
             print(f"Objects deleted in {dcim.name} were kept; re-run with --allow-deletes to remove them.", file=out)
+    document, name = run.document, run.name
 
     if args.out:
-        _write_json(args.out, plan.document)
+        _write_json(args.out, document)
         print(f"Project written to {args.out}", file=out)
 
     if args.dry_run:
-        problems = _preflight(client, plan, args, progress)
+        problems = run.check(validate=not args.no_validate)
         if problems:
-            print(_preflight_failure(problems, dry_run=True, dcim=dcim), file=out)
-        action = f"refresh {name!r}" if plan.refresh else f"create {name!r} ({project_id})"
+            print(check_failure(problems, dry_run=True, source=dcim.key), file=out)
+        action = f"refresh {name!r}" if run.refreshing else f"create {name!r} ({run.project_id})"
         print(f"Dry run: would {action}. Nothing was saved.", file=out)
         return EXIT_ERROR if problems else EXIT_OK
-    if plan.conflicts:
-        raise CommandError(
-            f"{len(plan.conflicts)} conflict(s) between Railyard's design and {dcim.name} (listed above); "
-            "resolve them in Railyard, then import again. Nothing was saved."
-        )
-    if plan.up_to_date:
+    if run.conflicts:
+        raise CommandError(conflicts_message(len(run.conflicts), dcim.key))
+    if run.up_to_date():
         print(f"{name!r} is already up to date with {dcim.name}; nothing was saved.", file=out)
         return EXIT_OK
-    problems = _preflight(client, plan, args, progress)
+    problems = run.check(validate=not args.no_validate)
     if problems:
-        raise CommandError(_preflight_failure(problems, dry_run=False, dcim=dcim))
+        raise CommandError(check_failure(problems, dry_run=False, source=dcim.key))
 
     if args.save_document:
-        _write_private_json(args.save_document, plan.document)
+        _write_private_json(args.save_document, document)
         log.info("Kept a copy of the document to send in %s", args.save_document)
-    size = len(json.dumps(plan.document).encode("utf-8"))
+    size = len(json.dumps(document).encode("utf-8"))
     log.info("Saving to Railyard (%s)…", human_size(size))
     started = time.monotonic()
     progress.save_attempted = True
-    new_revision = _save(client, plan, args)
+    new_revision = run.save(on_refused=lambda doc, e: _kept_document_lines(doc, args.failed_dir))
     log.info("Saved revision %d in %s", new_revision, seconds(time.monotonic() - started))
-    verb = "Refreshed" if plan.refresh else "Created"
-    print(f"{verb} {name!r} ({project_id}) at revision {new_revision}.", file=out)
+    verb = "Refreshed" if run.refreshing else "Created"
+    print(f"{verb} {name!r} ({run.project_id}) at revision {new_revision}.", file=out)
     if args.name_version:
-        _name_version(client, project_id, new_revision, out, dcim)
+        _name_version(client, run.project_id, new_revision, out, dcim)
     return EXIT_OK
 
 
-def _preflight(client: RailyardClient, plan: ImportPlan, args: argparse.Namespace, progress: Progress) -> list[str]:
-    return flow.preflight(client, plan.document, plan.existing, validate=not args.no_validate, on_step=progress.done)
-
-
-def _preflight_failure(problems: list[str], *, dry_run: bool, dcim: DCIM) -> str:
-    return flow.preflight_failure(
-        problems, dry_run=dry_run, source=dcim.key, hint="pass --no-validate to let Railyard's save decide"
-    )
-
-
-def _save(client: RailyardClient, plan: ImportPlan, args: argparse.Namespace) -> int:
-    """PUT the document; on any refusal keep what was sent (``--failed-dir``) and say where."""
-    name = plan.name
-    try:
-        return flow.save(client, plan)
-    except RailyardAPIError as e:
-        path = keep_failed_document(plan.document, args.failed_dir)
-        kept = (
-            [
-                f"The document that was sent is in {path} (readable only by you; it holds the estate's design, so "
-                "share it only with Railyard support)."
-            ]
-            if path
-            else []
-        )
-        if isinstance(e, RailyardPreconditionError) and e.status == 412:
-            head = (
-                f"{name!r} changed in Railyard while the import ran, so it was not overwritten. Run the import again: "
-                "it merges onto the latest revision."
-            )
-        elif isinstance(e, RailyardConflictError) and e.code == "name_taken":
-            head = (
-                f"an estate named {name!r} already exists in this organisation: refresh it with --project, or choose "
-                "another --name."
-            )
-        else:
-            e.hints += kept
-            raise
-        raise CommandError("\n  ".join([head, *kept, *_request_id_line(e)])) from None
-
-
-def _request_id_line(e: RailyardAPIError) -> list[str]:
-    return [f"Quote request id {e.request_id} when reporting this."] if e.request_id else []
+def _kept_document_lines(document: dict, directory: str | None) -> list[str]:
+    """Keep the document a refused save sent (``--failed-dir``) and say where, for the error."""
+    path = keep_failed_document(document, directory)
+    if not path:
+        return []
+    return [
+        f"The document that was sent is in {path} (readable only by you; it holds the estate's design, so share it "
+        "only with Railyard support)."
+    ]
 
 
 def keep_failed_document(document: dict, directory: str | None) -> str | None:
@@ -867,29 +821,6 @@ def export_report(result: SyncOutcome) -> str:
 # ---- plan refusals ------------------------------------------------------------------------------------------
 
 
-def _plan_name(plan_id: str) -> str:
-    return PLAN_NAMES.get(plan_id, plan_id.replace("-", " ").title() if plan_id else "current")
-
-
-def _either(names: list[str]) -> str:
-    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " or " + names[-1]
-
-
-def _upgrade_options(required_plans: list[str], project_pass: bool) -> list[str]:
-    options = []
-    if required_plans:
-        options.append(f"upgrade to {_either([_plan_name(p) for p in required_plans])}")
-    if project_pass:
-        options.append("buy a Project Pass for this estate")
-    return options
-
-
-def _sentence(options: list[str]) -> str:
-    """['a', 'b', 'c'] -> 'A, b, or c.'"""
-    text = options[0] if len(options) == 1 else ", ".join(options[:-1]) + ", or " + options[-1]
-    return text[:1].upper() + text[1:] + "."
-
-
 def plan_message(e: RailyardPlanError, args: argparse.Namespace | None) -> str:
     """The upgrade message for a plan refusal, worded for the command that met it."""
     dcim = _dcim(args) if args is not None else NETBOX
@@ -897,49 +828,8 @@ def plan_message(e: RailyardPlanError, args: argparse.Namespace | None) -> str:
         return deliverable_plan_message(e, dcim.name)
     if isinstance(e, RailyardPlanLimitError):
         return plan_limit_message(e, refreshing=bool(args is not None and args.project), places=f"{dcim.place}s")
-    options = _upgrade_options(e.required_plans, e.project_pass)
-    return f"{e}" + (f". {_sentence(options)}" if options else "")
-
-
-def deliverable_plan_message(e: RailyardPlanError, target: str = "NetBox") -> str:
-    """'Exporting to NetBox needs a plan with deliverables: the Community plan does not include them. Upgrade to
-    Pro or Team, or buy a Project Pass for this estate. Nothing was written to NetBox.'"""
-    plan = _plan_name(e.plan)
-    plan = plan if plan == "Project Pass" else f"the {plan} plan"
-    if isinstance(e, RailyardPlanLimitError) and e.current is not None and e.limit is not None:
-        resource = e.resource or "racks"
-        head = (
-            f"This estate has {e.current} {resource}; {plan} exports deliverables for estates of up to "
-            f"{e.limit} {resource}."
-        )
-        extra = [f"remove {resource}"]
-    elif isinstance(e, RailyardPlanRequiredError):
-        head = f"Exporting to {target} needs a plan with deliverables: {plan} does not include them."
-        extra = []
-    else:
-        head = f"Railyard refused the {target} sync document: {e}."
-        extra = []
-    options = _upgrade_options(e.required_plans, e.project_pass) or ["contact Railyard about an Enterprise plan"]
-    return f"{head} {_sentence(options + extra)} Nothing was written to {target}."
-
-
-def plan_limit_message(e: RailyardPlanLimitError, *, refreshing: bool = False, places: str = "sites") -> str:
-    """'This import has 140 racks; the Community plan allows 25 per estate. Upgrade to Team or Partner,
-    or import fewer sites. Nothing was saved.' — built from the refusal's fields."""
-    resource = e.resource or "racks"
-    per = " per estate" if (e.scope or "estate") == "estate" else ""
-    plan = _plan_name(e.plan)
-    plan = plan if plan == "Project Pass" else f"the {plan} plan"
-    if e.current is None or e.limit is None:
-        head = f"Railyard refused the import: {e}."
-    elif refreshing:
-        head = f"After this import the estate would have {e.current} {resource}; {plan} allows {e.limit}{per}."
-    else:
-        head = f"This import has {e.current} {resource}; {plan} allows {e.limit}{per}."
-    options = _upgrade_options(e.required_plans, e.project_pass) or ["contact Railyard about an Enterprise plan"]
-    if resource == "racks":
-        options.append(f"import fewer {places}")
-    return f"{head} {_sentence(options)} Nothing was saved."
+    options = upgrade_options(e.required_plans, e.project_pass)
+    return f"{e}" + (f". {sentence(options)}" if options else "")
 
 
 def _write_json(path: str, data: Any) -> None:

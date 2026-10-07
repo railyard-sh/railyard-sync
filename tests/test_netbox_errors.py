@@ -48,7 +48,7 @@ def test_object_type_is_named_as_netbox_permissions_name_it(path, kind):
 
 def test_a_403_on_a_read_names_the_view_permission_and_the_request_id():
     with pytest.raises(DCIMAuthError) as exc:
-        loader(respond(403, DENIED))._get("/api/dcim/racks/", [("site_id", 1)])
+        loader(respond(403, DENIED)).fetch("/api/dcim/racks/", [("site_id", 1)])
     message = str(exc.value)
     assert "NetBox refused GET /api/dcim/racks/ (HTTP 403): You do not have permission" in message
     assert "'view' permission on dcim.rack" in message and "Write enabled" not in message
@@ -69,7 +69,7 @@ def test_401_says_to_replace_the_token(make):
     session = respond(401, {"detail": "Invalid token"})
     with pytest.raises((DCIMAuthError, NetBoxAuthError)) as exc:
         if make is loader:
-            make(session)._get("/api/status/")
+            make(session).fetch("/api/status/")
         else:
             make(session).status()
     message = str(exc.value)
@@ -88,14 +88,14 @@ def test_a_400_lists_netboxs_field_errors():
 
 def test_a_500_html_page_is_described_not_dumped():
     with pytest.raises(DCIMError) as exc:
-        loader(respond(500, text="<html><body>Server Error</body></html>"))._get("/api/dcim/sites/")
+        loader(respond(500, text="<html><body>Server Error</body></html>")).fetch("/api/dcim/sites/")
     message = str(exc.value)
     assert "NetBox failed (HTTP 500) for GET /api/dcim/sites/: an HTML page" in message and RID in message
 
 
 def test_404_names_the_endpoint():
     with pytest.raises(DCIMNotFoundError) as exc:
-        loader(respond(404, {"detail": "Not found."}))._get("/api/dcim/rack-types/")
+        loader(respond(404, {"detail": "Not found."})).fetch("/api/dcim/rack-types/")
     assert "Not found in NetBox (HTTP 404): GET /api/dcim/rack-types/: Not found." in str(exc.value)
 
 

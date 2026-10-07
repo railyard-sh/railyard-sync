@@ -1,5 +1,11 @@
-"""The read side the DCIM loaders share: authenticated GETs and paginated lists against one NetBox or Nautobot,
-with typed errors (:mod:`.errors`) worded by :func:`railyard_sync.dcim_http.failure`.
+"""The read side the DCIM loaders share.
+
+:class:`DCIMReader` is the seam: a reader (``NetBoxReader``, ``NautobotReader``) turns a DCIM's answers into a
+snapshot and asks for them only through :meth:`~DCIMReader.fetch` (one object) and
+:meth:`~DCIMReader.fetch_all` (every object a list endpoint returns for some filters), in the REST API's shape.
+:class:`RESTReader` answers them over HTTP — authenticated GETs and paginated lists against one NetBox or Nautobot,
+with typed errors (:mod:`.errors`) worded by :func:`railyard_sync.dcim_http.failure` — and a plugin may answer them
+from its own ORM instead, so both read a site into the same snapshot.
 
 The token is never logged, and never appears in an exception message or a loader's ``repr``. Pagination follows
 only the *query* of a page's ``next`` link: requests always go to the configured URL, because behind a proxy
@@ -44,12 +50,34 @@ def unique(items: Iterable[str | None]) -> list[str]:
     return list(seen)
 
 
-class RESTReader:
-    """Authenticated, paginated reads from one DCIM. Subclasses set ``product`` and may override
-    :meth:`auth_header`; ``log`` is the logger HTTP exchanges are recorded on."""
+class DCIMReader:
+    """What a reader asks of its transport (see the module docstring). ``url`` and ``version`` describe the DCIM;
+    ``id_chunk`` is how many ids one filtered request carries."""
 
     product: http.Product = http.NETBOX
     id_chunk = ID_CHUNK
+    url: str = ""
+    version: str = ""
+
+    def fetch(self, path: str, params: list[tuple[str, Any]] | None = None) -> Any:
+        """One object (``/api/status/``, ``/api/dcim/regions/{id}/``), as the REST API returns it."""
+        raise NotImplementedError
+
+    def fetch_all(self, path: str, params: list[tuple[str, Any]] | None = None) -> Iterator[dict]:
+        """Every object a list endpoint returns for ``params`` (``(key, value)`` pairs, the API's filter names)."""
+        raise NotImplementedError
+
+    def _list_by_ids(
+        self, path: str, key: str, ids: list[str], extra: list[tuple[str, Any]] | None = None
+    ) -> Iterator[dict]:
+        """``fetch_all`` filtered by a list of ids, a chunk of ids per request."""
+        for chunk in chunks(ids, self.id_chunk):
+            yield from self.fetch_all(path, [(key, i) for i in chunk] + list(extra or []))
+
+
+class RESTReader(DCIMReader):
+    """Authenticated, paginated reads from one DCIM over its REST API. Subclasses set ``product`` and may override
+    :meth:`auth_header`; ``log`` is the logger HTTP exchanges are recorded on."""
 
     def __init__(
         self,
@@ -82,7 +110,7 @@ class RESTReader:
     def _scrub(self, text: str) -> str:
         return http.scrub_token(self._token, text)
 
-    def _get(self, path: str, params: list[tuple[str, Any]] | None = None) -> Any:
+    def fetch(self, path: str, params: list[tuple[str, Any]] | None = None) -> Any:
         name = self.product.name
         url = f"{self.url}{path}"
         headers = {"Authorization": self.auth_header(), "Accept": "application/json"}
@@ -123,11 +151,11 @@ class RESTReader:
         )
         raise _KINDS[kind](message, **context)
 
-    def _list(self, path: str, params: list[tuple[str, Any]] | None = None) -> Iterator[dict]:
+    def fetch_all(self, path: str, params: list[tuple[str, Any]] | None = None) -> Iterator[dict]:
         """Every object a list endpoint returns, following ``next`` page by page (its query only)."""
         query: list[tuple[str, Any]] = list(params or []) + [("limit", self._page_size), ("offset", 0)]
         while True:
-            page = self._get(path, query)
+            page = self.fetch(path, query)
             if not isinstance(page, dict) or not isinstance(page.get("results"), list):
                 raise DCIMError(f"{self.product.name} returned an unexpected response for {path} (no 'results').")
             yield from page["results"]
@@ -135,10 +163,3 @@ class RESTReader:
             if not nxt or not page["results"]:
                 return
             query = parse_qsl(urlsplit(nxt).query, keep_blank_values=True)
-
-    def _list_by_ids(
-        self, path: str, key: str, ids: list[str], extra: list[tuple[str, Any]] | None = None
-    ) -> Iterator[dict]:
-        """``_list`` filtered by a list of ids, a chunk of ids per request."""
-        for chunk in chunks(ids, self.id_chunk):
-            yield from self._list(path, [(key, i) for i in chunk] + list(extra or []))

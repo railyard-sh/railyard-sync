@@ -47,7 +47,8 @@ from diffsync.exceptions import ObjectAlreadyExists, ObjectNotCreated, ObjectNot
 from .. import dcim_http as http
 from ..dcim_http import NAUTOBOT, APIError, RESTClient
 from . import nautobot_models as models
-from .netbox_rest import CT_MODEL, OwnershipReport, _noun as _netbox_noun
+from .netbox_rest import CT_MODEL, _noun as _netbox_noun
+from .ownership import COMPONENT_TYPES, OwnershipMixin, OwnershipReport
 
 log = logging.getLogger(__name__)
 
@@ -95,7 +96,6 @@ CONTENT_TYPE = {
 TAGGED = tuple(t for t in models.TOP_LEVEL if t not in models.UNTAGGED)
 TAG_CONTENT_TYPES = sorted(CONTENT_TYPE[t] for t in TAGGED)
 OWNER_CONTENT_TYPES = sorted(CONTENT_TYPE[t] for t in models.UNTAGGED)
-COMPONENT_TYPES = ("interface", "rear_port", "front_port", "power_outlet", "power_port")
 CABLE_STATUS = "Connected"
 
 
@@ -761,7 +761,7 @@ def _noun(endpoint: str, n: int) -> str:
 # ---- adapter -------------------------------------------------------------------------------------
 
 
-class NautobotRESTAdapter(Adapter):
+class NautobotRESTAdapter(OwnershipMixin, Adapter):
     location_type = NautobotLocationType
     status = NautobotStatus
     manufacturer = NautobotManufacturer
@@ -1131,7 +1131,7 @@ class NautobotRESTAdapter(Adapter):
         reports exactly what a real run will skip, rename or use as they are."""
         self.source = source
         report = self.report
-        self._detect_renames(source)
+        self.detect_renames(source)
         drop: list = []
         referenced_racks: list = []
         skipped_locations: set[str] = set()
@@ -1349,50 +1349,16 @@ class NautobotRESTAdapter(Adapter):
             return ""
         return f"its location's type {name} isn't enabled for {ct}"
 
+    def device_named(self, location: str, name: str) -> str | None:
+        found = self._device_in_location(location, name)
+        return str(found["id"]) if found else None
+
     def _device_in_location(self, location: str, name: str) -> dict | None:
         loc = self.find("location", location)
         if loc is None:
             return None
         found = self.client.list(ENDPOINT["device"], location=loc["id"], name__ie=name)
         return next((d for d in found if _ref_id(d.get("location")) == loc["id"]), None)
-
-    def _detect_renames(self, source: Adapter) -> None:
-        """Owned devices whose Railyard id now has another name: re-key them (with their components and cables)
-        under the new name, so the diff lines up, and remember the rename for ``apply_renames``."""
-        by_rid = {d.railyard_id: d for d in source.get_all("device") if d.railyard_id}
-        for dev in list(self.get_all("device")):
-            new = by_rid.get(dev.railyard_id) if dev.railyard_id else None
-            if new is None or new.name == dev.name or dev.nb_id is None:
-                continue
-            if source.get_or_none("device", dev.name) is not None or self.get_or_none("device", new.name) is not None:
-                continue  # names swapped between devices: leave it to create/update/delete
-            existing = self._device_in_location(new.location, new.name)
-            if existing is not None and existing.get("id") != dev.nb_id:
-                continue  # the new name is taken in Nautobot: reconcile reports the conflict
-            self._rekey_device(dev.name, new.name)
-            self.renames.append((dev.name, new.name, dev.nb_id))
-            self.report.renamed.append(f"device {dev.name} → {new.name}")
-
-    def _rekey_device(self, old: str, new: str) -> None:
-        def copy(model, **changes):
-            data = {**model.get_identifiers(), **model.get_attrs(), "nb_id": model.nb_id, **changes}
-            return type(model)(**data)
-
-        moved = []
-        for type_name in ("device", *COMPONENT_TYPES, "cable"):
-            for model in list(self.get_all(type_name)):
-                changes = {}
-                if type_name == "device" and model.name == old:
-                    changes["name"] = new
-                elif type_name in COMPONENT_TYPES and model.device == old:
-                    changes["device"] = new
-                elif type_name == "cable":
-                    changes = {f"{s}_device": new for s in ("a", "b") if getattr(model, f"{s}_device") == old}
-                if changes:
-                    self.remove(model)
-                    moved.append(copy(model, **changes))
-        for model in moved:
-            self._add(model)
 
     def apply_renames(self) -> None:
         """Rename the Nautobot devices ``reconcile`` found renamed in Railyard (a real run only)."""
@@ -1408,13 +1374,6 @@ class NautobotRESTAdapter(Adapter):
             self.counts["update"]["device"] += 1
 
     # -- deletes -------------------------------------------------------------------------------
-
-    def delete_candidates(self, source: Adapter) -> list:
-        """Owned objects no longer in Railyard, in a safe deletion order (dependents first)."""
-        out = []
-        for type_name in reversed(self.top_level):
-            out += [m for m in self.get_all(type_name) if source.get_or_none(type_name, m.get_unique_id()) is None]
-        return out
 
     def preview_delete(self, model, scheduled: set[tuple[str, str]]) -> list[str]:
         """Why deleting ``model`` would be refused (empty if it wouldn't), ignoring blockers this run deletes
