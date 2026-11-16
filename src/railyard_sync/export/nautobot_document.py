@@ -32,7 +32,7 @@ from diffsync.exceptions import ObjectAlreadyExists
 
 from . import nautobot_models as models
 from .cabling import CT_POWER_OUTLET, CT_POWER_PORT
-from .sync_document import SyncDocumentError, _bool, _identity, _int, _text, parse_document
+from .sync_document import SyncDocumentError, _bool, _identity, _int, _text, parse_document, read_row_id
 
 FORMAT = "railyard-nautobot-sync"
 
@@ -123,6 +123,10 @@ class NautobotSyncDocumentAdapter(Adapter):
     @property
     def project_name(self) -> str:
         return self.document.project_name
+
+    def row_id(self, kind: str, row: dict) -> tuple[str, str] | None:
+        """The (model type, unique id) a row of ``kind`` reads as (see ``sync_document.read_row_id``)."""
+        return read_row_id(self, _READERS.get(kind), row)
 
     def load(self) -> None:
         for kind in OBJECT_KINDS:

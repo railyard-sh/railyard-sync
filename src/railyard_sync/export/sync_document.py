@@ -99,6 +99,8 @@ class SyncDocument:
     netbox_version: str
     objects: dict[str, list[dict]]
     change_request_id: str = ""  # set when the document is a merge request's draft, not main
+    #: The ``changes`` block of a document requested with ``since`` (see ``changes.py``); None otherwise.
+    changes: dict | None = None
     unresolved: list[dict] = field(default_factory=list)  # placements with no device type
     warnings: list[str] = field(default_factory=list)
 
@@ -212,9 +214,36 @@ def parse_document(
         netbox_version=_text(document.get("netboxVersion")),
         objects=rows,
         change_request_id=_text(project.get("changeRequestId")),
+        changes=_changes(document),
         unresolved=unresolved,
         warnings=warnings,
     )
+
+
+def _changes(document: dict) -> dict | None:
+    from .changes import raw_changes  # changes.py reads rows with this module's readers
+
+    return raw_changes(document)
+
+
+def read_row_id(adapter: Adapter, reader: Any, row: dict) -> tuple[str, str] | None:
+    """The (model type, unique id) of the model ``reader`` builds from ``row`` for ``adapter``'s class, or ``None``
+    when the row builds none (a tag) or is unreadable. Reads into a scratch adapter, so ``adapter`` is untouched."""
+    if reader is None or not isinstance(row, dict):
+        return None
+    scratch = type(adapter).__new__(type(adapter))
+    Adapter.__init__(scratch, name="changes")
+    scratch.document = adapter.document
+    scratch.warnings, scratch.tags, scratch.identities = [], [], {}
+    try:
+        reader(scratch, row)
+    except (KeyError, ValueError, TypeError, AttributeError):
+        return None
+    for model_type in scratch.top_level:
+        found = scratch.get_all(model_type)
+        if found:
+            return model_type, found[0].get_unique_id()
+    return None
 
 
 # ---- the adapter -------------------------------------------------------------------------------
@@ -254,6 +283,10 @@ class SyncDocumentAdapter(Adapter):
     @property
     def project_name(self) -> str:
         return self.document.project_name
+
+    def row_id(self, kind: str, row: dict) -> tuple[str, str] | None:
+        """The (model type, unique id) a row of ``kind`` reads as (see :func:`read_row_id`)."""
+        return read_row_id(self, _READERS.get(kind), row)
 
     def load(self) -> None:
         for kind in OBJECT_KINDS:

@@ -527,15 +527,18 @@ class RailyardClient:
         *,
         options: dict | None = None,
         change_request_id: str | None = None,
+        since: str | None = None,
         org_id: str | None = None,
     ) -> Any:
         """Generate a JSON deliverable for a project (by id or URL slug) and return the decoded document.
 
         ``options`` are the generator's (for example ``{"netboxVersion": "4.4"}``); ``change_request_id``
-        generates it from a merge request's draft instead of main. Deliverables are paid on hosted
-        Railyard: a plan without them is refused with :class:`RailyardPlanRequiredError`, an estate past
-        the plan's rack cap with :class:`RailyardPlanLimitError` (a self-hosted server with billing off
-        allows every deliverable). Other failures are the client's usual typed errors."""
+        generates it from a merge request's draft instead of main; ``since`` (a saved version's id, or ``"base"``
+        with a merge request: its branch point) asks a sync document to list what changed since then.
+        Deliverables are paid on hosted Railyard: a plan without them is refused with
+        :class:`RailyardPlanRequiredError`, an estate past the plan's rack cap with :class:`RailyardPlanLimitError`
+        (a self-hosted server with billing off allows every deliverable). Other failures are the client's usual
+        typed errors."""
         if not project_ref:
             raise ValueError("project ref is required")
         if not kind:
@@ -543,6 +546,8 @@ class RailyardClient:
         body: dict[str, Any] = {}
         if change_request_id:
             body["changeRequestId"] = change_request_id
+        if since:
+            body["since"] = since
         if options:
             body["options"] = dict(options)
         path = f"/api/projects/{quote(str(project_ref), safe='')}/deliverables/{quote(kind, safe='')}"
@@ -560,6 +565,7 @@ class RailyardClient:
         *,
         netbox_version: str | None = None,
         change_request_id: str | None = None,
+        since: str | None = None,
         org_id: str | None = None,
     ) -> dict:
         """The project's NetBox sync document (``POST …/deliverables/netbox-sync``), the source of
@@ -567,19 +573,26 @@ class RailyardClient:
         document is written for (``"4.4"``; Railyard's default line otherwise)."""
         options = {"netboxVersion": netbox_version} if netbox_version else None
         doc = self.deliverable_json(
-            project_ref, NETBOX_SYNC, options=options, change_request_id=change_request_id, org_id=org_id
+            project_ref, NETBOX_SYNC, options=options, change_request_id=change_request_id, since=since, org_id=org_id
         )
         if not isinstance(doc, dict):
             raise RailyardAPIError("Railyard returned a NetBox sync document that is not a JSON object.")
         return doc
 
     def nautobot_sync_document(
-        self, project_ref: str, *, change_request_id: str | None = None, org_id: str | None = None
+        self,
+        project_ref: str,
+        *,
+        change_request_id: str | None = None,
+        since: str | None = None,
+        org_id: str | None = None,
     ) -> dict:
         """The project's Nautobot sync document (``POST …/deliverables/nautobot-sync``), the source of
         :func:`railyard_sync.export.run.sync_to_nautobot`: the rows of Railyard's Nautobot 2.x bundle. A paid
         deliverable on hosted Railyard, refused like :meth:`deliverable_json`."""
-        doc = self.deliverable_json(project_ref, NAUTOBOT_SYNC, change_request_id=change_request_id, org_id=org_id)
+        doc = self.deliverable_json(
+            project_ref, NAUTOBOT_SYNC, change_request_id=change_request_id, since=since, org_id=org_id
+        )
         if not isinstance(doc, dict):
             raise RailyardAPIError("Railyard returned a Nautobot sync document that is not a JSON object.")
         return doc

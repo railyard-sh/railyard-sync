@@ -94,6 +94,13 @@ railyard-sync export netbox --org my-org --project ldn1-design \
   NetBox 4.0 to 4.6; `--netbox-version 4.4` chooses one. `--change-request ID` exports a merge
   request's draft instead of main. `--import-components` gives new device types their component
   templates from the netbox-community devicetype-library.
+- **Only what changed: `--since VERSION`.** Railyard can say what changed since a commit (a saved version;
+  `GET /api/projects/{id}/versions` lists their ids). With `--since`, the export creates
+  and updates only the objects added or changed since then, and deletes (with `--allow-deletes`) only those
+  removed; it does not compare anything else, so an edit made in NetBox meanwhile to an object nobody changed in
+  Railyard is left as it is. Objects Railyard renamed (a device, a rack, a location) are renamed in place. With
+  `--change-request`, `--since base` is the merge request's branch point. Run without `--since` now and then to
+  bring everything back in step.
 - **A paid deliverable on hosted Railyard.** The NetBox sync document is a deliverable, so the estate's
   plan must include deliverables and its rack count must be within the plan's deliverable limit. A
   refusal exits `3` with the plans that would allow it and whether a Project Pass for the estate would;

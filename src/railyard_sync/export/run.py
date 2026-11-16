@@ -17,6 +17,10 @@ and is what the Nautobot app's export job runs, in-process.
    rest in reverse order — each delete refused, and reported, when it would reach objects the sync
    does not own.
 
+With ``only_changes`` (a document requested with ``since``) step 3 is limited to the document's ``changes``: only
+the objects added or changed since that commit are created or updated, and only those removed are deleted
+(``changes.py``).
+
 Nothing here prints; the caller (the CLI) reports the returned :class:`SyncResult`.
 """
 
@@ -30,6 +34,7 @@ from typing import Any
 from diffsync.enum import DiffSyncFlags
 
 from . import nautobot_rest
+from .changes import ChangeSet, change_set, narrow, removed
 from .devicetype_library import DeviceTypeLibrary
 from .nautobot_document import NautobotSyncDocumentAdapter
 from .nautobot_rest import (
@@ -89,6 +94,9 @@ class SyncOutcome:
     dependents_skipped: int = 0
     adopted: list[str] = field(default_factory=list)  # existing components of owned devices taken over
     renamed: list[str] = field(default_factory=list)
+    #: With ``only_changes``: the commit the changes are counted from ({"versionId", "number", "revision"}) and
+    #: the counts the document gives ({"added", "changed", "removed"}); empty for a full sync.
+    since: dict[str, Any] = field(default_factory=dict)
     kept: list[str] = field(default_factory=list)  # deletes refused (a dry run: would be refused)
     stale: list[str] = field(default_factory=list)  # owned objects gone from Railyard, kept: deletes are off
     warnings: list[str] = field(default_factory=list)
@@ -163,6 +171,7 @@ def sync_to_netbox(
     import_components: bool = False,
     devicetype_library: DeviceTypeLibrary | None = None,
     port_mappings: bool | None = None,
+    only_changes: bool = False,
 ) -> SyncResult:
     """Sync a Railyard NetBox sync document into NetBox.
 
@@ -171,6 +180,8 @@ def sync_to_netbox(
     ``import_components`` creates a new device type's component templates from the netbox-community
     devicetype-library (``devicetype_library``, fetched from GitHub unless one is given).
     ``port_mappings`` forces the front-port API shape (``None``: by NetBox version).
+    ``only_changes`` limits the sync to the document's ``changes`` (a document requested with ``since``): see
+    ``changes.py``. A document without them is refused with ``SyncDocumentError``.
 
     Raises ``SyncDocumentError`` for a document it can't read, ``NetBoxError`` subclasses when NetBox
     can't be used at all (unreachable, token refused, unsupported version) and ``SyncRefused`` when the
@@ -179,6 +190,7 @@ def sync_to_netbox(
     source = SyncDocumentAdapter(document, name="railyard")
     source.load()
     warnings = list(source.warnings)
+    changes = change_set(source) if only_changes else None
 
     client = NetBoxClient(netbox_url, netbox_token, session=session, verify=verify, timeout=timeout)
     if insecure_url(client.url):
@@ -236,18 +248,49 @@ def sync_to_netbox(
         tag_slug=spec.slug,
         warnings=warnings,
     )
-    return _run(source, target, result, allow_deletes=allow_deletes, endpoints=ENDPOINT, product="NetBox")
+    return _run(
+        source, target, result, allow_deletes=allow_deletes, endpoints=ENDPOINT, product="NetBox", changes=changes
+    )
 
 
-def _run(source, target, result: SyncOutcome, *, allow_deletes: bool, endpoints: dict, product: str):
+def _run(
+    source,
+    target,
+    result: SyncOutcome,
+    *,
+    allow_deletes: bool,
+    endpoints: dict,
+    product: str,
+    changes: ChangeSet | None = None,
+):
     """Load what the project owns, reconcile, diff and — unless a dry run — apply: renames, owned cable deletes,
-    creates and updates in dependency order, then the other deletes, dependents first."""
+    creates and updates in dependency order, then the other deletes, dependents first. With ``changes``, only what
+    they list is created, updated or deleted."""
     started = time.monotonic()
     log.info("Reading what the estate owns in %s (tag %s)…", product, result.tag)
     target.load()
+    if changes is not None:
+        log.info(
+            "Limiting the sync to the changes since %s: %d added, %d changed, %d removed",
+            changes.label,
+            changes.added,
+            changes.changed,
+            changes.removed_count,
+        )
+        result.since = {
+            **changes.since,
+            "added": changes.added,
+            "changed": changes.changed,
+            "removed": changes.removed_count,
+        }
+        result.warnings += [f"Not applied: {line}" for line in changes.unmatched]
+        narrow(source, target, changes)
     report = target.reconcile(source, allow_deletes=allow_deletes)
     diff = target.diff_from(source, flags=DiffSyncFlags.SKIP_UNMATCHED_DST)
     candidates = target.delete_candidates(source)
+    if changes is not None:  # the source holds only the changes: delete only what they remove
+        gone = removed(source, target, changes)
+        candidates = [m for m in candidates if (m.get_type(), m.get_unique_id()) in gone]
 
     summary = diff.summary()
     place_renames = getattr(target, "place_renames", [])
@@ -483,6 +526,7 @@ def sync_to_nautobot(
     railyard_url: str = DEFAULT_RAILYARD_URL,
     verify: bool | str = True,
     timeout: float = 30,
+    only_changes: bool = False,
 ) -> NautobotSyncResult:
     """Sync a Railyard Nautobot sync document into Nautobot 2.x.
 
@@ -498,6 +542,7 @@ def sync_to_nautobot(
     source = NautobotSyncDocumentAdapter(document, name="railyard")
     source.load()
     warnings = list(source.warnings)
+    changes = change_set(source) if only_changes else None
 
     if client is None:
         client = NautobotClient(nautobot_url, nautobot_token, session=session, verify=verify, timeout=timeout)
@@ -572,7 +617,13 @@ def sync_to_nautobot(
         warnings=warnings,
     )
     return _run(
-        source, target, result, allow_deletes=allow_deletes, endpoints=nautobot_rest.ENDPOINT, product="Nautobot"
+        source,
+        target,
+        result,
+        allow_deletes=allow_deletes,
+        endpoints=nautobot_rest.ENDPOINT,
+        product="Nautobot",
+        changes=changes,
     )
 
 

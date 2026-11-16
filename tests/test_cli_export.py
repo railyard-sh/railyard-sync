@@ -118,6 +118,8 @@ def test_a_missing_token_is_a_usage_error(world, monkeypatch, missing):
         [*ARGS, "--netbox-version", "3.7"],
         [*ARGS, "--netbox-version", "latest"],
         [*ARGS, "--change-request", " "],
+        [*ARGS, "--since", " "],
+        [*ARGS, "--since", "base"],  # a branch point needs --change-request
         [*ARGS[:-1], "ftp://netbox.example.com"],
         ["export"],
         ["export", "nautobot", *ARGS[2:]],
@@ -179,6 +181,40 @@ def test_change_request_and_netbox_version_are_sent_and_a_mismatch_warned(world)
     (call,) = deliverable_calls(railyard)
     assert call["json"] == {"changeRequestId": "cr_9", "options": {"netboxVersion": "4.4"}}
     assert "written for NetBox 4.4" in out and "runs NetBox 4.5.3" in out
+
+
+def test_since_asks_for_the_changes_and_applies_only_them(world):
+    netbox, railyard = world
+    assert run([*ARGS, "--apply"], netbox)[0] == cli.EXIT_OK
+
+    def changed_document(project, body):
+        response = serve_document(project, body)
+        doc = response.json()
+        next(r for r in doc["objects"]["devices"] if r["name"] == "SRV-1")["serial"] = "SN-0002"
+        doc["changes"] = {
+            "since": {"versionId": body.get("since"), "number": 12, "revision": 370},
+            "added": 0,
+            "changed": 1,
+            "removed": 0,
+            "objects": {
+                "devices": {"added": [], "changed": [{"key": {"name": "SRV-1"}, "railyard": {}}], "removed": []}
+            },
+        }
+        return FakeResponse(200, doc)
+
+    railyard.deliverable = changed_document
+    code, out, _ = run([*ARGS, "--since", "ver_12", "--apply"], netbox)
+    assert code == cli.EXIT_OK, out
+    assert deliverable_calls(railyard)[-1]["json"] == {"since": "ver_12", "options": {"netboxVersion": "4.5"}}
+    assert "Only the changes since commit 12: 0 added, 1 changed, 0 removed in Railyard." in out
+    assert "Applied: 0 created, 1 updated, 0 deleted" in out
+
+
+def test_since_with_a_railyard_that_lists_no_changes_is_an_error(world):
+    netbox, _ = world
+    code, out, err = run([*ARGS, "--since", "ver_12"], netbox)
+    assert code == cli.EXIT_ERROR
+    assert "lists no changes" in out + err
 
 
 def test_json_output_is_the_sync_result(world, capsys):

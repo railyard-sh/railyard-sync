@@ -11,11 +11,11 @@
     railyard-sync import nautobot --nautobot-url URL (--location NAME [--location NAME …] | --all-locations)
         … the same Railyard and run options as import netbox
 
-    railyard-sync export netbox [--railyard-url URL] --org ORG --project REF [--change-request ID]
+    railyard-sync export netbox [--railyard-url URL] --org ORG --project REF [--change-request ID] [--since VERSION]
         --netbox-url URL [--netbox-version X.Y] [--apply] [--allow-deletes] [--import-components]
         [--insecure] [--json] [-v | -q] [--debug] [--log-file FILE]
 
-    railyard-sync export nautobot [--railyard-url URL] --org ORG --project REF [--change-request ID]
+    railyard-sync export nautobot [--railyard-url URL] --org ORG --project REF [--change-request ID] [--since VERSION]
         --nautobot-url URL [--apply] [--allow-deletes] [--insecure] [--json] [-v | -q] [--debug] [--log-file FILE]
 
 **Import** reads the NetBox sites or Nautobot locations into a :class:`~railyard_sync.dcim.snapshot.Snapshot` (or
@@ -316,6 +316,13 @@ def _add_export(targets: Any, dcim: DCIM) -> None:
     _add_railyard(src)
     src.add_argument("--project", metavar="REF", required=True, help="the estate to export (id or URL slug)")
     src.add_argument("--change-request", metavar="ID", help="export a merge request's draft instead of main")
+    src.add_argument(
+        "--since",
+        metavar="VERSION",
+        help="apply only what changed in Railyard since this commit (a saved version's id; with --change-request, "
+        "'base' is the merge request's branch point): create and update only the objects added or changed since "
+        "then, and delete (with --allow-deletes) only those removed",
+    )
     dst = sub.add_argument_group(dcim.name)
     _add_dcim_url(dst, dcim, required=True, what="it must be allowed to write what the sync creates")
     if dcim is NETBOX:
@@ -361,6 +368,10 @@ def _validate(args: argparse.Namespace) -> None:
                 raise UsageError("--netbox-version must be a NetBox release from 4.0 on, such as 4.4 or 4.5")
         if args.change_request is not None and not args.change_request.strip():
             raise UsageError("--change-request must not be empty")
+        if args.since is not None and not args.since.strip():
+            raise UsageError("--since must not be empty")
+        if args.since == "base" and not args.change_request:
+            raise UsageError("--since base names a merge request's branch point: pass --change-request too")
         return
     if args.from_snapshot is None:
         if not args.dcim_url:
@@ -682,12 +693,13 @@ def _export(args: argparse.Namespace, out: TextIO, err: TextIO, progress: Progre
     log.info("Fetching the %s sync document for %s from Railyard…", dcim.name, args.project)
     started = time.monotonic()
     change_request = args.change_request or None
+    since = args.since.strip() if args.since else None
     if dcim is NETBOX:
         document = client.netbox_sync_document(
-            args.project, netbox_version=netbox_version, change_request_id=change_request
+            args.project, netbox_version=netbox_version, change_request_id=change_request, since=since
         )
     else:
-        document = client.nautobot_sync_document(args.project, change_request_id=change_request)
+        document = client.nautobot_sync_document(args.project, change_request_id=change_request, since=since)
     log.info(
         "Fetched the %s sync document (%s) in %s",
         dcim.name,
@@ -707,6 +719,7 @@ def _export(args: argparse.Namespace, out: TextIO, err: TextIO, progress: Progre
             railyard_url=args.railyard_url,
             verify=verify,
             import_components=args.import_components,
+            only_changes=since is not None,
         )
         if netbox_version and parse_version(netbox_version) != parse_version(result.target_version):
             result.warnings.append(
@@ -720,6 +733,7 @@ def _export(args: argparse.Namespace, out: TextIO, err: TextIO, progress: Progre
             dry_run=not args.apply,
             allow_deletes=args.allow_deletes,
             railyard_url=args.railyard_url,
+            only_changes=since is not None,
         )
     log.info("Done in %s", seconds(time.monotonic() - started))
     if args.json:
@@ -786,6 +800,13 @@ def export_report(result: SyncOutcome) -> str:
         f"at {result.target_url}",
         f"Ownership tag: {result.tag} (slug {result.tag_slug})",
     ]
+    if result.since:
+        since = result.since
+        commit = f"commit {since['number']}" if since.get("number") else f"version {since.get('versionId', '')}"
+        lines.append(
+            f"Only the changes since {commit}: {since.get('added', 0)} added, {since.get('changed', 0)} changed, "
+            f"{since.get('removed', 0)} removed in Railyard. Other objects were not compared."
+        )
     diff = result.diff
     if result.dry_run:
         lines.append(

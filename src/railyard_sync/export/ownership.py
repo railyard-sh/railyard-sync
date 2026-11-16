@@ -113,7 +113,8 @@ class OwnershipMixin:
         """Owned locations and racks named with the alias of a Railyard object the document now names
         otherwise: re-key them (and the locations, racks and devices that name them) under the new name, so the
         diff renames them in place instead of creating a second one, and remember them in ``place_renames``."""
-        self.place_renames = []
+        if not hasattr(self, "place_renames"):
+            self.place_renames = []  # a sync limited to changes may have listed some already (changes.narrow)
         if not self.renames_places:
             return
         for model_type in ("location", "rack"):
