@@ -38,15 +38,20 @@ def test_example_project_matches_the_bundle():
     assert a.project_id == "prj_replace-with-a-unique-id"
     assert {s.name for s in a.get_all(models.Site)} == {"LDN1", "FRA1"}
     assert a.get(models.Site, "LDN1").slug == "ldn1-2334f5e693"  # the bundle's slug, not re-derived
-    assert ids(a, models.Location) == {("LDN1", "A [a559f3df2a]"), ("FRA1", "A [ea30999eaa]")}
+    # Each site's row "A" keeps its name: Railyard aliases a name only where it repeats within a site.
+    assert ids(a, models.Location) == {("LDN1", "A"), ("FRA1", "A")}
+    assert a.get(models.Location, {"site": "LDN1", "name": "A"}).slug == "a-a559f3df2a"
     assert ids(a, models.Rack) == {("LDN1", "LDN1-A01"), ("LDN1", "LDN1-A02"), ("FRA1", "FRA1-A01")}
     rack = a.get(models.Rack, {"site": "LDN1", "name": "LDN1-A01"})
-    assert (rack.width, rack.u_height, rack.desc_units, rack.location) == (19, 42, False, "A [a559f3df2a]")
+    assert (rack.width, rack.u_height, rack.desc_units, rack.location) == (19, 42, False, "A")
 
     dev = a.get(models.Device, "LDN1-A01-LEAF-01")
     assert (dev.manufacturer, dev.device_type, dev.role) == ("Cisco", "Nexus 93180YC-FX", "leaf")
-    assert (dev.rack, dev.position, dev.face, dev.location) == ("LDN1-A01", 41, "front", "A [a559f3df2a]")
+    assert (dev.rack, dev.position, dev.face, dev.location) == ("LDN1-A01", 41, "front", "A")
     assert dev.railyard_id == "pl_ldn_a01_leaf1"
+    # Locations and racks carry the Railyard object they came from too (not diffed; for renames).
+    assert a.get(models.Location, {"site": "LDN1", "name": "A"}).railyard_id
+    assert rack.railyard_id == "rack_ldn_a01"
     dt = a.get_all(models.DeviceType)[0]
     assert (dt.slug, dt.u_height, dt.is_full_depth, dt.library_slug) == (
         "cisco-nexus-93180yc-fx",
@@ -132,9 +137,19 @@ def test_unknown_kinds_and_bad_rows_are_warnings_not_failures():
     doc["objects"]["console-ports"] = [{"device": "SW-1", "name": "con0"}]
     doc["objects"]["devices"].append({"name": "", "site": "DC1"})
     a = load(doc)
-    assert any("console-ports" in w for w in a.warnings)
+    assert (
+        "1 of the sync document's 'console-ports' objects are not synced by this railyard-sync; ignored." in a.warnings
+    )
     assert any("devices row 5 skipped: no name" in w for w in a.warnings)
     assert len(a.get_all(models.Device)) == 4
+
+
+def test_a_section_this_railyard_sync_does_not_read_is_no_warning_when_empty():
+    """Railyard lists every section of its bundle, empty or not (console ports, say): an empty one loses nothing."""
+    doc = copy.deepcopy(document())
+    doc["objects"]["console-ports"] = []
+    doc["objects"]["console-server-ports"] = []
+    assert not [w for w in load(doc).warnings if "not synced" in w]
 
 
 # ---- the contract's identities and extras ---------------------------------------------------------

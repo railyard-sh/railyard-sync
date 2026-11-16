@@ -93,6 +93,7 @@
       {
         "manufacturer__name": "Acme",
         "model": "PDU1",
+        "part_number": "",
         "u_height": "0",
         "is_full_depth": "False",
         "railyard": {
@@ -106,6 +107,7 @@
       {
         "manufacturer__name": "Acme",
         "model": "PP24",
+        "part_number": "",
         "u_height": "1",
         "is_full_depth": "False",
         "railyard": {
@@ -119,6 +121,7 @@
       {
         "manufacturer__name": "Acme",
         "model": "SRV1",
+        "part_number": "",
         "u_height": "2",
         "is_full_depth": "True",
         "railyard": {
@@ -132,6 +135,7 @@
       {
         "manufacturer__name": "Acme",
         "model": "SW1",
+        "part_number": "",
         "u_height": "1",
         "is_full_depth": "True",
         "railyard": {
@@ -147,6 +151,7 @@
       {
         "name": "compute",
         "content_types": "dcim.device",
+        "color": "2196f3",
         "railyard": {
           "kind": "role"
         }
@@ -154,6 +159,7 @@
       {
         "name": "leaf",
         "content_types": "dcim.device",
+        "color": "4caf50",
         "railyard": {
           "kind": "role"
         }
@@ -161,6 +167,7 @@
       {
         "name": "patch",
         "content_types": "dcim.device",
+        "color": "ff9800",
         "railyard": {
           "kind": "role"
         }
@@ -168,6 +175,7 @@
       {
         "name": "power",
         "content_types": "dcim.device",
+        "color": "ff9800",
         "railyard": {
           "kind": "role"
         }
@@ -185,6 +193,9 @@
         "desc_units": "False",
         "comments": "Cold aisle A",
         "tags": "Build 1",
+        "outer_width": "800",
+        "outer_depth": "1070",
+        "outer_unit": "mm",
         "railyard": {
           "kind": "rack",
           "id": "r1"
@@ -204,6 +215,7 @@
         "face": "front",
         "comments": "",
         "tags": "Build 1",
+        "serial": "",
         "railyard": {
           "kind": "device",
           "id": "p_sw"
@@ -221,6 +233,7 @@
         "face": "front",
         "comments": "",
         "tags": "",
+        "serial": "",
         "railyard": {
           "kind": "device",
           "id": "p_pp"
@@ -238,6 +251,7 @@
         "face": "rear",
         "comments": "Database host",
         "tags": "",
+        "serial": "SN-0001",
         "railyard": {
           "kind": "device",
           "id": "p_srv"
@@ -255,6 +269,7 @@
         "face": "front",
         "comments": "",
         "tags": "",
+        "serial": "",
         "railyard": {
           "kind": "device",
           "id": "p_pdu"
@@ -364,6 +379,8 @@
         "device__name": "SRV-1",
         "name": "PSU1",
         "type": "iec-60320-c14",
+        "maximum_draw": "",
+        "allocated_draw": "",
         "railyard": {
           "kind": "power-port",
           "placementId": "p_srv",
@@ -372,6 +389,8 @@
         }
       }
     ],
+    "console-ports": [],
+    "console-server-ports": [],
     "cables": [
       {
         "a": {
@@ -387,6 +406,8 @@
         "status": "Connected",
         "label": "L1",
         "color": "ff0000",
+        "length": 100,
+        "length_unit": "cm",
         "railyard": {
           "kind": "cable",
           "id": "c1"
@@ -405,6 +426,8 @@
         },
         "status": "Connected",
         "label": "L2",
+        "length": 500,
+        "length_unit": "cm",
         "railyard": {
           "kind": "cable",
           "id": "c2"

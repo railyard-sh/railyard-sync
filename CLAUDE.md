@@ -71,7 +71,11 @@ Same rules as the plugin's target (`netbox_railyard/target.py`), over REST. The 
 by the Railyard URL + project id, so pass the same `railyard_url` the plugin uses. Order: renames, owned
 cable deletes, creates/updates in `TOP_LEVEL` order, other deletes in reverse; deletes only with
 `allow_deletes`, and never when NetBox would protect the object or cascade to, modify or disconnect
-untagged objects. Front ports: `rear_port` up to 4.4, a `rear_ports` list from 4.5. Fixtures in
+untagged objects. Front ports: `rear_port` up to 4.4, a `rear_ports` list from 4.5. Owned locations and racks still
+named with an alias an earlier document gave them (`"A [<sha256(railyard id)[:10]>]"`; Railyard now aliases a name only
+where it repeats within a site) are renamed in place (`OwnershipMixin.detect_place_renames`, on targets that set
+`renames_places`; the NetBox plugin's ORM target needs the same before it sets it). Sections of the document this
+package does not read (console ports) are a warning only when they have rows. Fixtures in
 `tests/fixtures/sync/` come from `railyard export --format netbox-sync` (`make_documents.py`); tests run
 against `tests/export/fake_netbox_rest.py`.
 

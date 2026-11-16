@@ -73,6 +73,8 @@ class Location(DiffSyncModel):
     parent: str = ""  # the parent location's name within the same site; blank directly under the site
     status: str = "active"
     facility: str = ""
+    # Non-diffed: the Railyard space the row came from (the document's identity), for renames.
+    railyard_id: str = ""
 
 
 class Rack(DiffSyncModel):
@@ -88,6 +90,8 @@ class Rack(DiffSyncModel):
     location: str = ""  # location name within the site; blank when the rack sits directly in the site
     comments: str = ""
     tags: list[str] = Field(default_factory=list)  # user tag slugs, sorted (never the ownership tag)
+    # Non-diffed: the Railyard rack the row came from (the document's identity), for renames.
+    railyard_id: str = ""
 
 
 class Device(DiffSyncModel):

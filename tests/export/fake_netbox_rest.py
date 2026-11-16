@@ -89,7 +89,7 @@ UNIQUE = {
     "dcim/device-roles": [("name",), ("slug",)],
     "dcim/sites": [("name",), ("slug",)],
     "dcim/device-types": [("manufacturer", "model"), ("manufacturer", "slug")],
-    "dcim/locations": [("site", "parent", "name")],
+    "dcim/locations": [("site", "parent", "name"), ("site", "parent", "slug")],
     "dcim/racks": [("site", "location", "name")],
     **{ep: [("device", "name")] for ep in COMPONENTS.values()},
 }
