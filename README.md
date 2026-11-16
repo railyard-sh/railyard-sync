@@ -4,6 +4,9 @@ Bring an existing **NetBox** site or **Nautobot** location into **[Railyard](htt
 design baseline, and refresh it later without losing what you designed; then push the design back out into
 NetBox or Nautobot. It is also the shared core of Railyard's NetBox plugin and Nautobot app.
 
+Railyard's guide to the whole workflow, and to choosing between this command line, the NetBox plugin and the
+Nautobot app, is [NetBox & Nautobot](https://railyard.sh/docs/netbox-nautobot) in the Railyard documentation.
+
 > Status: **early development (0.2).** Import and export work with NetBox 4.0 to 4.6 and Nautobot 2.0 to 2.4
 > (see [Supported versions](#supported-versions)).
 
