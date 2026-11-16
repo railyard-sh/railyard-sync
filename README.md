@@ -4,7 +4,8 @@ Bring an existing **NetBox** site or **Nautobot** location into **[Railyard](htt
 design baseline, and refresh it later without losing what you designed; then push the design back out into
 NetBox or Nautobot. It is also the shared core of Railyard's NetBox plugin and Nautobot app.
 
-> Status: **early development (0.2).** NetBox (4.0–4.6) and Nautobot (2.x) import and export work.
+> Status: **early development (0.2).** Import and export work with NetBox 4.0 to 4.6 and Nautobot 2.0 to 2.4
+> (see [Supported versions](#supported-versions)).
 
 ## What it does
 
@@ -33,11 +34,20 @@ Railyard project ──► NetBox / Nautobot sync document (a Railyard deliverab
 
 ## Usage
 
-```bash
-pip install railyard-sync    # (once published)
+railyard-sync is not on PyPI yet. Install a release from GitHub (Python 3.12 or later; pip needs `git`):
 
+```bash
+pipx install "git+https://github.com/railyard-sh/railyard-sync@v0.2.1"
+# or, into a virtualenv:
+pip install "railyard-sync @ git+https://github.com/railyard-sh/railyard-sync@v0.2.1"
+```
+
+Without `git`, install the release's source archive instead:
+`pip install https://github.com/railyard-sh/railyard-sync/archive/refs/tags/v0.2.1.tar.gz`.
+
+```bash
 export NETBOX_TOKEN=…        # a read-only NetBox API token
-export RAILYARD_TOKEN=ry_…   # a Railyard personal access token (User settings → API tokens)
+export RAILYARD_TOKEN=ry_…   # a Railyard personal access token with Read and write access (see below)
 
 # First import: creates a new estate from the site.
 railyard-sync import netbox --netbox-url https://netbox.example.com --site ldn1 \
@@ -62,6 +72,23 @@ with the revision it was merged into, so a change made in Railyard meanwhile is 
 
 Exit codes: `0` done, `1` error (including conflicts between NetBox and the Railyard design, which
 are listed and must be resolved in Railyard first), `2` usage, `3` refused by the plan's rack limit.
+
+### Railyard tokens
+
+Create a personal access token in Railyard under **User settings → API tokens**. Each token has an access
+level, chosen when it is created, and an expiry (90 days by default; choose the shortest you are prepared to
+rotate). The token reaches every organisation its user belongs to, unless an organisation's owners have
+switched personal access tokens off, so use a dedicated Railyard user for automation where you can.
+
+| Command | Token access | The token's user needs |
+|---|---|---|
+| `import … --dry-run` | Read only | any role in the organisation (it reads the estate and checks the document) |
+| `import …` (saves the estate) | **Read and write** | the editor or owner role, and edit rights on the estate |
+| `export netbox` / `export nautobot`, dry run or `--apply` | Read only | any role (the export only reads from Railyard) |
+
+A Read only token that tries to save is refused with HTTP 403 `token_read_only`, and the error says to create a
+Read and write token. An estate whose main design is protected (it takes changes only through merge requests)
+cannot be saved to by an import: the error says so, and a dry run still shows what would change.
 
 ### Exporting to NetBox
 
@@ -134,8 +161,19 @@ differs on export:
   enabled for what uses it (a role for devices, a location type for racks), the objects that need it are
   reported as conflicts rather than written. Design tags are created enabled for racks and devices; an
   existing tag that is not is left off those objects, with a warning.
-- **Versions.** Nautobot 2.0 to 2.4 (tested with 2.4); 3.x is read with a warning; 1.x is refused.
+- **Versions.** See [Supported versions](#supported-versions).
 - **A paid deliverable on hosted Railyard**, like the NetBox document.
+
+## Supported versions
+
+| | Import (read) | Export (write) |
+|---|---|---|
+| **NetBox** | 4.0 to 4.6; later 4.x releases with a warning; 5.x refused | 4.0 to 4.6; later 4.x releases with a warning; 5.x refused |
+| **Nautobot** | 2.0 to 2.4 (tested with 2.4); 3.x with a warning; 1.x refused | 2.0 to 2.4; 3.x and 1.x refused |
+| **Python** | 3.12 or later | |
+
+The NetBox plugin and the Nautobot app have their own ranges (NetBox 4.5 to 4.7; Nautobot 2.3 and 2.4), which
+their test suites run against.
 
 ## Troubleshooting
 
@@ -158,8 +196,8 @@ sizes instead. Logs do name hosts, estate ids, site slugs and API paths.
 
 **Errors say what to do.** A Railyard error names the request (`PUT /api/projects/…`), the status, Railyard's
 message and code, the problems it listed (by rack and device name) and the request id to quote, then the fix:
-an expired token (401: create a new one under **User settings → API tokens**), a missing role or terms
-acceptance (403), a taken name (409), an estate that changed meanwhile (412: run the import again, it merges
+an expired token (401: create a new one under **User settings → API tokens**), a read-only token, a missing role,
+a protected main design, tokens switched off by the organisation or terms acceptance (403), a taken name (409), an estate that changed meanwhile (412: run the import again, it merges
 onto the latest revision), a document too large (413: its size and the limit; import sites into separate
 estates), or a Railyard fault (5xx: a Railyard bug, not your data). NetBox errors name the endpoint, NetBox's
 `detail` and request id, and for a 403 the permission to grant (such as `view` on `dcim.rack`). A busy

@@ -53,6 +53,7 @@ from .errors import (
     RailyardServerError,
     RailyardTermsError,
     RailyardTokenRejectedError,
+    RailyardTokenScopeError,
     RailyardTooLargeError,
 )
 from .log import header, human_size, log_http, response_size
@@ -310,8 +311,7 @@ class RailyardClient:
                 f"Railyard rejected the personal access token (HTTP 401) for {where}: it is wrong, revoked or expired.",
                 hints=[
                     "Railyard tokens expire: create a new one in Railyard under User settings → API tokens, and "
-                    "use it in place of the old one (RAILYARD_TOKEN for railyard-sync; the NetBox plugin's "
-                    "railyard_token or railyard_token_file setting)."
+                    "use it in place of the old one (" + _TOKEN_SETTING + ")."
                 ],
                 **context,
             )
@@ -689,8 +689,41 @@ def _action(method: str, path: str) -> str:
     return f"handling {method} {path}"
 
 
+#: Where to say a token is configured, in every message that asks for a new one.
+_TOKEN_SETTING = (
+    "RAILYARD_TOKEN for railyard-sync; the token setting of the NetBox plugin or the Nautobot app, whichever runs this"
+)
+
+#: 403s with a code of their own: (why, hint), worded for the credential rather than the user's role.
+_CODED_REFUSALS: dict[str, tuple[str, str]] = {
+    "token_read_only": (
+        "the personal access token is read-only (its access is Read only), and this request changes the estate",
+        "Importing into Railyard saves an estate, so it needs a token whose access is Read and write: create one "
+        "in Railyard under User settings → API tokens and use it in place of this one ("
+        + _TOKEN_SETTING
+        + "). A dry run, and exporting to NetBox or Nautobot, need only a Read only token.",
+    ),
+    "change_request_required": (
+        "the estate's main design is protected, so changes to it go through a merge request",
+        "railyard-sync saves to main and cannot open a merge request. Ask a project administrator to let the "
+        "token's user edit main directly (the estate's branch protection), or run a dry run and make the changes "
+        "it lists in a merge request in Railyard.",
+    ),
+    "org_tokens_disabled": (
+        "this organisation does not allow personal access tokens",
+        "An organisation owner can allow them in Railyard under Organisation settings → Access.",
+    ),
+    "org_token_sign_in_required": (
+        "this organisation only accepts tokens created after a particular kind of sign-in, and this token was not",
+        "Sign in to Railyard the way the organisation requires (Railyard's message above says which), then create "
+        "a new token under User settings → API tokens and use it in place of this one (" + _TOKEN_SETTING + ").",
+    ),
+}
+
+
 def _forbidden(where: str, said: str, code: str, writing: bool, context: dict) -> RailyardAPIError:
-    """403, saying which: the Terms of Service, the role, the organisation or the estate."""
+    """403, saying which: the Terms of Service, the token's scope or the organisation's token policy, a
+    protected main, the role, the organisation or the estate."""
     lowered = said.lower()
     if code == "terms_not_accepted":
         return RailyardTermsError(
@@ -699,9 +732,24 @@ def _forbidden(where: str, said: str, code: str, writing: bool, context: dict) -
             hints=["Sign in to Railyard in a browser, accept them, then try again."],
             **context,
         )
+    if code in _CODED_REFUSALS:
+        why, hint = _CODED_REFUSALS[code]
+        kind = RailyardTokenScopeError if code == "token_read_only" else RailyardForbiddenError
+        return kind(
+            f"Railyard refused access (HTTP 403, {code}) for {where}: {why}."
+            + (f" Railyard said: {said}" if said else ""),
+            hints=[hint],
+            **context,
+        )
     if "read-only" in lowered or "role" in lowered:
-        why = "the token's user has a read-only role in this organisation"
-        hint = "Ask an organisation owner to make the user an editor (Organisation settings → Members)."
+        place = "estate" if "project" in lowered else "organisation"
+        why = f"the token's user has a read-only role in this {place}"
+        hint = (
+            "Ask the estate's owner for edit rights (the estate's Share settings), or an organisation owner to make "
+            "the user an editor (Organisation settings → Members)."
+            if place == "estate"
+            else "Ask an organisation owner to make the user an editor (Organisation settings → Members)."
+        )
     elif "member" in lowered:
         why = "the token's user is not a member of this organisation"
         hint = "Check --org, or ask an organisation owner to add the user."
@@ -727,8 +775,8 @@ def _not_found_hints(path: str) -> list[str]:
         return ["This Railyard has no /api/validate (an older self-hosted release)."]
     if path.startswith("/api/projects/"):
         return [
-            "Check --project: an estate's id, or the slug in its URL (/o/<org>/p/<slug>), in the organisation "
-            "--org names. A renamed estate has a new slug."
+            "Check --project: an estate's id, or the slug in its URL (…/<org>/<slug>), in the "
+            "organisation --org names. A renamed estate has a new slug."
         ]
     return []
 

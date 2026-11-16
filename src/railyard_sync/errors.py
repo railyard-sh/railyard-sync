@@ -84,6 +84,11 @@ class RailyardForbiddenError(RailyardAuthError):
     """403 — the token is valid but its user may not read this org or project."""
 
 
+class RailyardTokenScopeError(RailyardForbiddenError):
+    """403 ``token_read_only`` — the token is valid but read-only (its access is "Read only"), and the request
+    changes something: saving an imported estate needs a "Read and write" token."""
+
+
 class RailyardNotFoundError(RailyardAPIError):
     """404 — the org or project reference did not resolve."""
 
