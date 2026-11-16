@@ -87,8 +87,9 @@ switched personal access tokens off, so use a dedicated Railyard user for automa
 | `export netbox` / `export nautobot`, dry run or `--apply` | Read only | any role (the export only reads from Railyard) |
 
 A Read only token that tries to save is refused with HTTP 403 `token_read_only`, and the error says to create a
-Read and write token. An estate whose main design is protected (it takes changes only through merge requests)
-cannot be saved to by an import: the error says so, and a dry run still shows what would change.
+Read and write token. An import cannot save to an estate the user may change only through merge requests (its
+main design requires approvals, or the user's role only proposes changes): the error says so, and a dry run still
+shows what would change.
 
 ### Exporting to NetBox
 

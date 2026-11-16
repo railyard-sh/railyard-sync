@@ -704,10 +704,11 @@ _CODED_REFUSALS: dict[str, tuple[str, str]] = {
         + "). A dry run, and exporting to NetBox or Nautobot, need only a Read only token.",
     ),
     "change_request_required": (
-        "the estate's main design is protected, so changes to it go through a merge request",
-        "railyard-sync saves to main and cannot open a merge request. Ask a project administrator to let the "
-        "token's user edit main directly (the estate's branch protection), or run a dry run and make the changes "
-        "it lists in a merge request in Railyard.",
+        "the token's user may change this estate only through a merge request (its main design requires approvals, "
+        "or the user's role only lets them propose changes)",
+        "railyard-sync saves to main and cannot open a merge request yet. Run a dry run and make the changes it "
+        "lists in a merge request in Railyard, or ask a project administrator to make the user an editor or to "
+        "stop requiring approvals for main (the estate's branch protection).",
     ),
     "org_tokens_disabled": (
         "this organisation does not allow personal access tokens",
