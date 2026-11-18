@@ -23,6 +23,7 @@ from railyard_sync.errors import (
     RailyardServerError,
     RailyardTermsError,
     RailyardTokenRejectedError,
+    RailyardTokenScopeError,
     RailyardTooLargeError,
 )
 
@@ -145,14 +146,48 @@ def test_401_says_how_to_replace_the_token():
     [
         ({"error": "terms", "code": "terms_not_accepted"}, RailyardTermsError, "Terms of Service"),
         ({"error": "your role is read-only in this organisation"}, RailyardForbiddenError, "read-only role"),
+        (
+            {"error": "your role is read-only in this project"},
+            RailyardForbiddenError,
+            "read-only role in this estate",
+        ),
         ({"error": "not a member of that organisation"}, RailyardForbiddenError, "not a member"),
         ({"error": "forbidden"}, RailyardForbiddenError, "may not change this estate"),
+        (
+            {"error": "this access token is read-only", "code": "token_read_only"},
+            RailyardTokenScopeError,
+            "needs a token whose access is Read and write",
+        ),
+        (
+            {"error": "create a branch and open a merge request to update main", "code": "change_request_required"},
+            RailyardForbiddenError,
+            "cannot open a merge request",
+        ),
+        (
+            {"error": "this organisation does not allow personal access tokens", "code": "org_tokens_disabled"},
+            RailyardForbiddenError,
+            "Organisation settings → Access",
+        ),
+        (
+            {"error": "sign in with Microsoft, then create a new token", "code": "org_token_sign_in_required"},
+            RailyardForbiddenError,
+            "create a new token under User settings → API tokens",
+        ),
     ],
 )
 def test_403_says_which_permission(payload, kind, says):
     err, _, _ = save(answer(403, payload))
     assert type(err) is kind
     assert says in text(err) and RID in text(err)
+
+
+def test_403_for_a_read_only_token_is_not_blamed_on_the_users_role():
+    """Railyard's message for a read-only token says "read-only" too: the code, not the words, decides."""
+    err, _, _ = save(answer(403, {"error": "this access token is read-only", "code": "token_read_only"}))
+    out = text(err)
+    assert "HTTP 403, token_read_only" in out and "Railyard said: this access token is read-only" in out
+    assert "role" not in out and "Organisation settings → Members" not in out
+    assert "A dry run, and exporting to NetBox or Nautobot, need only a Read only token" in out
 
 
 def test_404_explains_the_project_reference():
