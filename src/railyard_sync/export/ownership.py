@@ -14,6 +14,11 @@ when synced by another:
     re-keyed, with their components and cables, so the diff lines up; ``renames`` lists them for the
     target to rename in the DCIM. The target supplies ``device_named(place, name)``: the id of the device of
     that name in that place (a NetBox site; a Nautobot location), owned or not, or ``None``.
+  - ``detect_place_renames(source)`` (NetBox targets that set ``renames_places``): owned locations and racks
+    still named with the alias an earlier document gave them (``"A [<digest>]"``) are re-keyed to the name the
+    document now gives the same Railyard object, with what refers to them, and listed in ``place_renames``. Up
+    to November 2026 Railyard's NetBox document added that alias to a location or rack name repeated anywhere
+    in the estate; it now adds it only when the name repeats within the site, so most such names lost it.
 
 - :func:`planned_changes` and :func:`change_lines`: a diff (plus renames and deletes) as counts per object type
   and as one line per object.
@@ -21,12 +26,28 @@ when synced by another:
 
 from __future__ import annotations
 
+import hashlib
+import re
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
 #: The (device, name) components the export models, in creation order.
 COMPONENT_TYPES = ("interface", "rear_port", "front_port", "power_outlet", "power_port")
+
+
+def railyard_alias(railyard_id: str) -> re.Pattern:
+    """The alias Railyard's NetBox export appends to a location or rack name to tell it apart: `` [<digest>]``,
+    or `` [<digest>-<n>]`` when that too was taken, the digest being the first ten hex digits of the SHA-256 of
+    the Railyard id. A name ending so names that Railyard object, whatever the rest of it says."""
+    digest = hashlib.sha256(railyard_id.encode("utf-8")).hexdigest()[:10]
+    return re.compile(r" \[" + digest + r"(?:-\d+)?\]$")
+
+
+def _copy(model, **changes):
+    """A loaded target model with some fields changed (its NetBox id kept), to re-key it."""
+    data = {**model.get_identifiers(), **model.get_attrs(), "nb_id": model.nb_id, **changes}
+    return type(model)(**data)
 
 
 @dataclass
@@ -37,7 +58,7 @@ class OwnershipReport:
     conflicts: list[str] = field(default_factory=list)  # skipped: would need an object the sync doesn't own
     dependents_skipped: int = 0  # components/cables skipped because what they hang off was skipped
     adopted: list[str] = field(default_factory=list)  # components on owned devices brought under the tag
-    renamed: list[str] = field(default_factory=list)  # owned devices renamed in Railyard
+    renamed: list[str] = field(default_factory=list)  # owned devices (and locations, racks) renamed
     kept: list[str] = field(default_factory=list)  # deletes refused
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)  # writes the DCIM refused (the REST targets carry on)
@@ -48,6 +69,16 @@ class OwnershipMixin:
     :class:`OwnershipReport`), ``self.renames`` (a list) and ``self._add(model)``."""
 
     renames: list[tuple[str, str, Any]]
+    #: Whether this target renames owned locations and racks in place (``place_renames``, applied with the
+    #: device renames). A target that does not leaves them to create, update and delete, as before.
+    renames_places: bool = False
+    #: (model type, site, old name, new name, DCIM id) of owned locations and racks to rename.
+    place_renames: list[tuple[str, str, str, str, Any]]
+
+    def place_named(self, model_type: str, site: str, name: str) -> Any:
+        """The id of the location or rack of that name in that site, owned or not, or ``None`` (targets that
+        rename places implement it)."""
+        return None
 
     def device_named(self, site: str, name: str) -> Any:  # pragma: no cover - the targets implement it
         raise NotImplementedError
@@ -76,14 +107,65 @@ class OwnershipMixin:
             self.rekey_device(dev.name, new.name)
             self.renames.append((dev.name, new.name, dev.nb_id))
             self.report.renamed.append(f"device {dev.name} → {new.name}")
+        self.detect_place_renames(source)
+
+    def detect_place_renames(self, source) -> None:
+        """Owned locations and racks named with the alias of a Railyard object the document now names
+        otherwise: re-key them (and the locations, racks and devices that name them) under the new name, so the
+        diff renames them in place instead of creating a second one, and remember them in ``place_renames``."""
+        self.place_renames = []
+        if not self.renames_places:
+            return
+        for model_type in ("location", "rack"):
+            wanted = [m for m in source.get_all(model_type) if getattr(m, "railyard_id", "")]
+            for owned in list(self.get_all(model_type)):
+                if owned.nb_id is None or source.get_or_none(model_type, owned.get_unique_id()) is not None:
+                    continue  # still named as the document names it
+                matches = [
+                    m
+                    for m in wanted
+                    if m.site == owned.site
+                    and m.name != owned.name
+                    and railyard_alias(m.railyard_id).search(owned.name)
+                ]
+                if len(matches) != 1:
+                    continue
+                new = matches[0].name
+                if self.get_or_none(model_type, {"site": owned.site, "name": new}) is not None:
+                    continue  # another owned object has that name: leave it to create/update/delete
+                existing = self.place_named(model_type, owned.site, new)
+                if existing is not None and existing != owned.nb_id:
+                    continue  # the name is taken in the DCIM: reconcile uses that object as it is
+                self.rekey_place(model_type, owned.site, owned.name, new)
+                self.place_renames.append((model_type, owned.site, owned.name, new, owned.nb_id))
+                self.report.renamed.append(f"{model_type} {owned.site}/{owned.name} → {new}")
+
+    def rekey_place(self, model_type: str, site: str, old: str, new: str) -> None:
+        """Re-key a loaded location or rack in ``site`` from ``old`` to ``new``, with the child locations, racks
+        and devices that name it."""
+        moved = []
+        for type_name in ("location", "rack", "device"):
+            for model in list(self.get_all(type_name)):
+                if getattr(model, "site", None) != site:
+                    continue
+                changes = {}
+                if type_name == model_type and model.name == old:
+                    changes["name"] = new
+                if model_type == "location":
+                    field_name = "parent" if type_name == "location" else "location"
+                    if getattr(model, field_name, None) == old:
+                        changes[field_name] = new
+                elif type_name == "device" and model.rack == old:
+                    changes["rack"] = new
+                if changes:
+                    self.remove(model)
+                    moved.append(_copy(model, **changes))
+        for model in moved:
+            self._add(model)
 
     def rekey_device(self, old: str, new: str) -> None:
         """Re-key a loaded device, its components and its cables from ``old`` to ``new``."""
-
-        def copy(model, **changes):
-            data = {**model.get_identifiers(), **model.get_attrs(), "nb_id": model.nb_id, **changes}
-            return type(model)(**data)
-
+        copy = _copy
         moved = []
         for type_name in ("device", *COMPONENT_TYPES, "cable"):
             for model in list(self.get_all(type_name)):
@@ -101,8 +183,9 @@ class OwnershipMixin:
             self._add(model)
 
 
-def planned_changes(diff, renames: int, deletes: list) -> dict[str, dict[str, int]]:
-    """The planned creates, updates (renames included, as device updates) and deletes per object type."""
+def planned_changes(diff, renames: int, deletes: list, place_renames: list | tuple = ()) -> dict[str, dict[str, int]]:
+    """The planned creates, updates (renames included: devices, and the locations and racks in
+    ``place_renames``) and deletes per object type."""
     planned: dict[str, Counter] = {"create": Counter(), "update": Counter(), "delete": Counter()}
 
     def walk(elements) -> None:
@@ -114,6 +197,8 @@ def planned_changes(diff, renames: int, deletes: list) -> dict[str, dict[str, in
     walk(diff.get_children())
     if renames:
         planned["update"]["device"] += renames
+    for model_type, *_ in place_renames:
+        planned["update"][model_type] += 1
     for model in deletes:
         planned["delete"][model.get_type()] += 1
     return {action: dict(counts) for action, counts in planned.items()}

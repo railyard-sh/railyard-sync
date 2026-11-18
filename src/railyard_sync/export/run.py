@@ -250,22 +250,28 @@ def _run(source, target, result: SyncOutcome, *, allow_deletes: bool, endpoints:
     candidates = target.delete_candidates(source)
 
     summary = diff.summary()
+    place_renames = getattr(target, "place_renames", [])
+    renames = len(target.renames) + len(place_renames)
     log.info(
         "Planned in %.1fs: %d to create, %d to update, %d stale or to delete, %d unchanged",
         time.monotonic() - started,
         summary.get("create", 0),
-        summary.get("update", 0) + len(target.renames),
+        summary.get("update", 0) + renames,
         len(candidates),
         summary.get("no-change", 0),
     )
     result.diff = {
         "create": summary.get("create", 0),
-        "update": summary.get("update", 0) + len(target.renames),
+        "update": summary.get("update", 0) + renames,
         "delete": len(candidates) if allow_deletes else 0,
         "no-change": summary.get("no-change", 0),
     }
-    result.planned = planned_changes(diff, len(target.renames), candidates if allow_deletes else [])
-    result.changes = [f"rename: device {old} → {new}" for old, new, _ in target.renames] + change_lines(diff)
+    result.planned = planned_changes(diff, len(target.renames), candidates if allow_deletes else [], place_renames)
+    result.changes = (
+        [f"rename: {kind} {site}/{old} → {new}" for kind, site, old, new, _ in place_renames]
+        + [f"rename: device {old} → {new}" for old, new, _ in target.renames]
+        + change_lines(diff)
+    )
     if allow_deletes:
         result.changes += [f"delete: {m.get_type()} [{m.get_unique_id()}]" for m in candidates]
     else:

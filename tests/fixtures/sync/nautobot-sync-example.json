@@ -118,6 +118,7 @@
       {
         "manufacturer__name": "Cisco",
         "model": "Nexus 93180YC-FX",
+        "part_number": "N9K-C93180YC-FX",
         "u_height": "1",
         "is_full_depth": "True",
         "railyard": {
@@ -133,6 +134,7 @@
       {
         "name": "compute",
         "content_types": "dcim.rack",
+        "color": "9e9e9e",
         "railyard": {
           "kind": "role"
         }
@@ -140,6 +142,7 @@
       {
         "name": "leaf",
         "content_types": "dcim.device",
+        "color": "4caf50",
         "railyard": {
           "kind": "role"
         }
@@ -157,6 +160,9 @@
         "desc_units": "False",
         "comments": "",
         "tags": "",
+        "outer_width": "600",
+        "outer_depth": "1070",
+        "outer_unit": "mm",
         "railyard": {
           "kind": "rack",
           "id": "rack_ldn_a01"
@@ -173,6 +179,9 @@
         "desc_units": "False",
         "comments": "",
         "tags": "",
+        "outer_width": "600",
+        "outer_depth": "1070",
+        "outer_unit": "mm",
         "railyard": {
           "kind": "rack",
           "id": "rack_ldn_a02"
@@ -189,6 +198,9 @@
         "desc_units": "False",
         "comments": "",
         "tags": "",
+        "outer_width": "600",
+        "outer_depth": "1070",
+        "outer_unit": "mm",
         "railyard": {
           "kind": "rack",
           "id": "rack_fra_a01"
@@ -208,6 +220,7 @@
         "face": "front",
         "comments": "",
         "tags": "",
+        "serial": "",
         "railyard": {
           "kind": "device",
           "id": "pl_ldn_a01_leaf1"
@@ -225,6 +238,7 @@
         "face": "front",
         "comments": "",
         "tags": "",
+        "serial": "",
         "railyard": {
           "kind": "device",
           "id": "pl_ldn_a02_leaf1"
@@ -242,6 +256,7 @@
         "face": "front",
         "comments": "",
         "tags": "",
+        "serial": "",
         "railyard": {
           "kind": "device",
           "id": "pl_fra_a01_leaf1"
@@ -253,6 +268,8 @@
     "front-ports": [],
     "power-outlets": [],
     "power-ports": [],
+    "console-ports": [],
+    "console-server-ports": [],
     "cables": []
   },
   "unresolved": [

@@ -23,8 +23,12 @@
         "manufacturer": "Cisco",
         "model": "Nexus 93180YC-FX",
         "slug": "cisco-nexus-93180yc-fx",
+        "part_number": "N9K-C93180YC-FX",
         "u_height": "1",
         "is_full_depth": "true",
+        "airflow": "",
+        "weight": "",
+        "weight_unit": "",
         "railyard": {
           "kind": "device-type",
           "id": "cisco-nexus-93180yc-fx",
@@ -38,7 +42,7 @@
       {
         "name": "leaf",
         "slug": "leaf",
-        "color": "9e9e9e",
+        "color": "4caf50",
         "railyard": {
           "kind": "role"
         }
@@ -68,7 +72,7 @@
     ],
     "locations": [
       {
-        "name": "A [a559f3df2a]",
+        "name": "A",
         "slug": "a-a559f3df2a",
         "site": "LDN1",
         "parent": "",
@@ -80,7 +84,7 @@
         }
       },
       {
-        "name": "A [ea30999eaa]",
+        "name": "A",
         "slug": "a-ea30999eaa",
         "site": "FRA1",
         "parent": "",
@@ -102,7 +106,14 @@
         "desc_units": "false",
         "comments": "",
         "tags": "",
-        "location": "A [a559f3df2a]",
+        "location": "A",
+        "form_factor": "",
+        "outer_width": "600",
+        "outer_depth": "1070",
+        "outer_unit": "mm",
+        "max_weight": "",
+        "weight_unit": "",
+        "role": "compute",
         "railyard": {
           "kind": "rack",
           "id": "rack_ldn_a01"
@@ -117,7 +128,14 @@
         "desc_units": "false",
         "comments": "",
         "tags": "",
-        "location": "A [a559f3df2a]",
+        "location": "A",
+        "form_factor": "",
+        "outer_width": "600",
+        "outer_depth": "1070",
+        "outer_unit": "mm",
+        "max_weight": "",
+        "weight_unit": "",
+        "role": "compute",
         "railyard": {
           "kind": "rack",
           "id": "rack_ldn_a02"
@@ -132,7 +150,14 @@
         "desc_units": "false",
         "comments": "",
         "tags": "",
-        "location": "A [ea30999eaa]",
+        "location": "A",
+        "form_factor": "",
+        "outer_width": "600",
+        "outer_depth": "1070",
+        "outer_unit": "mm",
+        "max_weight": "",
+        "weight_unit": "",
+        "role": "compute",
         "railyard": {
           "kind": "rack",
           "id": "rack_fra_a01"
@@ -153,7 +178,7 @@
         "status": "active",
         "comments": "",
         "tags": "",
-        "location": "A [a559f3df2a]",
+        "location": "A",
         "railyard": {
           "kind": "device",
           "id": "pl_ldn_a01_leaf1"
@@ -172,7 +197,7 @@
         "status": "active",
         "comments": "",
         "tags": "",
-        "location": "A [a559f3df2a]",
+        "location": "A",
         "railyard": {
           "kind": "device",
           "id": "pl_ldn_a02_leaf1"
@@ -191,7 +216,7 @@
         "status": "active",
         "comments": "",
         "tags": "",
-        "location": "A [ea30999eaa]",
+        "location": "A",
         "railyard": {
           "kind": "device",
           "id": "pl_fra_a01_leaf1"
@@ -203,6 +228,8 @@
     "front-ports": [],
     "power-outlets": [],
     "power-ports": [],
+    "console-ports": [],
+    "console-server-ports": [],
     "cables": []
   },
   "unresolved": [
@@ -216,8 +243,6 @@
     }
   ],
   "warnings": [
-    "Export container \"A\" as \"A [a559f3df2a]\" to keep import references unambiguous; original names and IDs remain in project.json.",
-    "Export container \"A\" as \"A [ea30999eaa]\" to keep import references unambiguous; original names and IDs remain in project.json.",
     "NetBox site \"LDN1\" cannot retain its parent container relationship; see project.json.",
     "NetBox site \"FRA1\" cannot retain its parent container relationship; see project.json."
   ]

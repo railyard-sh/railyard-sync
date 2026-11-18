@@ -188,8 +188,14 @@ def parse_document(
         if len(value) > MAX_ROWS_PER_KIND:
             raise SyncDocumentError(f"The sync document has {len(value)} {kind}; at most {MAX_ROWS_PER_KIND}.")
         rows[kind] = value
+    # Railyard lists every section its bundle has, empty or not, and adds sections as its export grows: only rows
+    # that would be left out are worth a warning.
     for kind in sorted(set(objects) - set(kinds)):
-        warnings.append(f"The sync document's {kind!r} objects are not synced by this railyard-sync; ignored.")
+        if objects.get(kind):
+            count = len(objects[kind]) if isinstance(objects[kind], list) else "Some"
+            warnings.append(
+                f"{count} of the sync document's {kind!r} objects are not synced by this railyard-sync; ignored."
+            )
     unresolved = [u for u in document.get("unresolved") or [] if isinstance(u, dict)]
     for u in unresolved:
         what = f"placement {_text(u.get('label')) or _text(u.get('placementId'))} in rack {_text(u.get('rackName'))}"
@@ -330,6 +336,7 @@ def _read_site(a: SyncDocumentAdapter, row: dict) -> None:
 
 def _read_location(a: SyncDocumentAdapter, row: dict) -> None:
     name = _required(row, "name")
+    kind, rid = _identity(row)
     a._add(
         a.location(
             site=_required(row, "site"),
@@ -338,12 +345,14 @@ def _read_location(a: SyncDocumentAdapter, row: dict) -> None:
             parent=_text(row.get("parent")),
             status=_text(row.get("status")) or "active",
             facility=_text(row.get("facility")),
+            railyard_id=rid if kind == "container" else "",
         ),
         row,
     )
 
 
 def _read_rack(a: SyncDocumentAdapter, row: dict) -> None:
+    kind, rid = _identity(row)
     a._add(
         a.rack(
             site=_required(row, "site"),
@@ -355,6 +364,7 @@ def _read_rack(a: SyncDocumentAdapter, row: dict) -> None:
             location=_text(row.get("location")),
             comments=_text(row.get("comments")),
             tags=_slugs(row.get("tags")),
+            railyard_id=rid if kind == "rack" else "",
         ),
         row,
     )

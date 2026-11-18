@@ -5,6 +5,7 @@ panel, a server and a 0U PDU in one rack); see ``tests/fixtures/sync/make_docume
 """
 
 import copy
+import hashlib
 import json
 import pathlib
 
@@ -219,6 +220,86 @@ def test_a_renamed_device_is_renamed_in_place():
     assert nb.one("dcim/interfaces", name="Eth1", device=after["id"])["cable"] == cable
     assert not nb.all("dcim/devices", name="SW-1")
     assert sync(nb, doc).diff == {"create": 0, "update": 0, "delete": 0, "no-change": sum(OBJECT_COUNTS.values())}
+
+
+def aliased(doc: dict, *, suffix: str = "") -> dict:
+    """``doc`` as Railyard wrote it before it scoped names to their site: every location and rack name with the
+    alias `` [<digest>]`` (``<digest>-<n>`` with ``suffix="-2"``) it gave a name repeated anywhere in the estate."""
+    doc = copy.deepcopy(doc)
+    objects = doc["objects"]
+
+    def alias(row: dict) -> str:
+        return f"{row['name']} [{hashlib.sha256(row['railyard']['id'].encode()).hexdigest()[:10]}{suffix}]"
+
+    locations = {r["name"]: alias(r) for r in objects["locations"]}
+    racks = {r["name"]: alias(r) for r in objects["racks"]}
+    for row in objects["locations"]:
+        row["name"], row["parent"] = locations[row["name"]], locations.get(row["parent"], row["parent"])
+    for row in objects["racks"]:
+        row["name"], row["location"] = racks[row["name"]], locations.get(row["location"], row["location"])
+    for row in objects["devices"]:
+        row["location"] = locations.get(row["location"], row["location"])
+        row["rack"] = racks.get(row["rack"], row["rack"])
+    return doc
+
+
+@pytest.mark.parametrize("suffix", ["", "-2"])
+def test_locations_and_racks_that_lose_an_earlier_alias_are_renamed_in_place(suffix):
+    """A NetBox synced from an earlier document holds "Hall 1 [355f02669b]"; the document now says "Hall 1". The
+    owned location and rack are renamed, keeping their NetBox ids, instead of a second set being created (which
+    NetBox refuses: the location's slug is the same)."""
+    nb = FakeNetBox()
+    assert sync(nb, aliased(document(), suffix=suffix)).ok
+    before = {ep: {o["id"]: o["name"] for o in nb.all(ep)} for ep in ("dcim/locations", "dcim/racks")}
+    assert all("[" in name for names in before.values() for name in names.values())
+
+    preview = sync(nb, document(), dry_run=True)
+    assert preview.ok and preview.created == preview.updated == 0
+    assert sorted(preview.renamed) == sorted(
+        f"{kind} DC1/{old} → {old.split(' [')[0]}"
+        for kind, ep in (("location", "dcim/locations"), ("rack", "dcim/racks"))
+        for old in before[ep].values()
+    )
+    assert preview.planned["update"] == {"location": 2, "rack": 1}
+    assert {ep: {o["id"]: o["name"] for o in nb.all(ep)} for ep in before} == before  # a dry run writes nothing
+
+    result = sync(nb, document(), allow_deletes=True)
+    assert result.ok, result.errors
+    assert (result.diff["create"], result.diff["delete"], result.stale) == (0, 0, [])
+    after = {ep: {o["id"]: o["name"] for o in nb.all(ep)} for ep in before}
+    assert after == {ep: {i: n.split(" [")[0] for i, n in names.items()} for ep, names in before.items()}
+    for dev in nb.all("dcim/devices"):  # nothing moved: the devices are in the same rack and location
+        assert dev["rack"] in after["dcim/racks"] and dev["location"] in after["dcim/locations"]
+    assert sync(nb, document()).diff == {
+        "create": 0,
+        "update": 0,
+        "delete": 0,
+        "no-change": sum(OBJECT_COUNTS.values()),
+    }
+
+
+def test_an_alias_rename_never_takes_a_name_an_operator_object_holds():
+    """If NetBox already has an unowned rack of the new name in the site, the owned one keeps its name (stale) and the
+    operator's is used as it is, as for any shared object."""
+    nb = FakeNetBox()
+    assert sync(nb, aliased(document())).ok
+    site = nb.one("dcim/sites", name="DC1")["id"]
+    theirs = nb.add("dcim/racks", name="R1", site=site, location=None, status="active", width=19, u_height=42)
+    result = sync(nb, document(), dry_run=True)
+    assert not [r for r in result.renamed if r.startswith("rack")]
+    assert any(r.startswith("rack DC1/R1") for r in result.referenced)
+    rack = nb.objects["dcim/racks"][theirs]
+    assert rack["name"] == "R1" and nb.tag_id(owner()) not in (rack.get("tags") or [])
+
+
+def test_a_name_that_only_looks_like_an_alias_is_not_renamed():
+    """The alias must be the digest of the Railyard id the document gives the object now."""
+    nb = FakeNetBox()
+    doc = document()
+    for row in doc["objects"]["racks"]:
+        row["railyard"]["id"] = "another-rack"
+    assert sync(nb, aliased(doc)).ok  # "R1 [<digest of another-rack>]"
+    assert not [r for r in sync(nb, document(), dry_run=True).renamed if r.startswith("rack")]
 
 
 # ---- shared objects and conflicts ------------------------------------------------------------------

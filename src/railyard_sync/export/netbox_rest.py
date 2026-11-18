@@ -751,6 +751,8 @@ def _noun(endpoint: str, n: int) -> str:
 
 
 class NetBoxRESTAdapter(OwnershipMixin, Adapter):
+    renames_places = True  # owned locations and racks follow Railyard's names in place (see ownership.py)
+
     manufacturer = NetBoxManufacturer
     device_type = NetBoxDeviceType
     device_role = NetBoxDeviceRole
@@ -1220,6 +1222,10 @@ class NetBoxRESTAdapter(OwnershipMixin, Adapter):
             source.remove(model)
         return report
 
+    def place_named(self, model_type: str, site: str, name: str) -> int | None:
+        found = self.find(model_type, site, name)
+        return found.get("id") if found else None
+
     def device_named(self, site: str, name: str) -> int | None:
         found = self._device_in_site(site, name)
         return found.get("id") if found else None
@@ -1231,7 +1237,18 @@ class NetBoxRESTAdapter(OwnershipMixin, Adapter):
         return self.client.first(ENDPOINT["device"], site_id=site["id"], name__ie=name, exclude="config_context")
 
     def apply_renames(self) -> None:
-        """Rename the NetBox devices ``reconcile`` found renamed in Railyard (a real run only)."""
+        """Rename the NetBox locations, racks and devices ``reconcile`` found renamed (a real run only)."""
+        for model_type, site, old, new, nb_id in self.place_renames:
+            try:
+                obj = self.client.get(ENDPOINT[model_type], nb_id)
+                if obj is None or self.tag_slug not in tag_slugs(obj):
+                    raise NetBoxError("it is no longer a Railyard-owned object in NetBox")
+                self.client.update(ENDPOINT[model_type], nb_id, {"name": new})
+            except NetBoxError as exc:
+                self.report.errors.append(self.client.scrub(f"rename {model_type} {site}/{old} → {new}: {exc}"))
+                continue
+            self._cache.pop((model_type, site, old), None)
+            self.counts["update"][model_type] += 1
         for old, new, nb_id in self.renames:
             try:
                 obj = self.client.get(ENDPOINT["device"], nb_id)
