@@ -34,6 +34,8 @@ Railyard project ──► NetBox / Nautobot sync document (a Railyard deliverab
 - **Export an estate into NetBox:** create and update the estate's sites, locations, racks, device
   types, devices, ports and cables in NetBox, touching only the objects the export created (see
   [Exporting to NetBox](#exporting-to-netbox)).
+- **Push serial numbers into Sunbird dcTrack:** write the serials recorded in Railyard onto the matching
+  dcTrack items, matched by cabinet and U position (see [Sunbird dcTrack serials](#sunbird-dctrack-serials)).
 
 ## Usage
 
@@ -168,12 +170,66 @@ differs on export:
 - **Versions.** See [Supported versions](#supported-versions).
 - **A paid deliverable on hosted Railyard**, like the NetBox document.
 
+### Sunbird dcTrack serials
+
+`export sunbird` writes the serial numbers Railyard records for an estate's devices (design serials, and those
+the build crew read on site) onto the items that already exist in Sunbird dcTrack. It creates, renames and moves
+nothing in dcTrack. Devices are matched **by cabinet and U position**, not by name, since the two systems name
+devices differently.
+
+```bash
+export RAILYARD_TOKEN=ry_…
+export DCTRACK_PASSWORD=…    # or --dctrack-password-file FILE; never on the command line
+
+# Preview: which serials would be written, and what could not be matched. Nothing is written.
+railyard-sync export sunbird --org my-org --project lon1-build \
+  --dctrack-url https://dctrack.example.com --dctrack-user railyard --location LON1
+
+# Write them over dcTrack's REST API.
+railyard-sync export sunbird --org my-org --project lon1-build \
+  --dctrack-url https://dctrack.example.com --dctrack-user railyard --location LON1 --apply
+
+# Or write a File Import CSV to review and import through dcTrack's Import wizard (reads dcTrack only).
+railyard-sync export sunbird --org my-org --project lon1-build \
+  --dctrack-url https://dctrack.example.com --dctrack-user railyard \
+  --location-map "Hall A=LON1-HA" --location-map "Hall B=LON1-HB" --import-file serials.csv
+```
+
+- **Where to look.** `--location CODE` is the dcTrack location holding the cabinets. `--location-map
+  "SPACE=CODE"` (repeatable) maps a Railyard space to a dcTrack location: the deepest space in a cabinet's
+  Railyard path with a mapping wins, and cabinets under no mapped space use `--location`. A cabinet is the
+  dcTrack cabinet in that location with the same name (ignoring case).
+- **Which item.** The dcTrack item whose U position (its bottom U, counted from the cabinet's bottom) is the
+  device's, and whose rails suit its face: a front device matches Front or Both, a rear one Back or Both, a
+  full-depth one any. `--match-u own` matches on the rack's own U numbering instead, for top-down cabinets
+  numbered alike in both. No item there, several, or two Railyard devices on one item are reported and not
+  written; so is an item whose height differs from the device's.
+- **Which serials.** A blank dcTrack serial is filled in; an equal one is left alone; a different one is a
+  conflict and kept unless `--overwrite`. A device without a serial in Railyard never touches dcTrack, and a
+  dcTrack serial is never cleared.
+- **The import file** has the columns `# Operation`, `Object`, `Location`, `Name`, `Serial Number`, one `EDIT` row
+  per serial to write, with dcTrack's own item names. Check the headings against your dcTrack import template
+  and adjust them if it differs. A serial starting with `=`, `+`, `-` or `@` is written with a leading `'`, so a
+  spreadsheet does not run it as a formula.
+- **Scope.** `--container ID` or `--rack ID` (repeatable) limit the export to part of the estate;
+  `--change-request ID` or `--version ID` export a merge request's draft or a saved version instead of main.
+- **dcTrack access.** dcTrack 9.1 or later, over https (`--insecure-http` allows http). Basic auth with
+  `--dctrack-user` (not a SAML account; the user needs to view the items, and edit them for `--apply`), or an
+  OAuth2 client with `--dctrack-client-id` and `DCTRACK_CLIENT_SECRET` (dcTrack 9.3 or later). `--ca-bundle FILE`
+  trusts a private CA; `--no-verify-tls` skips the check.
+- **A paid deliverable on hosted Railyard**, like the NetBox document.
+
+Exit codes: `0` done, `1` dcTrack refused writes, or there are conflicts or ambiguous matches (listed; with
+`--apply` the clean updates are still written), `2` usage, `3` refused by the Railyard plan. Devices that could
+not be matched are listed but do not fail the run.
+
 ## Supported versions
 
 | | Import (read) | Export (write) |
 |---|---|---|
 | **NetBox** | 4.0 to 4.6; later 4.x releases with a warning; 5.x refused | 4.0 to 4.6; later 4.x releases with a warning; 5.x refused |
 | **Nautobot** | 2.0 to 2.4 (tested with 2.4); 3.x with a warning; 1.x refused | 2.0 to 2.4; 3.x and 1.x refused |
+| **Sunbird dcTrack** | | Serials only: 9.1 or later (OAuth2 clients 9.3 or later); not yet tested against a real dcTrack |
 | **Python** | 3.12 or later | |
 
 The NetBox plugin and the Nautobot app have their own ranges (NetBox 4.5 to 4.7; Nautobot 2.3 and 2.4), which

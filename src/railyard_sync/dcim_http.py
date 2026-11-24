@@ -286,7 +286,19 @@ class RESTClient:
     def _error(self, kind: str) -> type[APIError]:
         return self.errors.get(kind) or self.errors["base"]
 
-    def request(self, method: str, path: str, *, params: Any = None, json: Any = None) -> Any:
+    def explain(self, resp: Any) -> str:
+        """The product's own words for a failed response (scrubbed of the token by the caller)."""
+        return detail(resp, self.product)
+
+    def refusal(self, method: str, path: str, status: int, said: str, rid: str) -> tuple[str, str]:
+        """``(kind, message)`` for a failed request: :func:`failure`'s, unless a product words it otherwise."""
+        return failure(self.product, method, path, status, said, rid)
+
+    def request(
+        self, method: str, path: str, *, params: Any = None, json: Any = None, allow: tuple[int, ...] = ()
+    ) -> Any:
+        """Send one request and return its decoded JSON. A status in ``allow`` is returned like a success (its JSON,
+        or ``None``), for an endpoint whose refusals carry per-row results."""
         name = self.product.name
         url = f"{self.url}{path}"
         headers = {"Authorization": self.auth_header(), "Accept": "application/json"}
@@ -319,17 +331,19 @@ class RESTClient:
             received=response_size(resp),
         )
         context = {"status": status, "request_id": rid, "method": method, "path": path}
-        if 200 <= status < 300:
+        if 200 <= status < 300 or status in allow:
             if status == 204 or method == "DELETE":
                 return None
             try:
                 return resp.json()
             except ValueError:
+                if status in allow:
+                    return None
                 raise self._error("base")(
                     f"{name} returned a response that is not JSON for {path}: is {self.url} a {name} server?",
                     **context,
                 ) from None
-        kind, message = failure(self.product, method, path, status, self.scrub(detail(resp, self.product)), rid)
+        kind, message = self.refusal(method, path, status, self.scrub(self.explain(resp)), rid)
         raise self._error(kind)(message, **context)
 
     # -- verbs ---------------------------------------------------------------------------------

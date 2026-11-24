@@ -17,18 +17,19 @@ own API views (an injected session), so their semantics are tested here once.
 
 | Path | What |
 |---|---|
-| `src/railyard_sync/client.py`, `errors.py`, `project.py` | Railyard REST client (`Authorization: Bearer ry_…`, `X-Org-Id`, an `X-Request-ID` per request; projects, named versions, `validate()` for `/api/validate`, `deliverable_json()` / `netbox_sync_document()`), typed errors, Project JSON wrapper. `client._error` maps every failed status to an error carrying method, path, status, the server's `error`/`code`/details and the request id, with what to do in `hints` (`str(e)` ends with the request id to quote); a 403 is worded by its `code` first (`token_read_only` → `RailyardTokenScopeError`, `change_request_required`, `org_tokens_disabled`, `org_token_sign_in_required`, `terms_not_accepted`), then by the server's words; 429/503 are retried (bounded) for GETs, `/api/validate` and a PUT with `If-Match`, never a PUT without it. Every 402 is parsed in one place (`client._plan_error`) into the one `RailyardPlanError` family (`RailyardPlanLimitError` / `RailyardPlanRequiredError`), carrying plan, resource, limit, current, scope, required plans, Project Pass, feature and deliverable |
+| `src/railyard_sync/client.py`, `errors.py`, `project.py` | Railyard REST client (`Authorization: Bearer ry_…`, `X-Org-Id`, an `X-Request-ID` per request; projects, named versions, `validate()` for `/api/validate`, `deliverable_json()` (`changeRequestId` or `versionId`) / `netbox_sync_document()` / `sunbird_sync_document()`), typed errors, Project JSON wrapper. `client._error` maps every failed status to an error carrying method, path, status, the server's `error`/`code`/details and the request id, with what to do in `hints` (`str(e)` ends with the request id to quote); a 403 is worded by its `code` first (`token_read_only` → `RailyardTokenScopeError`, `change_request_required`, `org_tokens_disabled`, `org_token_sign_in_required`, `terms_not_accepted`), then by the server's words; 429/503 are retried (bounded) for GETs, `/api/validate` and a PUT with `If-Match`, never a PUT without it. Every 402 is parsed in one place (`client._plan_error`) into the one `RailyardPlanError` family (`RailyardPlanLimitError` / `RailyardPlanRequiredError`), carrying plan, resource, limit, current, scope, required plans, Project Pass, feature and deliverable |
 | `src/railyard_sync/export/` | Railyard → DCIM: canonical DiffSync models, source adapter, mappings and cabling plan (ports of the Go export) |
 | `src/railyard_sync/export/sync_document.py` | Source adapter over Railyard's `netbox-sync` deliverable (the NetBox bundle as JSON rows). **All knowledge of that document's shape lives here** |
 | `src/railyard_sync/export/netbox_rest.py`, `run.py`, `policy.py`, `ownership.py` | NetBox REST target (the plugin's ownership rules: tag-owned objects only, shared objects used as-is, conflicts skipped, guarded deletes) and `sync_to_netbox()`; `policy.py` is the ownership tag the plugins import; `ownership.py` is what the REST targets and the NetBox plugin's ORM target share (`OwnershipReport`, `OwnershipMixin`: delete candidates, rename detection and re-keying; planned-change counts and lines). `run._run` is the plan/apply flow both REST targets share |
 | `src/railyard_sync/export/nautobot_models.py`, `nautobot_document.py`, `nautobot_rest.py` | Nautobot 2.x: canonical models where NetBox's don't fit (location types, statuses, roles, locations by name, slug-less types; ports, power and cables reuse `models.py`), `NautobotSyncDocumentAdapter` over the `nautobot-sync` document (**all knowledge of its shape**), and the REST target with the same ownership rules (on `OwnershipMixin`); `run.sync_to_nautobot()` |
+| `src/railyard_sync/export/sunbird_document.py`, `dctrack_rest.py`, `dctrack_serials.py` | Sunbird dcTrack serials (not a DiffSync export): the `sunbird-sync` document (**all knowledge of its shape**), the dcTrack REST client (**every unconfirmed dcTrack assumption is in its "dcTrack's answers" section**), and matching, planning, the bulk apply and the File Import CSV (`sync_serials_to_dctrack()`) |
 | `src/railyard_sync/dcim/snapshot.py` | **The contract**: a DCIM site as plain dataclasses (sites, locations, racks, device types, devices, components, cables, power panels/feeds), source-neutral, mm/kg/W units |
 | `src/railyard_sync/dcim/netbox.py`, `nautobot.py`, `rest.py`, `values.py` | `NetBoxReader` / `NautobotReader`: everything that turns the DCIM's data into a `Snapshot` (requests, units, enums, port mappings, warnings), asking only through `fetch`/`fetch_all` (`rest.DCIMReader`). `NetBoxLoader` / `NautobotLoader` feed them over REST (`rest.RESTReader`). The NetBox plugin subclasses `NetBoxReader` and answers from its ORM in the REST shape; the Nautobot app gives `NautobotLoader` an in-process session onto Nautobot's API views. Change the reader, not a loader. `values.py`: the JSON value readers they share |
 | `src/railyard_sync/importer/` | `build_project(snapshot)` → Railyard Project JSON; `merge(existing, imported)` for re-import; the import report |
 | `src/railyard_sync/importer/run.py` | `ImportRun`: the import flow the CLI and the plugins' import jobs share (fetch + same-source check, build, merge, `/api/validate` check, save with `If-Match`; `run()` applies the CLI's rules), worded for the snapshot's source. Refusals raise `ImportRefused` |
 | `src/railyard_sync/plans.py` | The upgrade messages for a 402 (`deliverable_plan_message(e, target)`, `plan_limit_message(e, places=)`), shown by the CLI and the plugins' jobs |
 | `src/railyard_sync/log.py`, `problems.py`, `dcim_http.py`, `netbox_http.py` | Logging (the CLI's handlers, the redacting filter, `log_http`, size/count formatting); Railyard validation problems named by rack and device (`ProblemNamer`); `dcim_http`: each DCIM's error `detail`, request id, the permission a 403 needed and where to make a token, worded per product (`failure()`), and `RESTClient`, which both export clients extend (`netbox_http` keeps NetBox's names for it) |
-| `src/railyard_sync/cli.py` | `railyard-sync import netbox|nautobot …` and `railyard-sync export netbox|nautobot …` (one parser per DCIM from a `DCIM` descriptor; exit codes: 0 ok, 1 error — for export also conflicts — 2 usage, 3 plan) |
+| `src/railyard_sync/cli.py` | `railyard-sync import netbox|nautobot …` and `railyard-sync export netbox|nautobot …` (one parser per DCIM from a `DCIM` descriptor; `export sunbird` has its own; exit codes: 0 ok, 1 error — for export also conflicts — 2 usage, 3 plan) |
 
 ## The Railyard side (facts the importer depends on)
 
@@ -108,6 +109,40 @@ UUIDs before they go into a path). Differences, all in `nautobot_rest.py`:
   reach unowned objects are checked first (`_DEPENDENTS`, device bays with installed devices).
 - `tests/export/fake_nautobot_rest.py` validates writes as Nautobot 2.4 does; the Nautobot app's integration
   tests run the same adapter against a real Nautobot.
+
+## Export (Railyard → Sunbird dcTrack serials)
+
+`railyard-sync export sunbird` pushes the serials Railyard records (design serials and those read on site) into
+dcTrack items that already exist; it creates, renames or moves nothing. The source is the `sunbird-sync` deliverable
+(`client.sunbird_sync_document()`: `options.scope` `{kind: container|rack, id}` / `options.rackIds`,
+`changeRequestId` or `versionId`; 402 → exit 3), being built in Go in parallel: `sunbird_document.py` is the contract
+(`format: railyard-sunbird-sync`, `version: 1`; anything else is refused).
+
+- **Matching is by cabinet and U, never by name.** Location: the deepest space in the cabinet's Railyard path with a
+  `--location-map` entry, else `--location`, else `unmapped`. Cabinet: same name, trimmed, case-insensitive. Item:
+  bottom U (`cmbUPosition`) equal to the device's `uFromBottom` (`--match-u own`: `uPosition`), rails suiting the
+  face (front: Front/Both, rear: Back/Both, full: any). One → matched; none → `no-item-at-position`; several, or two
+  Railyard devices on one item → `ambiguous`; heights differ → `conflict` (`height-mismatch`).
+- **Serials:** equal (trimmed, case-sensitive) → `unchanged`; blank → `update`; different → `conflict`
+  (`serial-differs`) unless `--overwrite`. No Railyard serial → `no-serial`, never written; a dcTrack serial is never
+  cleared. Cabinets with no serial to write are not read at all.
+- **Writes:** `--apply` sends `{"id", "tiSerialNumber"}` rows through `POST /api/v2/dcimoperations/items/bulk`
+  (`BULK_BATCH` = 100, `proceedOnWarning`), reading each child's `httpCode`/`errorList`; a refused row is an error
+  with dcTrack's words. `--import-file` writes the `update` rows as a File Import CSV (`# Operation, Object, Location,
+  Name, Serial Number`; `Object` from the item class via `dctrack_rest.IMPORT_OBJECTS`), cells that start with
+  `= + - @` prefixed with `'` (`safe_cell`).
+- Exit 1 for refused rows, conflicts or ambiguities (dry run too, as the NetBox export does; `--apply` still writes the
+  clean updates); unmatched devices are reported but do not fail the run.
+- **Auth:** basic auth on every call (`--dctrack-user`, password from `DCTRACK_PASSWORD` or
+  `--dctrack-password-file`), or an OAuth2 client (`--dctrack-client-id`, `DCTRACK_CLIENT_SECRET`, `POST /oauth/token`,
+  renewed once on a 401). A password or secret flag on the command line is refused (the subparser has
+  `allow_abbrev=False` so `--dctrack-password` is never read as the file flag). https only unless `--insecure-http`;
+  `--ca-bundle` / `--no-verify-tls`. The password, the Basic credential and the bearer token are registered with the
+  redacting filter; serials are never logged.
+- `RESTClient.explain()` / `refusal()` are the hooks dcTrack words its failures through (`errorList`, then
+  `message`; never `trace`). Tests: `tests/export/fake_dctrack_rest.py` (quick search's `eq` is a "contains" match,
+  as dcTrack's is), `tests/export/test_dctrack_serials.py`, `tests/export/test_sunbird_document.py`,
+  `tests/test_cli_sunbird.py`.
 
 ## Import from Nautobot (`dcim/nautobot.py`)
 

@@ -14,7 +14,7 @@ header (its value is the org **id**). The endpoints used:
                                          body {title, expectedCurrentRevision}
     POST /api/projects/{id}/deliverables/{kind}
                                       -> a deliverable generated from the stored design (JSON for
-                                         ``netbox-sync``); body {changeRequestId?, options?}
+                                         ``netbox-sync``); body {changeRequestId? | versionId?, options?}
 
 Failures map to the typed errors in :mod:`railyard_sync.errors`, keyed on the HTTP status and, where
 the server sends one, its stable ``code`` (``plan_limit``, ``plan_required``, ``name_taken``,
@@ -64,6 +64,7 @@ log = logging.getLogger(__name__)
 TOKEN_PREFIX = "ry_"
 NETBOX_SYNC = "netbox-sync"  # the deliverable kind of the NetBox sync document
 NAUTOBOT_SYNC = "nautobot-sync"  # and of the Nautobot sync document
+SUNBIRD_SYNC = "sunbird-sync"  # and of the Sunbird dcTrack sync document (racked devices and their serials)
 
 
 class _Response(Protocol):  # the subset of requests.Response we rely on
@@ -527,12 +528,14 @@ class RailyardClient:
         *,
         options: dict | None = None,
         change_request_id: str | None = None,
+        version_id: str | None = None,
         org_id: str | None = None,
     ) -> Any:
         """Generate a JSON deliverable for a project (by id or URL slug) and return the decoded document.
 
         ``options`` are the generator's (for example ``{"netboxVersion": "4.4"}``); ``change_request_id``
-        generates it from a merge request's draft instead of main. Deliverables are paid on hosted
+        generates it from a merge request's draft instead of main, ``version_id`` from a saved version (the
+        two cannot be combined). Deliverables are paid on hosted
         Railyard: a plan without them is refused with :class:`RailyardPlanRequiredError`, an estate past
         the plan's rack cap with :class:`RailyardPlanLimitError` (a self-hosted server with billing off
         allows every deliverable). Other failures are the client's usual typed errors."""
@@ -541,8 +544,12 @@ class RailyardClient:
         if not kind:
             raise ValueError("deliverable kind is required")
         body: dict[str, Any] = {}
+        if change_request_id and version_id:
+            raise ValueError("a deliverable comes from a change request or a saved version, not both")
         if change_request_id:
             body["changeRequestId"] = change_request_id
+        if version_id:
+            body["versionId"] = version_id
         if options:
             body["options"] = dict(options)
         path = f"/api/projects/{quote(str(project_ref), safe='')}/deliverables/{quote(kind, safe='')}"
@@ -582,6 +589,37 @@ class RailyardClient:
         doc = self.deliverable_json(project_ref, NAUTOBOT_SYNC, change_request_id=change_request_id, org_id=org_id)
         if not isinstance(doc, dict):
             raise RailyardAPIError("Railyard returned a Nautobot sync document that is not a JSON object.")
+        return doc
+
+    def sunbird_sync_document(
+        self,
+        project_ref: str,
+        *,
+        scope: dict | None = None,
+        rack_ids: list[str] | None = None,
+        change_request_id: str | None = None,
+        version_id: str | None = None,
+        org_id: str | None = None,
+    ) -> dict:
+        """The project's Sunbird dcTrack sync document (``POST …/deliverables/sunbird-sync``): its racked devices,
+        with their cabinets and serials, the source of ``railyard-sync export sunbird``. ``scope`` is
+        ``{"kind": "container" | "rack", "id": …}`` and ``rack_ids`` a list of racks, as for the NetBox sync
+        document. A paid deliverable on hosted Railyard, refused like :meth:`deliverable_json`."""
+        options: dict[str, Any] = {}
+        if scope:
+            options["scope"] = dict(scope)
+        if rack_ids:
+            options["rackIds"] = list(rack_ids)
+        doc = self.deliverable_json(
+            project_ref,
+            SUNBIRD_SYNC,
+            options=options or None,
+            change_request_id=change_request_id,
+            version_id=version_id,
+            org_id=org_id,
+        )
+        if not isinstance(doc, dict):
+            raise RailyardAPIError("Railyard returned a Sunbird sync document that is not a JSON object.")
         return doc
 
     def get_json(self, path: str, params: dict | None = None) -> Any:

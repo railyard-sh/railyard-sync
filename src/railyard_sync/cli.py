@@ -18,6 +18,13 @@
     railyard-sync export nautobot [--railyard-url URL] --org ORG --project REF [--change-request ID]
         --nautobot-url URL [--apply] [--allow-deletes] [--insecure] [--json] [-v | -q] [--debug] [--log-file FILE]
 
+    railyard-sync export sunbird [--railyard-url URL] --org ORG --project REF [--change-request ID | --version ID]
+        [--container ID | --rack ID [--rack ID …]]
+        --dctrack-url URL (--dctrack-user USER [--dctrack-password-file FILE] | --dctrack-client-id ID)
+        [--ca-bundle FILE | --no-verify-tls] [--insecure-http]
+        (--location CODE | --location-map "SPACE=CODE" …) [--match-u bottom|own]
+        [--apply] [--overwrite] [--import-file FILE] [--json] [-v | -q] [--debug] [--log-file FILE]
+
 **Import** reads the NetBox sites or Nautobot locations into a :class:`~railyard_sync.dcim.snapshot.Snapshot` (or
 replays one saved with ``--snapshot-out``), builds a Railyard project from it (device types matched against
 Railyard's catalogue), and then either creates a new estate (``--name``) or refreshes an existing one
@@ -31,6 +38,11 @@ server with billing off allows it) — for NetBox, for the release it reads from
 :func:`~railyard_sync.export.run.sync_to_nautobot`, under the ownership tag keyed by ``--railyard-url`` and the
 project id. It is a dry run that prints the planned changes unless ``--apply`` is given.
 
+**Export sunbird** fetches the estate's ``sunbird-sync`` document and pushes its device serials into Sunbird dcTrack
+(:func:`railyard_sync.export.dctrack_serials.sync_serials_to_dctrack`): each device is matched to an existing dcTrack
+item by cabinet and U position, and its serial written over dcTrack's REST API (``--apply``) or into a File Import CSV
+(``--import-file``). A dry run by default too.
+
 Before a save, the document is checked with Railyard's ``/api/validate`` (``--no-validate`` skips it): errors
 stop the import, listed by rack and device, and warnings are reported. A save Railyard refuses keeps the
 document that was sent in ``railyard-sync-failed-<project id>-<UTC time>.json`` (``--failed-dir``), readable
@@ -42,7 +54,8 @@ only errors; ``--debug`` adds tracebacks), and ``--log-file`` writes everything 
 log ever holds a token, an Authorization header or a request body.
 
 Tokens come from the environment only (``NETBOX_TOKEN``, ``NAUTOBOT_TOKEN``, ``RAILYARD_TOKEN``): a token on the
-command line would sit in shell history and the process list, so one is refused.
+command line would sit in shell history and the process list, so one is refused. dcTrack's password comes from
+``DCTRACK_PASSWORD`` or ``--dctrack-password-file``, an OAuth2 client's secret from ``DCTRACK_CLIENT_SECRET``.
 
 Exit codes: 0 success, 1 error (an export with errors or conflicts too), 2 usage, 3 refused by the
 Railyard plan (its rack limit, or a deliverable the plan does not include).
@@ -67,7 +80,9 @@ from .client import RailyardClient
 from .dcim.snapshot import Snapshot
 from .dcim_http import APIError
 from .errors import RailyardAPIError, RailyardPlanError, RailyardPlanLimitError
-from .export import nautobot_rest, netbox_rest
+from .export import dctrack_serials, nautobot_rest, netbox_rest
+from .export.dctrack_rest import CLIENT_SECRET_ENV, PASSWORD_ENV, DcTrackClient
+from .export.dctrack_serials import SerialSyncResult, sync_serials_to_dctrack
 from .export.netbox_rest import MIN_VERSION, NetBoxClient, NetBoxVersionError, parse_version
 from .export.policy import DEFAULT_RAILYARD_URL
 from .export.run import NautobotSyncResult, SyncOutcome, SyncRefused, sync_to_nautobot, sync_to_netbox
@@ -139,6 +154,9 @@ NAUTOBOT = DCIM(
     "that may hold racks or devices), into one estate",
 )
 DCIMS = {d.key: d for d in (NETBOX, NAUTOBOT)}
+#: ``export sunbird``: Sunbird dcTrack takes serials only, not a DiffSync export, so it has its own parser.
+SUNBIRD = "sunbird"
+DCTRACK_NAME = "dcTrack"
 
 
 class UsageError(Exception):
@@ -231,6 +249,7 @@ def build_parser() -> argparse.ArgumentParser:
     targets = exp.add_subparsers(dest="target", metavar="TARGET", required=True)
     for dcim in DCIMS.values():
         _add_export(targets, dcim)
+    _add_export_sunbird(targets)
     return parser
 
 
@@ -337,6 +356,79 @@ def _add_export(targets: Any, dcim: DCIM) -> None:
     _add_output(sub)
 
 
+def _add_export_sunbird(targets: Any) -> None:
+    sub = targets.add_parser(
+        SUNBIRD,
+        help="push a Railyard estate's device serials into Sunbird dcTrack",
+        allow_abbrev=False,  # --dctrack-password must never be taken for --dctrack-password-file
+        description="Push the serial numbers Railyard records for an estate's devices (design serials and those the "
+        "build crew read on site) into Sunbird dcTrack, where the devices already exist. Each device is matched to a "
+        "dcTrack item by cabinet and U position, not by name. A dry run by default: it prints the plan and writes "
+        "nothing; --apply writes the serials over dcTrack's REST API, and --import-file writes them to a File Import "
+        "CSV instead (or as well). A dcTrack serial is never cleared, and one that differs from Railyard's is kept "
+        "unless --overwrite. The Sunbird sync document is a paid deliverable on hosted Railyard.",
+    )
+    src = sub.add_argument_group("Railyard")
+    _add_railyard(src)
+    src.add_argument("--project", metavar="REF", required=True, help="the estate to export (id or URL slug)")
+    source = src.add_mutually_exclusive_group()
+    source.add_argument("--change-request", metavar="ID", help="export a merge request's draft instead of main")
+    source.add_argument("--version", metavar="ID", help="export a saved version (such as 'Approved for build')")
+    scope = src.add_mutually_exclusive_group()
+    scope.add_argument("--container", metavar="ID", help="only the racks in this space (its Railyard id)")
+    scope.add_argument(
+        "--rack", metavar="ID", dest="racks", action="append", default=[], help="only this rack (its id); repeatable"
+    )
+    dst = sub.add_argument_group("dcTrack")
+    dst.add_argument("--dctrack-url", metavar="URL", required=True, help="dcTrack base URL (https)")
+    dst.add_argument(
+        "--dctrack-user",
+        metavar="USER",
+        help=f"dcTrack user (basic auth; password from ${PASSWORD_ENV} or --dctrack-password-file; not a SAML account)",
+    )
+    dst.add_argument("--dctrack-password-file", metavar="FILE", help="read the dcTrack user's password from FILE")
+    dst.add_argument(
+        "--dctrack-client-id",
+        metavar="ID",
+        help=f"dcTrack OAuth2 client id (dcTrack 9.3 or later; secret from ${CLIENT_SECRET_ENV})",
+    )
+    tls = dst.add_mutually_exclusive_group()
+    tls.add_argument("--ca-bundle", metavar="FILE", help="verify dcTrack's certificate with this CA bundle")
+    tls.add_argument("--no-verify-tls", action="store_true", help="do not verify dcTrack's TLS certificate")
+    dst.add_argument(
+        "--insecure-http", action="store_true", help="allow an http:// dcTrack URL (the password crosses in clear)"
+    )
+    match = sub.add_argument_group("matching")
+    match.add_argument("--location", metavar="CODE", help="the dcTrack location code holding the cabinets")
+    match.add_argument(
+        "--location-map",
+        metavar="SPACE=CODE",
+        action="append",
+        default=[],
+        help="put the cabinets under this Railyard space in this dcTrack location (the deepest mapped space wins; "
+        "the rest use --location); repeatable",
+    )
+    match.add_argument(
+        "--match-u",
+        choices=dctrack_serials.MATCH_U,
+        default=dctrack_serials.MATCH_BOTTOM,
+        help="match dcTrack's U position against the device's bottom U counted from the cabinet's bottom (bottom, "
+        "the default, as dcTrack numbers cabinets) or in the rack's own numbering (own, for top-down cabinets "
+        "numbered alike in both)",
+    )
+    run = sub.add_argument_group("run")
+    run.add_argument("--apply", action="store_true", help="write the serials to dcTrack (default: a dry run)")
+    run.add_argument("--overwrite", action="store_true", help="replace a dcTrack serial that differs from Railyard's")
+    run.add_argument(
+        "--import-file",
+        metavar="FILE",
+        help="also write the updates as a dcTrack File Import CSV (EDIT rows: # Operation, Object, Location, Name, "
+        "Serial Number); the column headings must match your dcTrack import template and may need adjusting",
+    )
+    run.add_argument("--json", action="store_true", help="print the result as JSON")
+    _add_output(sub)
+
+
 def _refuse_tokens_on_argv(argv: list[str]) -> None:
     for arg in argv:
         flag = arg.split("=", 1)[0]
@@ -346,6 +438,14 @@ def _refuse_tokens_on_argv(argv: list[str]) -> None:
                 "the command line (it would be kept in shell history and visible to other users). Set the variables "
                 "instead, and revoke a token you have already typed on a command line."
             )
+        lowered = flag.lower()
+        secret_flag = "password" in lowered or "secret" in lowered
+        if flag.startswith("--") and secret_flag and lowered != "--dctrack-password-file":
+            raise UsageError(
+                f"passwords and secrets are read from {PASSWORD_ENV} (or --dctrack-password-file) and "
+                f"{CLIENT_SECRET_ENV}, never from the command line (it would be kept in shell history and visible to "
+                "other users). Change a password you have already typed on a command line."
+            )
 
 
 def _dcim(args: argparse.Namespace) -> DCIM:
@@ -353,6 +453,9 @@ def _dcim(args: argparse.Namespace) -> DCIM:
 
 
 def _validate(args: argparse.Namespace) -> None:
+    if args.command == "export" and args.target == SUNBIRD:
+        _validate_sunbird(args)
+        return
     dcim = _dcim(args)
     if args.command == "export":
         if getattr(args, "netbox_version", None) is not None:
@@ -374,6 +477,32 @@ def _validate(args: argparse.Namespace) -> None:
             )
     if args.name is not None and not args.name.strip():
         raise UsageError("--name must not be empty")
+
+
+def _validate_sunbird(args: argparse.Namespace) -> None:
+    for flag, value in (
+        ("--change-request", args.change_request),
+        ("--version", args.version),
+        ("--container", args.container),
+        ("--location", args.location),
+    ):
+        if value is not None and not value.strip():
+            raise UsageError(f"{flag} must not be empty")
+    if any(not rack.strip() for rack in args.racks):
+        raise UsageError("--rack must not be empty")
+    if bool(args.dctrack_user) == bool(args.dctrack_client_id):
+        raise UsageError(
+            f"give --dctrack-user (its password from {PASSWORD_ENV} or --dctrack-password-file) or --dctrack-client-id "
+            f"(its secret from {CLIENT_SECRET_ENV}), one of them"
+        )
+    if args.dctrack_password_file and not args.dctrack_user:
+        raise UsageError("--dctrack-password-file goes with --dctrack-user")
+    if not args.location and not args.location_map:
+        raise UsageError("name the dcTrack location with --location CODE, or map Railyard spaces with --location-map")
+    try:
+        dctrack_serials.parse_location_map(args.location_map)
+    except ValueError as e:
+        raise UsageError(str(e)) from None
 
 
 def _env_token(name: str, what: str) -> str:
@@ -433,10 +562,12 @@ def main(argv: list[str] | None = None, *, stdout: TextIO | None = None, stderr:
             return int(exit_.code or 0)
         _validate(args)
         logs = configure_cli(err, verbose=args.verbose, quiet=args.quiet, debug=args.debug, log_file=args.log_file)
-        for name in (RAILYARD_TOKEN_ENV, NETBOX_TOKEN_ENV, NAUTOBOT_TOKEN_ENV):
+        for name in (RAILYARD_TOKEN_ENV, NETBOX_TOKEN_ENV, NAUTOBOT_TOKEN_ENV, PASSWORD_ENV, CLIENT_SECRET_ENV):
             logs.add_secret(os.environ.get(name))
         log.debug("railyard-sync %s: %s", __version__, _shown_argv(argv))
         _configure_logging()
+        if args.command == "export" and args.target == SUNBIRD:
+            return _export_sunbird(args, out, progress, logs)
         if args.command == "export":
             return _export(args, out, err, progress, _dcim(args))
         return _import(args, out, err, progress, _dcim(args))
@@ -747,6 +878,140 @@ def _netbox_release(netbox: NetBoxClient) -> str | None:
     return f"{major}.{minor}"
 
 
+# ---- export sunbird ------------------------------------------------------------------------------------------
+
+
+def _dctrack_secret(args: argparse.Namespace) -> str:
+    """The dcTrack user's password (``--dctrack-password-file``, else ``$DCTRACK_PASSWORD``) or the OAuth2 client's
+    secret (``$DCTRACK_CLIENT_SECRET``)."""
+    if args.dctrack_client_id:
+        return _env_token(CLIENT_SECRET_ENV, "the dcTrack OAuth2 client's secret")
+    if not args.dctrack_password_file:
+        return _env_token(PASSWORD_ENV, f"the password of dcTrack user {args.dctrack_user!r}")
+    path = args.dctrack_password_file
+    try:
+        mode = os.stat(path).st_mode
+        with open(path, encoding="utf-8") as fh:
+            password = fh.read().rstrip("\r\n")
+    except OSError as e:
+        raise UsageError(f"cannot read --dctrack-password-file {path}: {e.strerror or e}") from None
+    if not password:
+        raise UsageError(f"--dctrack-password-file {path} is empty")
+    if mode & 0o077:
+        log.warning("%s can be read by other users: make it readable only by you (chmod 600)", path)
+    return password
+
+
+def _dctrack_client(args: argparse.Namespace, secret: str, logs: CLILogging) -> DcTrackClient:
+    verify: bool | str = args.ca_bundle or not args.no_verify_tls
+    if args.no_verify_tls:
+        log.warning("not verifying dcTrack's TLS certificate (--no-verify-tls)")
+    if args.ca_bundle and not os.path.isfile(args.ca_bundle):
+        raise UsageError(f"--ca-bundle {args.ca_bundle} is not a file")
+    try:
+        client = DcTrackClient(
+            args.dctrack_url,
+            user=args.dctrack_user or "",
+            password=secret if args.dctrack_user else "",
+            client_id=args.dctrack_client_id or "",
+            client_secret="" if args.dctrack_user else secret,
+            verify=verify,
+            allow_http=args.insecure_http,
+            on_secret=logs.add_secret,
+        )
+    except ValueError as e:
+        raise UsageError(str(e)) from None
+    if not client.url.startswith("https:"):
+        log.warning("dcTrack %s is not https: the credentials cross the network in clear text", client.url)
+    return client
+
+
+def _export_sunbird(args: argparse.Namespace, out: TextIO, progress: Progress, logs: CLILogging) -> int:
+    railyard_token = _env_token(RAILYARD_TOKEN_ENV, "a Railyard personal access token (ry_…)")
+    secret = _dctrack_secret(args)
+    logs.add_secret(secret)
+    dctrack = _dctrack_client(args, secret, logs)
+    location_map = dctrack_serials.parse_location_map(args.location_map)
+
+    client = _railyard_client(args, railyard_token)
+    log.info("Fetching the Sunbird sync document for %s from Railyard…", args.project)
+    started = time.monotonic()
+    document = client.sunbird_sync_document(
+        args.project,
+        scope={"kind": "container", "id": args.container.strip()} if args.container else None,
+        rack_ids=[rack.strip() for rack in args.racks] or None,
+        change_request_id=(args.change_request or "").strip() or None,
+        version_id=(args.version or "").strip() or None,
+    )
+    log.info(
+        "Fetched the Sunbird sync document (%s) in %s",
+        human_size(len(json.dumps(document).encode("utf-8"))),
+        seconds(time.monotonic() - started),
+    )
+    progress.done(f"fetched the Sunbird sync document for {args.project}")
+    result = sync_serials_to_dctrack(
+        document,
+        dctrack,
+        location=(args.location or "").strip(),
+        location_map=location_map,
+        match_u=args.match_u,
+        overwrite=args.overwrite,
+        dry_run=not args.apply,
+        import_file=args.import_file,
+    )
+    if args.json:
+        json.dump(result.as_dict(), out, indent=2, ensure_ascii=False)
+        out.write("\n")
+    else:
+        print(serial_report(result), file=out)
+    return EXIT_ERROR if result.failed else EXIT_OK
+
+
+def serial_report(result: SerialSyncResult) -> str:
+    """``export sunbird``'s result as text: counts by outcome, then a line per update, conflict and unmatched device,
+    the document's own skipped devices and warnings, and the refused writes."""
+    numbering = "the U counted from the cabinet's bottom" if result.match_u == "bottom" else "the rack's own U"
+    source = f", change request {result.change_request_id}" if result.change_request_id else ""
+    source += f", version {result.version_id}" if result.version_id else ""
+    lines = [
+        f"Railyard estate {result.project_name!r} ({result.project_id}{source}) → dcTrack at {result.dctrack_url}",
+        f"Matched by cabinet and {numbering}.",
+    ]
+    counts = ", ".join(f"{n} {outcome}" for outcome, n in result.counts.items() if n) or "no devices"
+    lines.append(f"{'Dry run, planned' if result.dry_run else 'Devices'}: {counts}.")
+    of = result.of
+    verb = "to write" if result.dry_run else "sent to dcTrack; refusals under Errors" if result.errors else "written"
+    lines += _section("Updates", [d.line() for d in of(dctrack_serials.UPDATE)], verb)
+    lines += _section(
+        "Conflicts",
+        [d.line() for d in of(dctrack_serials.CONFLICT)],
+        "not written; correct the serial in dcTrack or Railyard (--overwrite replaces a differing serial)",
+    )
+    lines += _section(
+        "Ambiguous", [d.line() for d in of(dctrack_serials.AMBIGUOUS)], "not written: no single dcTrack item matches"
+    )
+    lines += _section(
+        "Not matched",
+        [d.line() for d in of(*dctrack_serials.PROBLEMS)],
+        "devices with a serial that no dcTrack item was found for",
+    )
+    lines += _section("Skipped by Railyard", result.skipped)
+    lines += _section("Warnings", result.warnings)
+    lines += _section("Errors", result.errors, "updates dcTrack refused; run the export again once fixed")
+    if result.import_file:
+        lines.append(
+            f"Wrote {count(result.import_rows, 'row')} to the dcTrack import file {result.import_file} (check its "
+            "column headings against your dcTrack import template)."
+        )
+    if result.dry_run:
+        lines.append("Dry run: nothing was written to dcTrack. Re-run with --apply to write these serials.")
+    else:
+        lines.append(f"Wrote {count(result.updated, 'serial')} to dcTrack.")
+        if result.failed:
+            lines.append("Finished with errors, conflicts or ambiguities (listed above).")
+    return "\n".join(lines)
+
+
 # ---- export report ------------------------------------------------------------------------------------------
 
 #: Object types in the order a sync creates them.
@@ -823,6 +1088,8 @@ def export_report(result: SyncOutcome) -> str:
 
 def plan_message(e: RailyardPlanError, args: argparse.Namespace | None) -> str:
     """The upgrade message for a plan refusal, worded for the command that met it."""
+    if args is not None and args.command == "export" and args.target == SUNBIRD:
+        return deliverable_plan_message(e, DCTRACK_NAME)
     dcim = _dcim(args) if args is not None else NETBOX
     if args is not None and args.command == "export":
         return deliverable_plan_message(e, dcim.name)
