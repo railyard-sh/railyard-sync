@@ -23,6 +23,7 @@
         --dctrack-url URL (--dctrack-user USER [--dctrack-password-file FILE] | --dctrack-client-id ID)
         [--ca-bundle FILE | --no-verify-tls] [--insecure-http]
         (--location CODE | --location-map "SPACE=CODE" …) [--match-u bottom|own]
+        [--devices [--cabinet-model MAKE/MODEL] [--model-map FILE] [--placeholder-make MAKE] [--no-placeholders]]
         [--apply] [--overwrite] [--import-file FILE] [--json] [-v | -q] [--debug] [--log-file FILE]
 
 **Import** reads the NetBox sites or Nautobot locations into a :class:`~railyard_sync.dcim.snapshot.Snapshot` (or
@@ -41,7 +42,9 @@ project id. It is a dry run that prints the planned changes unless ``--apply`` i
 **Export sunbird** fetches the estate's ``sunbird-sync`` document and pushes its device serials into Sunbird dcTrack
 (:func:`railyard_sync.export.dctrack_serials.sync_serials_to_dctrack`): each device is matched to an existing dcTrack
 item by cabinet and U position, and its serial written over dcTrack's REST API (``--apply``) or into a File Import CSV
-(``--import-file``). A dry run by default too.
+(``--import-file``). A dry run by default too. With ``--devices`` it reconciles placement as well
+(:func:`railyard_sync.export.dctrack_devices.sync_placements_to_dctrack`): it creates the devices dcTrack lacks (on
+placeholder models where its Models Library has no match) and moves Planned items Railyard places elsewhere.
 
 Before a save, the document is checked with Railyard's ``/api/validate`` (``--no-validate`` skips it): errors
 stop the import, listed by rack and device, and warnings are reported. A save Railyard refuses keeps the
@@ -81,6 +84,13 @@ from .dcim.snapshot import Snapshot
 from .dcim_http import APIError
 from .errors import RailyardAPIError, RailyardPlanError, RailyardPlanLimitError
 from .export import dctrack_serials, nautobot_rest, netbox_rest
+from .export.dctrack_devices import (
+    DEFAULT_PLACEHOLDER_MAKE,
+    PlacementResult,
+    parse_cabinet_model,
+    read_model_map,
+    sync_placements_to_dctrack,
+)
 from .export.dctrack_rest import CLIENT_SECRET_ENV, PASSWORD_ENV, DcTrackClient
 from .export.dctrack_serials import SerialSyncResult, sync_serials_to_dctrack
 from .export.netbox_rest import MIN_VERSION, NetBoxClient, NetBoxVersionError, parse_version
@@ -426,6 +436,36 @@ def _add_export_sunbird(targets: Any) -> None:
         "Serial Number); the column headings must match your dcTrack import template and may need adjusting",
     )
     run.add_argument("--json", action="store_true", help="print the result as JSON")
+    place = sub.add_argument_group(
+        "placement (--devices)",
+        "With --devices the export also places devices: it creates (as Planned) those dcTrack does not have and moves "
+        "Planned items Railyard places elsewhere. It never deletes, renames, or moves an Installed item.",
+    )
+    place.add_argument(
+        "--devices", action="store_true", help="reconcile device placement as well as serials (not with --import-file)"
+    )
+    place.add_argument(
+        "--cabinet-model",
+        metavar="MAKE/MODEL",
+        help="create cabinets dcTrack lacks with this cabinet model from its Models Library (each uses a dcTrack "
+        "cabinet licence); without it their devices are skipped",
+    )
+    place.add_argument(
+        "--model-map",
+        metavar="FILE",
+        help="a CSV mapping Railyard models to dcTrack's (columns railyard_make, railyard_model, dctrack_make, "
+        "dctrack_model), tried before an exact make and model match in dcTrack's Models Library",
+    )
+    place.add_argument(
+        "--placeholder-make",
+        metavar="MAKE",
+        default=DEFAULT_PLACEHOLDER_MAKE,
+        help=f"the make of placeholder models ('Generic 2U Device'…) for unmatched models (default "
+        f"{DEFAULT_PLACEHOLDER_MAKE})",
+    )
+    place.add_argument(
+        "--no-placeholders", action="store_true", help="report a device with no matching model instead of a placeholder"
+    )
     _add_output(sub)
 
 
@@ -503,6 +543,29 @@ def _validate_sunbird(args: argparse.Namespace) -> None:
         dctrack_serials.parse_location_map(args.location_map)
     except ValueError as e:
         raise UsageError(str(e)) from None
+    if args.devices and args.import_file:
+        raise UsageError(
+            "--import-file writes serials only; it cannot be combined with --devices (run the two separately)"
+        )
+    placement = [
+        flag
+        for flag, given in (
+            ("--cabinet-model", args.cabinet_model is not None),
+            ("--model-map", args.model_map is not None),
+            ("--placeholder-make", args.placeholder_make != DEFAULT_PLACEHOLDER_MAKE),
+            ("--no-placeholders", args.no_placeholders),
+        )
+        if given
+    ]
+    if placement and not args.devices:
+        raise UsageError(f"{', '.join(placement)} go{'es' if len(placement) == 1 else ''} with --devices")
+    if args.cabinet_model is not None:
+        try:
+            parse_cabinet_model(args.cabinet_model)
+        except ValueError as e:
+            raise UsageError(str(e)) from None
+    if not args.placeholder_make.strip():
+        raise UsageError("--placeholder-make must not be empty")
 
 
 def _env_token(name: str, what: str) -> str:
@@ -932,6 +995,10 @@ def _export_sunbird(args: argparse.Namespace, out: TextIO, progress: Progress, l
     logs.add_secret(secret)
     dctrack = _dctrack_client(args, secret, logs)
     location_map = dctrack_serials.parse_location_map(args.location_map)
+    try:
+        model_map = read_model_map(args.model_map) if args.devices and args.model_map else {}
+    except ValueError as e:
+        raise UsageError(str(e)) from None
 
     client = _railyard_client(args, railyard_token)
     log.info("Fetching the Sunbird sync document for %s from Railyard…", args.project)
@@ -949,6 +1016,26 @@ def _export_sunbird(args: argparse.Namespace, out: TextIO, progress: Progress, l
         seconds(time.monotonic() - started),
     )
     progress.done(f"fetched the Sunbird sync document for {args.project}")
+    if args.devices:
+        placed = sync_placements_to_dctrack(
+            document,
+            dctrack,
+            location=(args.location or "").strip(),
+            location_map=location_map,
+            match_u=args.match_u,
+            overwrite=args.overwrite,
+            dry_run=not args.apply,
+            cabinet_model=parse_cabinet_model(args.cabinet_model) if args.cabinet_model else None,
+            model_map=model_map,
+            placeholder_make=args.placeholder_make.strip(),
+            placeholders=not args.no_placeholders,
+        )
+        if args.json:
+            json.dump(placed.as_dict(), out, indent=2, ensure_ascii=False)
+            out.write("\n")
+        else:
+            print(placement_report(placed), file=out)
+        return EXIT_ERROR if placed.failed else EXIT_OK
     result = sync_serials_to_dctrack(
         document,
         dctrack,
@@ -1007,6 +1094,71 @@ def serial_report(result: SerialSyncResult) -> str:
         lines.append("Dry run: nothing was written to dcTrack. Re-run with --apply to write these serials.")
     else:
         lines.append(f"Wrote {count(result.updated, 'serial')} to dcTrack.")
+        if result.failed:
+            lines.append("Finished with errors, conflicts or ambiguities (listed above).")
+    return "\n".join(lines)
+
+
+def placement_report(result: PlacementResult) -> str:
+    """``export sunbird --devices``'s result as text: the serials report's sections, plus creates, moves, the cabinets,
+    makes and placeholder models to create, devices on placeholders, names dcTrack gives otherwise, and items only
+    dcTrack has."""
+    numbering = "the U counted from the cabinet's bottom" if result.match_u == "bottom" else "the rack's own U"
+    source = f", change request {result.change_request_id}" if result.change_request_id else ""
+    source += f", version {result.version_id}" if result.version_id else ""
+    dry = result.dry_run
+    lines = [
+        f"Railyard estate {result.project_name!r} ({result.project_id}{source}) → dcTrack at {result.dctrack_url}",
+        f"Devices placed by cabinet and {numbering}; serials as for the serials export.",
+    ]
+    counts = ", ".join(f"{n} {outcome}" for outcome, n in result.counts.items() if n) or "no devices"
+    lines.append(f"{'Dry run, planned' if dry else 'Devices'}: {counts}.")
+    if result.only_in_dctrack:
+        lines.append(f"Only in dcTrack: {count(len(result.only_in_dctrack), 'item')} (left as they are).")
+    verb = "would create" if dry else "created"
+    lines += _section(
+        "Cabinets to create" if dry else "Cabinets",
+        [f"{verb} cabinet {c}" for c in result.cabinets],
+        "Planned; each uses a dcTrack cabinet licence",
+    )
+    lines += _section("Makes to create" if dry else "Makes", [f"{verb} make {m}" for m in result.makes])
+    lines += _section("Models to create" if dry else "Models", [f"{verb} model {m}" for m in result.models])
+    lines += _section("Creates", [d.line() for d in result.placements(dctrack_serials.CREATE)], "as Planned items")
+    lines += _section("Moves", [d.line() for d in result.placements(dctrack_serials.MOVE)], "Planned items only")
+    if result.placeholders:
+        lines.append(
+            f"{count(result.placeholders, 'device')} {'would land' if dry else 'landed'} on placeholder models: swap "
+            "them for real models later with dcTrack's UPDATE MODEL import."
+        )
+    lines += _section(
+        "Serial updates", [d.line() for d in result.of(dctrack_serials.UPDATE)], "to write" if dry else "sent"
+    )
+    lines += _section(
+        "Conflicts",
+        [d.line() for d in result.of(dctrack_serials.CONFLICT)],
+        "not written; resolve them in dcTrack or Railyard (--overwrite replaces a differing serial)",
+    )
+    lines += _section(
+        "Ambiguous", [d.line() for d in result.of(dctrack_serials.AMBIGUOUS)], "not written: no single dcTrack item"
+    )
+    lines += _section("Not placed", [d.line() for d in result.of(*dctrack_serials.DEVICE_PROBLEMS)])
+    named = [
+        f"{d.cabinet} {d.where_in_cabinet()} {d.name} is {d.item_name} in dcTrack"
+        for d in result.devices
+        if getattr(d, "name_differs", False)
+    ]
+    lines += _section("Named differently in dcTrack", named, "not renamed")
+    lines += _section("Only in dcTrack", result.only_in_dctrack, "no Railyard device; never deleted")
+    lines += _section("Skipped by Railyard", result.skipped)
+    lines += _section("Warnings", result.warnings)
+    lines += _section("Errors", result.errors, "writes dcTrack refused; run the export again once fixed")
+    if dry:
+        lines.append("Dry run: nothing was written to dcTrack. Re-run with --apply to write these changes.")
+    else:
+        lines.append(
+            f"Created {count(result.created, 'item')}, moved {result.moved:,} and wrote "
+            f"{count(result.updated, 'serial')} in dcTrack."
+        )
         if result.failed:
             lines.append("Finished with errors, conflicts or ambiguities (listed above).")
     return "\n".join(lines)

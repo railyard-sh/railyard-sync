@@ -279,3 +279,90 @@ def test_a_document_of_the_wrong_format_or_version_is_an_error(world, change, me
     code, _, err = run([*ARGS, "--apply"])
     assert code == cli.EXIT_ERROR
     assert message in err and dctrack.writes == []
+
+
+# ---- --devices ------------------------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("extra", "message"),
+    [
+        (["--devices", "--import-file", "x.csv"], "cannot be combined with --devices"),
+        (["--cabinet-model", "APC/AR3100"], "--cabinet-model goes with --devices"),
+        (
+            ["--no-placeholders", "--placeholder-make", "Acme"],
+            "--placeholder-make, --no-placeholders go with --devices",
+        ),
+        (["--devices", "--cabinet-model", "AR3100"], "must be 'MAKE/MODEL'"),
+        (["--devices", "--placeholder-make", " "], "--placeholder-make must not be empty"),
+    ],
+)
+def test_devices_usage_errors_exit_2(world, extra, message):
+    dctrack, railyard = world
+    code, _, err = run([*ARGS, *extra])
+    assert code == cli.EXIT_USAGE and message in err
+    assert dctrack.calls == [] and railyard.session.calls == []
+
+
+def test_an_unreadable_model_map_is_a_usage_error(world, tmp_path):
+    bad = tmp_path / "map.csv"
+    bad.write_text("make,model\n", encoding="utf-8")
+    code, _, err = run([*ARGS, "--devices", "--model-map", str(bad)])
+    assert code == cli.EXIT_USAGE and "must have the columns railyard_make" in err
+
+
+def test_devices_dry_run_apply_and_a_second_run(world):
+    dctrack, railyard = world
+    railyard.sunbird["devices"].append(device("SRV-04", 4, serial="NEW4", height=2))
+    railyard.sunbird["devices"].append(device("SRV-05", 7, kind="network"))
+    dctrack.add_item(dctrack.items_by_u[1] - 1, "kvm", 40)  # the cabinet R01: an item Railyard does not have
+
+    code, out, err = run([*ARGS, "--devices"])
+    assert code == cli.EXIT_OK, out + err
+    assert "Dry run, planned: 1 update, 1 unchanged, 2 create, 1 no-serial." in out
+    assert "Models to create (2):\n  - would create model Railyard / Generic 2U Device" in out
+    assert "Makes to create (1):\n  - would create make Railyard" in out
+    assert "  - R01 U4 SRV-04: create SRV-04 as Railyard / Generic 2U Device (placeholder), serial NEW4" in out
+    assert "2 devices would land on placeholder models" in out and "UPDATE MODEL import" in out
+    assert "Only in dcTrack (1): no Railyard device; never deleted:\n  - R01 U40 KVM (Device)" in out
+    assert "Named differently in dcTrack (3)" in out and "SRV-01 is LON1-SRV-1 in dcTrack" in out
+    assert dctrack.created == [] and dctrack.writes == []
+
+    code, out, _ = run([*ARGS, "--devices", "--apply"])
+    assert code == cli.EXIT_OK, out
+    assert "Created 2 items, moved 0 and wrote 1 serial in dcTrack." in out
+    assert dctrack.item_named("SRV-04")["tiSerialNumber"] == "NEW4"
+
+    code, out, _ = run([*ARGS, "--devices", "--apply", "--json"])
+    result = json.loads(out)
+    assert code == cli.EXIT_OK and result["counts"]["create"] == 0 and result["counts"]["unchanged"] == 3
+    assert result["models"] == [] and result["placeholders"] == 0 and len(dctrack.created) == 2
+
+
+def test_devices_conflicts_exit_1_and_a_missing_cabinet_model_is_an_error(world):
+    dctrack, railyard = world
+    dctrack.add_item(dctrack.items_by_u[1] - 1, "elsewhere", 30)
+    railyard.sunbird["devices"].append(device("SRV-08", 29, face="full", height=2))  # U29-30: ELSEWHERE is at U30
+    code, out, _ = run([*ARGS, "--devices"])
+    assert code == cli.EXIT_ERROR and "position-occupied" in out
+
+    railyard.sunbird["devices"].append(device("SRV-09", 1, cabinet="R09", rack="r9"))
+    code, _, err = run([*ARGS, "--devices", "--cabinet-model", "APC/AR3100"])
+    assert code == cli.EXIT_ERROR and "--cabinet-model APC/AR3100 is not in dcTrack's Models Library" in err
+
+
+def test_devices_never_log_a_secret_or_a_body(world, tmp_path):
+    dctrack, railyard = world
+    railyard.sunbird["devices"].append(device("SRV-04", 4, serial="NEW4"))
+    log_file = tmp_path / "devices.log"
+    code, _, err = run([*ARGS, "--devices", "--apply", "--debug", "--log-file", str(log_file)])
+    assert code == cli.EXIT_OK
+    text = log_file.read_text()
+    assert (
+        "dcTrack POST /api/v2/models?returnDetails=false&proceedOnWarning=true -> 200" in text
+        and "dcTrack POST /api/v2/dcimoperations/items/bulk" in text
+    )
+    for secret in SECRETS:
+        assert secret not in text
+    for body in ("NEW4", "Generic 1U Device", "tiSerialNumber"):
+        assert body not in err and body not in text

@@ -14,6 +14,20 @@ on every call, or an OAuth2 client-credentials token (9.3 on; ``POST /oauth/toke
                                                     -> {"httpCode", "errorList", "children": [{httpCode, errorList,
                                                          request, response}]}  (207 when some rows fail)
 
+and, for ``--devices`` (placement):
+
+    POST /api/v2/quicksearch/models                 -> {"totalRows", "searchResults": {"models": [{make, model, …}]}}
+    GET  /api/v2/makes                              -> [{makeId, makeName, aliases}]
+    POST /api/v2/makes                              {"makeName"} -> {"makeId", "makeName"}
+    POST /api/v2/models?returnDetails=false&proceedOnWarning=true
+                                                    {make, model, class, subclass, mounting, formFactor, ruHeight,
+                                                     dimHeight, dimWidth, dimDepth, weight} -> {"modelId", …}
+    POST /api/v2/dcimoperations/items?returnDetails=false&proceedOnWarning=true
+                                                    a cabinet {tiName, cmbLocation, cmbMake, cmbModel, cmbStatus,
+                                                     cmbRowLabel?, cmbRowPosition?} -> {"id", "tiName"}
+    POST /api/v2/dcimoperations/items/bulk          "method": "POST" (item creates, bodies without id) and "PUT"
+                                                     (moves: {id, cmbCabinet, cmbUPosition, radioRailsUsed, …})
+
 A failure's body is ``{"errorList": […], "warningList": […], "message", "trace"}`` (older releases: ``errors``).
 
 **Every assumption about dcTrack that its public documentation leaves open is in the section "dcTrack's answers"
@@ -103,6 +117,27 @@ class DcTrackNotFoundError(DcTrackError):
 # - an update that sends only ``{"id", "tiSerialNumber"}`` changes only the serial (a partial update), in bulk too;
 # - the bulk endpoint answers 200 or 207 with one child per body, in order, also when every row fails;
 # - the File Import's ``Object`` column takes the item's class name (``IMPORT_OBJECTS``).
+#
+# For ``--devices``. Confirmed: models are searched by ``make``/``model`` (``contains``; ``modelAliases`` for
+# aliases) and listed under ``searchResults.models``; makes are listed by ``GET /api/v2/makes`` and created with
+# ``makeName``; a model is created by make and model *name*; items are created (also in bulk, ``"method": "POST"``)
+# with ``cmbMake``/``cmbModel``/``cmbLocation``/``cmbCabinet``/``cmbUPosition``; item names are stored upper-cased;
+# ``cmbStatus`` holds Planned, Installed, Powered-off, Storage, Off-Site or Archived (a request stage may follow:
+# "Planned (Request Issued)"); a cabinet is an item with ``cmbRowLabel`` (text) and ``cmbRowPosition`` (an int).
+# Not confirmed, and chosen here:
+#
+# - which model fields are required: a placeholder sends ``PLACEHOLDER_MODEL`` (class, subclass, mounting, form factor
+#   Fixed, RU height, and minimal dimensions in inches and weight in pounds, the units the ODBC view states);
+# - a model search's ``contains`` is checked again here for an exact make and model, case-insensitively, and an alias
+#   counts only when the search returns ``modelAliases`` holding the exact name;
+# - a cabinet's ``cmbRowLabel`` may name a row dcTrack does not have yet (it is not created here);
+# - an item is created ``Planned`` (``PLANNED``); only an item whose ``cmbStatus`` is exactly Planned is moved, by a
+#   PUT of ``cmbCabinet``/``cmbUPosition``/``radioRailsUsed`` (an Installed item is never moved: dcTrack may turn it
+#   into a move request, or refuse it);
+# - a 0U item takes ``radioCabinetSide`` Left/Right, ``radioDepthPosition`` Back for a Rack PDU (Front otherwise) and
+#   ``cmbUPosition`` ``ZERO_U_POSITION``; a 0U item is matched by name only (cabinetItems gives no side), and an
+#   item whose ``mounting`` (cabinetItems) or ``tiMounting`` (search) starts with ZeroU takes no rack units;
+# - a bulk create's child carries the new item under ``response`` with its ``id``.
 
 CABINET_CLASS = "Cabinet"
 NO_POSITION = 0  # what _position returns for -9 (none), -2 (above), -1 (below) and the invalid 0
@@ -121,6 +156,60 @@ IMPORT_OBJECTS = {
     "hvac": "HVAC",
     "cabinet": "Cabinet",
 }
+
+
+#: Railyard's device ``kind`` -> the dcTrack class of its placeholder model (an older document has no kind: Device).
+KIND_CLASSES = {"device": "Device", "network": "Network", "patch-panel": "Data Panel", "pdu": "Rack PDU"}
+#: dcTrack class -> the subclass a placeholder model of that class takes.
+PLACEHOLDER_SUBCLASSES = {
+    "Device": "Standard",
+    "Network": "NetworkStack",
+    "Data Panel": "Patch Panel",
+    "Rack PDU": "AC Power",
+}
+
+PLANNED = "Planned"
+ZERO_U_POSITION = 1  # cmbUPosition sent for a 0U item: dcTrack fits a side-mounted item by height from there
+RAILS_FOR_FACE = {"front": "Front", "rear": "Back", "full": "Both"}
+SIDES = {"left": "Left", "right": "Right"}
+
+
+def kind_class(kind: str) -> str:
+    """The dcTrack class for a Railyard device ``kind``."""
+    return KIND_CLASSES.get((kind or "").strip().lower(), "Device")
+
+
+def placeholder_model(make: str, name: str, item_class: str, height: int) -> dict:
+    """The body that creates a placeholder model: ``height`` RU (0: a side-mounted ZeroU model), Fixed, with minimal
+    plausible dimensions (inches) and weight (pounds)."""
+    zero_u = height <= 0
+    return {
+        "make": make,
+        "model": name,
+        "class": item_class,
+        "subclass": PLACEHOLDER_SUBCLASSES.get(item_class, "Standard"),
+        "mounting": "ZeroU" if zero_u else "Rackable",
+        "formFactor": "Fixed",
+        "ruHeight": 0 if zero_u else height,
+        "dimHeight": 60.0 if zero_u else round(1.75 * height, 2),
+        "dimWidth": 2.0 if zero_u else 17.5,
+        "dimDepth": 2.0 if zero_u else 20.0,
+        "weight": 10.0 if zero_u else 10.0 * height,
+    }
+
+
+def zero_u_fields(side: str, item_class: str) -> dict:
+    """The placement fields of a side-mounted (0U) item."""
+    return {
+        "radioCabinetSide": SIDES.get(side, "Right"),
+        "radioDepthPosition": "Back" if item_class == "Rack PDU" else "Front",
+        "cmbUPosition": ZERO_U_POSITION,
+    }
+
+
+def is_planned(status: str) -> bool:
+    """Whether an item's ``cmbStatus`` is Planned with no request open (the only status this export moves)."""
+    return (status or "").strip().casefold() == PLANNED.casefold()
 
 
 def import_object(item_class: str) -> str:
@@ -211,16 +300,29 @@ class DcItem:
     u_position: int  # its bottom U; NO_POSITION when it has none
     rails: str  # Front | Back | Both
     height: int | None
+    status: str = ""  # cmbStatus
+    cabinet: str = ""  # its cabinet's name (from a location search)
+    serial: str | None = None  # tiSerialNumber when the read returned it
+
+
+@dataclass(frozen=True)
+class DcModel:
+    """A model in dcTrack's Models Library."""
+
+    make: str
+    model: str
+    item_class: str = ""
 
 
 @dataclass(frozen=True)
 class RowResult:
-    """One row of a bulk update: whether dcTrack took it, and its words when not."""
+    """One row of a bulk write: whether dcTrack took it, its words when not, and a created item's id."""
 
     id: str
     ok: bool
     status: int | None
     message: str = ""
+    new_id: str = ""
 
 
 class DcTrackClient(RESTClient):
@@ -414,18 +516,19 @@ class DcTrackClient(RESTClient):
     def search_items(self, columns: list[dict], selected: list[str]) -> list[dict]:
         """Every item a quick search finds (``columns``: ``[{"name", "filter": {"eq": …}}]``), page by page."""
         body = {"columns": columns, "selectedColumns": [{"name": name} for name in selected]}
+        return self._search("/api/v2/quicksearch/items", body, "items")
+
+    def _search(self, path: str, body: dict, key: str) -> list[dict]:
         out: list[dict] = []
         for page in range(1, _MAX_PAGES + 1):
-            data = self.request(
-                "POST", "/api/v2/quicksearch/items", params={"pageNumber": page, "pageSize": SEARCH_PAGE}, json=body
-            )
+            data = self.request("POST", path, params={"pageNumber": page, "pageSize": SEARCH_PAGE}, json=body)
             results = data.get("searchResults") if isinstance(data, dict) else None
-            items = results.get("items") if isinstance(results, dict) else results
-            if not isinstance(items, list):
-                raise DcTrackError("dcTrack returned an unexpected answer for /api/v2/quicksearch/items.")
-            out.extend(i for i in items if isinstance(i, dict))
+            rows = results.get(key) if isinstance(results, dict) else results
+            if not isinstance(rows, list):
+                raise DcTrackError(f"dcTrack returned an unexpected answer for {path}.")
+            out.extend(r for r in rows if isinstance(r, dict))
             total = data.get("totalRows")
-            if len(items) < SEARCH_PAGE or (isinstance(total, int) and len(out) >= total):
+            if len(rows) < SEARCH_PAGE or (isinstance(total, int) and len(out) >= total):
                 break
         return out
 
@@ -453,18 +556,61 @@ class DcTrackClient(RESTClient):
             raise DcTrackError(
                 f"dcTrack returned an unexpected answer for cabinet {cabinet_id}'s items (no 'cabinetItems')."
             )
-        return [
-            DcItem(
-                id=_id(row.get("id")),
-                name=str(row.get("tiName") or "").strip(),
-                item_class=str(row.get("className") or row.get("tiClass") or "").strip(),
-                u_position=_position(row.get("cmbUPosition")),
-                rails=_rails(row.get("radioRailsUsed")),
-                height=_height(row),
-            )
-            for row in rows
-            if isinstance(row, dict) and _id(row.get("id"))
-        ]
+        return [_item(row) for row in rows if isinstance(row, dict) and _id(row.get("id"))]
+
+    def location_items(self, location: str) -> list[DcItem]:
+        """Every item in the location (cabinets too), with its cabinet, position, status and serial: one quick search,
+        page by page. Matched against Railyard devices by name."""
+        selected = ["id", "tiName", "tiClass", "tiMounting", "cmbCabinet", "cmbUPosition", "radioRailsUsed", "tiRUs"]
+        rows = self.search_items(
+            [{"name": "cmbLocation", "filter": {"eq": location}}],
+            [*selected, "cmbStatus", "tiSerialNumber", "cmbLocation"],
+        )
+        out = []
+        for row in rows:
+            named = _id(row.get("id")) and str(row.get("tiName") or "").strip()
+            if named and _same_location(row.get("cmbLocation"), location):
+                out.append(_item(row))
+        return out
+
+    def find_model(self, make: str, model: str) -> DcModel | None:
+        """The Models Library entry for ``make`` and ``model`` (case-insensitively), by name, then by alias."""
+        want_make, want_model = make.strip().casefold(), model.strip().casefold()
+        if not want_make or not want_model:
+            return None
+        for column in ("model", "modelAliases"):
+            body = {
+                "columns": [
+                    {"name": "make", "filter": {"contains": make.strip()}},
+                    {"name": column, "filter": {"contains": model.strip()}},
+                ],
+                "selectedColumns": [{"name": n} for n in ("make", "model", "class", "modelAliases")],
+            }
+            for row in self._search("/api/v2/quicksearch/models", body, "models"):
+                if str(row.get("make") or "").strip().casefold() != want_make:
+                    continue
+                aliases = row.get("modelAliases") if column == "modelAliases" else [row.get("model")]
+                names = aliases if isinstance(aliases, list) else str(aliases or "").split(",")
+                if any(str(n or "").strip().casefold() == want_model for n in names):
+                    return DcModel(
+                        make=str(row.get("make")).strip(),
+                        model=str(row.get("model") or model).strip(),
+                        item_class=str(row.get("class") or "").strip(),
+                    )
+        return None
+
+    def makes(self) -> list[tuple[str, list[str]]]:
+        """``[(make name, aliases)]``: the makes dcTrack knows."""
+        data = self.request("GET", "/api/v2/makes")
+        rows = data.get("makes") if isinstance(data, dict) else data
+        if not isinstance(rows, list):
+            raise DcTrackError("dcTrack returned an unexpected answer for /api/v2/makes.")
+        out = []
+        for row in rows:
+            if isinstance(row, dict) and str(row.get("makeName") or "").strip():
+                aliases = row.get("aliases") if isinstance(row.get("aliases"), list) else []
+                out.append((str(row["makeName"]).strip(), [str(a).strip() for a in aliases if str(a).strip()]))
+        return out
 
     def serials(self, location: str, cabinet: str, ids: list[str]) -> dict[str, str]:
         """``{item id: serial}`` for the items ``ids`` in a cabinet: one quick search for the cabinet, then the item
@@ -493,16 +639,55 @@ class DcTrackClient(RESTClient):
     def bulk_update(self, rows: list[tuple[str, dict]]) -> list[RowResult]:
         """Update items in one bulk request (``rows``: ``(item id, fields)``) and say how each fared."""
         bodies = [{"id": int(item_id) if item_id.isdigit() else item_id, **fields} for item_id, fields in rows]
-        payload = {"bodies": bodies, "method": "PUT", "proceedOnWarning": True}
+        return self._bulk("PUT", bodies, [item_id for item_id, _ in rows])
+
+    def bulk_create(self, bodies: list[dict]) -> list[RowResult]:
+        """Create items in one bulk request; each result carries the new item's id."""
+        return self._bulk("POST", bodies, ["" for _ in bodies])
+
+    def _bulk(self, method: str, bodies: list[dict], ids: list[str]) -> list[RowResult]:
+        payload = {"bodies": bodies, "method": method, "proceedOnWarning": True}
         data = self.request("POST", "/api/v2/dcimoperations/items/bulk", json=payload, allow=(400, 207))
         children = data.get("children") if isinstance(data, dict) else None
-        if not isinstance(children, list) or len(children) != len(rows):
+        if not isinstance(children, list) or len(children) != len(bodies):
             said = _error_text(data) or "its answer did not list a result per row"
-            return [RowResult(item_id, False, None, said) for item_id, _ in rows]
+            return [RowResult(item_id, False, None, said) for item_id in ids]
         out = []
-        for (item_id, _), child in zip(rows, children, strict=True):
+        for item_id, child in zip(ids, children, strict=True):
             status = child.get("httpCode") if isinstance(child, dict) else None
             status = status if isinstance(status, int) else None
             ok = status is not None and 200 <= status < 300
-            out.append(RowResult(item_id, ok, status, "" if ok else _error_text(child)))
+            response = child.get("response") if isinstance(child, dict) else None
+            new_id = _id(response.get("id")) if isinstance(response, dict) and response.get("id") is not None else ""
+            out.append(RowResult(item_id or new_id, ok, status, "" if ok else _error_text(child), new_id=new_id))
         return out
+
+    def create_make(self, name: str) -> None:
+        self.request("POST", "/api/v2/makes", json={"makeName": name})
+
+    def create_model(self, body: dict) -> None:
+        self.request("POST", "/api/v2/models", params={"returnDetails": "false", "proceedOnWarning": "true"}, json=body)
+
+    def create_item(self, body: dict) -> str:
+        """Create one item (a cabinet); its new id, or ``""`` when dcTrack did not say."""
+        params = {"returnDetails": "false", "proceedOnWarning": "true"}
+        data = self.request("POST", "/api/v2/dcimoperations/items", params=params, json=body)
+        item = data.get("item") if isinstance(data, dict) and isinstance(data.get("item"), dict) else data
+        return _id(item.get("id")) if isinstance(item, dict) and item.get("id") is not None else ""
+
+
+def _item(row: dict) -> DcItem:
+    """An item from a cabinetItems or quick-search row. A side-mounted (ZeroU) item has no U position here, whatever
+    its ``cmbUPosition``: it takes no rack units."""
+    mounting = str(row.get("mounting") or row.get("tiMounting") or "").replace(" ", "").casefold()
+    return DcItem(
+        id=_id(row.get("id")),
+        name=str(row.get("tiName") or "").strip(),
+        item_class=str(row.get("className") or row.get("tiClass") or "").split("/", 1)[0].strip(),
+        u_position=NO_POSITION if mounting.startswith("zerou") else _position(row.get("cmbUPosition")),
+        rails=_rails(row.get("radioRailsUsed")),
+        height=_height(row),
+        status=str(row.get("cmbStatus") or "").strip(),
+        cabinet=str(row.get("cmbCabinet") or "").strip(),
+        serial=str(row.get("tiSerialNumber") or "").strip() if "tiSerialNumber" in row else None,
+    )

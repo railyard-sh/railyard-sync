@@ -34,8 +34,9 @@ Railyard project ──► NetBox / Nautobot sync document (a Railyard deliverab
 - **Export an estate into NetBox:** create and update the estate's sites, locations, racks, device
   types, devices, ports and cables in NetBox, touching only the objects the export created (see
   [Exporting to NetBox](#exporting-to-netbox)).
-- **Push serial numbers into Sunbird dcTrack:** write the serials recorded in Railyard onto the matching
-  dcTrack items, matched by cabinet and U position (see [Sunbird dcTrack serials](#sunbird-dctrack-serials)).
+- **Push serial numbers and placement into Sunbird dcTrack:** write the serials recorded in Railyard onto the
+  matching dcTrack items, matched by cabinet and U position, and with `--devices` create the devices dcTrack lacks
+  (see [Sunbird dcTrack serials](#sunbird-dctrack-serials) and [placement](#sunbird-dctrack-placement---devices)).
 
 ## Usage
 
@@ -222,6 +223,56 @@ railyard-sync export sunbird --org my-org --project lon1-build \
 Exit codes: `0` done, `1` dcTrack refused writes, or there are conflicts or ambiguous matches (listed; with
 `--apply` the clean updates are still written), `2` usage, `3` refused by the Railyard plan. Devices that could
 not be matched are listed but do not fail the run.
+
+#### Sunbird dcTrack placement (`--devices`)
+
+`--devices` reconciles where devices sit as well as their serials: it creates the devices dcTrack does not have
+yet and moves Planned items that Railyard places elsewhere. It never deletes anything, never renames an item, and
+never moves an Installed one.
+
+```bash
+# Preview: what would be created or moved, on which models, and what dcTrack has that Railyard does not.
+railyard-sync export sunbird --devices --org my-org --project lon1-build \
+  --dctrack-url https://dctrack.example.com --dctrack-user railyard --location LON1 \
+  --model-map models.csv --cabinet-model "APC/AR3100"
+
+# Write it (add --apply).
+```
+
+For each Railyard device, racked or side-mounted (0U):
+
+- **At its position** (cabinet, U and rails, as for serials): the serial rules apply. If dcTrack names the item
+  differently, that is reported and left alone.
+- **Else by name** (the Railyard name in upper case, in the same dcTrack location): an item in another cabinet or U
+  is moved if its status is Planned. An Installed item elsewhere is a conflict and is never moved; move it in
+  dcTrack. 0U devices are matched by name only.
+- **Else created**, with status Planned, named as in Railyard in upper case (`<CABINET>-U<n>` when Railyard has no
+  name), front devices on the Front rails, rear on Back and full-depth on Both, 0U devices on their side (Rack PDUs
+  at the back). A create whose units are taken on the same rails is a conflict (`position-occupied`), as is one
+  whose name is already used in the location (`name-taken`).
+- **Missing cabinets** are created (Planned, with their Railyard row and position) only with `--cabinet-model
+  "MAKE/MODEL"`, a cabinet model already in your Models Library. Each created cabinet uses a dcTrack cabinet
+  licence. Without it, a missing cabinet's devices are skipped. Locations are never created.
+- **Models** for created devices, in order: the `--model-map` file, then a model in dcTrack's Models Library with
+  the same make and model (or an alias of it), then a placeholder model: make `Railyard` (`--placeholder-make`),
+  model `Generic 2U Device`, `Generic 1U Network`, `Generic 1U Data Panel`, `Generic 0U Rack PDU` and so on, created
+  once and reused by later runs. The report counts the devices on placeholders, so you can swap them for real models
+  later with dcTrack's UPDATE MODEL import. `--no-placeholders` reports those devices (`no-model`) instead.
+- **Items only in dcTrack** (in a cabinet Railyard has, but with no Railyard device) are listed and never touched.
+
+The model map is a CSV file with a header row and these four columns; makes and models are compared ignoring case:
+
+```csv
+railyard_make,railyard_model,dctrack_make,dctrack_model
+Dell,PowerEdge R750,Dell,PowerEdge R750 (2U)
+Arista,7050SX3-48YC12,Arista Networks,DCS-7050SX3-48YC12
+```
+
+With `--apply` the writes go in this order: makes, placeholder models, cabinets, item creates, moves, serials. A
+refused write is reported with dcTrack's message, and whatever depends on it (the devices of a cabinet that was not
+created, say) is not attempted; the rest is written, and the run exits `1`. `--import-file` writes serials only, so
+it cannot be combined with `--devices`. The dcTrack user needs to create makes, models and items (and, for
+cabinets, a free cabinet licence).
 
 ## Supported versions
 

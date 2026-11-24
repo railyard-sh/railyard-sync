@@ -8,11 +8,19 @@ Railyard generates it server-side, as a deliverable: ``POST /api/projects/{id}/d
      "project": {"id", "name", "revision", "changeRequestId"?, "versionId"?,
                  "scope"?: {"containerId"?, "rackIds", "cablesLeftOut", "powerLinksLeftOut"}},
      "cabinets": [{"name", "location": ["London", "LON1", "Hall A", "Row 1"], "uHeight", "startingUnit",
-                   "descendingUnits", "railyard": {"kind": "rack", "id"}}],
+                   "descendingUnits", "row"?, "rowPosition"?, "make"?, "model"?, "widthMm"?, "depthMm"?,
+                   "railyard": {"kind": "rack", "id"}}],
      "devices": [{"cabinet", "name", "uPosition", "uFromBottom", "uHeight", "face": "front"|"rear"|"full",
-                  "make", "model", "partNumber", "serial", "railyard": {"kind": "device", "id", "rackId"}}],
+                  "make", "model", "partNumber", "serial", "role"?, "kind"?,
+                  "railyard": {"kind": "device", "id", "rackId"}}],
+     "zeroUDevices"?: [{"cabinet", "name", "side": "left"|"right", "make", "model", "partNumber", "serial", "role",
+                        "kind", "railyard": {"kind": "device", "id", "rackId"}}],
      "skipped": [{"cabinet", "name", "reason", "railyard"}],
      "warnings": [...]}
+
+The keys marked ``?`` came later within version 1: an older Railyard sends none of them, and they read as empty.
+``kind`` is ``device``, ``network``, ``patch-panel`` or ``pdu``. Side-mounted (0U) devices are in ``zeroUDevices``
+and also in ``skipped`` (reason ``zero-u``), so the serials export, which reads only ``devices``, is unchanged.
 
 ``devices`` lists every racked device in the scope, those without a serial too. ``uPosition`` is the device's
 lowest-numbered U in the rack's own numbering; ``uFromBottom`` the 1-based unit of its physically bottom U, counted
@@ -31,6 +39,8 @@ from typing import Any
 FORMAT = "railyard-sunbird-sync"
 SUPPORTED_VERSIONS = (1,)
 FACES = ("front", "rear", "full")
+SIDES = ("left", "right")
+KINDS = ("device", "network", "patch-panel", "pdu")
 
 #: Upper bound on the rows read from one list, so a malformed document can't make the export read without end.
 MAX_ROWS = 200_000
@@ -50,6 +60,12 @@ class Cabinet:
     u_height: int | None = None
     starting_unit: int | None = None
     descending_units: bool = False
+    row: str = ""  # the rack's row space, "" when none
+    row_position: int = 0  # 1-based place in that row, 0 when none
+    make: str = ""  # the Railyard rack type's manufacturer and model, "" when none
+    model: str = ""
+    width_mm: int = 0  # 0 when unknown
+    depth_mm: int = 0
 
     @property
     def where(self) -> str:
@@ -59,7 +75,8 @@ class Cabinet:
 
 @dataclass(frozen=True)
 class Device:
-    """A racked Railyard device: where it sits and the serial Railyard records for it (``""`` when none)."""
+    """A Railyard device in a cabinet: where it sits and the serial Railyard records for it (``""`` when none).
+    A racked device has a face and U positions; a side-mounted (0U) one a ``side`` and no U."""
 
     cabinet: Cabinet  # with no location when the document does not list it (a warning says so)
     cabinet_name: str
@@ -73,6 +90,13 @@ class Device:
     model: str = ""
     part_number: str = ""
     device_id: str = ""  # the placement id
+    role: str = ""
+    kind: str = ""  # device | network | patch-panel | pdu; "" from an older Railyard
+    side: str = ""  # left | right for a 0U device, "" for a racked one
+
+    @property
+    def zero_u(self) -> bool:
+        return bool(self.side)
 
 
 @dataclass(frozen=True)
@@ -94,7 +118,8 @@ class SunbirdDocument:
     version_id: str = ""
     scope: dict[str, Any] = field(default_factory=dict)
     cabinets: list[Cabinet] = field(default_factory=list)
-    devices: list[Device] = field(default_factory=list)
+    devices: list[Device] = field(default_factory=list)  # racked devices
+    zero_u_devices: list[Device] = field(default_factory=list)  # side-mounted devices (also in skipped)
     skipped: list[Skipped] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
@@ -192,6 +217,12 @@ def parse_document(document: Any) -> SunbirdDocument:
             u_height=_int(row.get("uHeight")),
             starting_unit=_int(row.get("startingUnit")),
             descending_units=_bool(row.get("descendingUnits")),
+            row=_text(row.get("row")),
+            row_position=max(_int(row.get("rowPosition")) or 0, 0),
+            make=_text(row.get("make")),
+            model=_text(row.get("model")),
+            width_mm=max(_int(row.get("widthMm")) or 0, 0),
+            depth_mm=max(_int(row.get("depthMm")) or 0, 0),
         )
         doc.cabinets.append(cabinet)
         if cabinet.rack_id:
@@ -199,49 +230,30 @@ def parse_document(document: Any) -> SunbirdDocument:
         by_name.setdefault(name.casefold(), []).append(cabinet)
 
     unlisted: dict[tuple[str, str], Cabinet] = {}
-    for row in _rows(document, "devices"):
-        name = _text(row.get("name"))
-        ident = _identity(row)
-        cabinet_name = _text(row.get("cabinet"))
-        face = _text(row.get("face")).lower()
-        if face not in FACES:
-            raise SunbirdDocumentError(
-                f"Device {name or ident.get('id')!r} in {cabinet_name!r}: face {row.get('face')!r} is not one of "
-                f"{', '.join(FACES)}."
-            )
-        rack_id = _text(ident.get("rackId"))
+
+    def cabinet_of(cabinet_name: str, rack_id: str) -> Cabinet:
         cabinet = by_id.get(rack_id) if rack_id else None
         if cabinet is None:
             named = by_name.get(cabinet_name.casefold(), [])
             cabinet = named[0] if len(named) == 1 else None
-        if cabinet is None:
-            # A cabinet the document does not list, or lists in more than one place: known only by its name, so
-            # only --location can place it.
-            key = (cabinet_name.casefold(), rack_id)
-            if key not in unlisted:
-                unlisted[key] = Cabinet(name=cabinet_name, location=(), rack_id=rack_id)
-                doc.warnings.append(
-                    f"Devices name cabinet {cabinet_name!r}, which the document "
-                    f"{'lists more than once' if by_name.get(cabinet_name.casefold()) else 'does not list'}: it is "
-                    "looked for by name in the --location location only."
-                )
-            cabinet = unlisted[key]
-        doc.devices.append(
-            Device(
-                cabinet=cabinet,
-                cabinet_name=cabinet.name,
-                name=name,
-                u_position=_int(row.get("uPosition")),
-                u_from_bottom=_int(row.get("uFromBottom")),
-                u_height=_int(row.get("uHeight")),
-                face=face,
-                serial=_text(row.get("serial")),
-                make=_text(row.get("make")),
-                model=_text(row.get("model")),
-                part_number=_text(row.get("partNumber")),
-                device_id=_text(ident.get("id")),
+        if cabinet is not None:
+            return cabinet
+        # A cabinet the document does not list, or lists in more than one place: known only by its name, so only
+        # --location can place it.
+        key = (cabinet_name.casefold(), rack_id)
+        if key not in unlisted:
+            unlisted[key] = Cabinet(name=cabinet_name, location=(), rack_id=rack_id)
+            doc.warnings.append(
+                f"Devices name cabinet {cabinet_name!r}, which the document "
+                f"{'lists more than once' if by_name.get(cabinet_name.casefold()) else 'does not list'}: it is "
+                "looked for by name in the --location location only."
             )
-        )
+        return unlisted[key]
+
+    for row in _rows(document, "devices"):
+        doc.devices.append(_device(row, cabinet_of, zero_u=False))
+    for row in _rows(document, "zeroUDevices"):
+        doc.zero_u_devices.append(_device(row, cabinet_of, zero_u=True))
 
     for row in _rows(document, "skipped"):
         doc.skipped.append(
@@ -253,6 +265,43 @@ def parse_document(document: Any) -> SunbirdDocument:
             )
         )
     return doc
+
+
+def _device(row: dict, cabinet_of: Any, *, zero_u: bool) -> Device:
+    name = _text(row.get("name"))
+    ident = _identity(row)
+    cabinet_name = _text(row.get("cabinet"))
+    what = f"{'0U device' if zero_u else 'Device'} {name or ident.get('id')!r} in {cabinet_name!r}"
+    face = side = ""
+    if zero_u:
+        side = _text(row.get("side")).lower()
+        if side not in SIDES:
+            raise SunbirdDocumentError(f"{what}: side {row.get('side')!r} is not one of {', '.join(SIDES)}.")
+    else:
+        face = _text(row.get("face")).lower()
+        if face not in FACES:
+            raise SunbirdDocumentError(f"{what}: face {row.get('face')!r} is not one of {', '.join(FACES)}.")
+    kind = _text(row.get("kind")).lower()
+    if kind and kind not in KINDS:
+        raise SunbirdDocumentError(f"{what}: kind {row.get('kind')!r} is not one of {', '.join(KINDS)}.")
+    cabinet = cabinet_of(cabinet_name, _text(ident.get("rackId")))
+    return Device(
+        cabinet=cabinet,
+        cabinet_name=cabinet.name,
+        name=name,
+        u_position=None if zero_u else _int(row.get("uPosition")),
+        u_from_bottom=None if zero_u else _int(row.get("uFromBottom")),
+        u_height=0 if zero_u else _int(row.get("uHeight")),
+        face=face,
+        serial=_text(row.get("serial")),
+        make=_text(row.get("make")),
+        model=_text(row.get("model")),
+        part_number=_text(row.get("partNumber")),
+        device_id=_text(ident.get("id")),
+        role=_text(row.get("role")),
+        kind=kind,
+        side=side,
+    )
 
 
 def _rows_or_texts(value: Any) -> list[Any]:

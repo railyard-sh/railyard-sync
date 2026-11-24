@@ -22,7 +22,7 @@ own API views (an injected session), so their semantics are tested here once.
 | `src/railyard_sync/export/sync_document.py` | Source adapter over Railyard's `netbox-sync` deliverable (the NetBox bundle as JSON rows). **All knowledge of that document's shape lives here** |
 | `src/railyard_sync/export/netbox_rest.py`, `run.py`, `policy.py`, `ownership.py` | NetBox REST target (the plugin's ownership rules: tag-owned objects only, shared objects used as-is, conflicts skipped, guarded deletes) and `sync_to_netbox()`; `policy.py` is the ownership tag the plugins import; `ownership.py` is what the REST targets and the NetBox plugin's ORM target share (`OwnershipReport`, `OwnershipMixin`: delete candidates, rename detection and re-keying; planned-change counts and lines). `run._run` is the plan/apply flow both REST targets share |
 | `src/railyard_sync/export/nautobot_models.py`, `nautobot_document.py`, `nautobot_rest.py` | Nautobot 2.x: canonical models where NetBox's don't fit (location types, statuses, roles, locations by name, slug-less types; ports, power and cables reuse `models.py`), `NautobotSyncDocumentAdapter` over the `nautobot-sync` document (**all knowledge of its shape**), and the REST target with the same ownership rules (on `OwnershipMixin`); `run.sync_to_nautobot()` |
-| `src/railyard_sync/export/sunbird_document.py`, `dctrack_rest.py`, `dctrack_serials.py` | Sunbird dcTrack serials (not a DiffSync export): the `sunbird-sync` document (**all knowledge of its shape**), the dcTrack REST client (**every unconfirmed dcTrack assumption is in its "dcTrack's answers" section**), and matching, planning, the bulk apply and the File Import CSV (`sync_serials_to_dctrack()`) |
+| `src/railyard_sync/export/sunbird_document.py`, `dctrack_rest.py`, `dctrack_serials.py`, `dctrack_devices.py` | Sunbird dcTrack (not a DiffSync export): the `sunbird-sync` document (**all knowledge of its shape**), the dcTrack REST client (**every unconfirmed dcTrack assumption is in its "dcTrack's answers" section**), serial matching, planning, the bulk apply and the File Import CSV (`sync_serials_to_dctrack()`), and placement with `--devices` (`sync_placements_to_dctrack()`) |
 | `src/railyard_sync/dcim/snapshot.py` | **The contract**: a DCIM site as plain dataclasses (sites, locations, racks, device types, devices, components, cables, power panels/feeds), source-neutral, mm/kg/W units |
 | `src/railyard_sync/dcim/netbox.py`, `nautobot.py`, `rest.py`, `values.py` | `NetBoxReader` / `NautobotReader`: everything that turns the DCIM's data into a `Snapshot` (requests, units, enums, port mappings, warnings), asking only through `fetch`/`fetch_all` (`rest.DCIMReader`). `NetBoxLoader` / `NautobotLoader` feed them over REST (`rest.RESTReader`). The NetBox plugin subclasses `NetBoxReader` and answers from its ORM in the REST shape; the Nautobot app gives `NautobotLoader` an in-process session onto Nautobot's API views. Change the reader, not a loader. `values.py`: the JSON value readers they share |
 | `src/railyard_sync/importer/` | `build_project(snapshot)` → Railyard Project JSON; `merge(existing, imported)` for re-import; the import report |
@@ -139,10 +139,30 @@ dcTrack items that already exist; it creates, renames or moves nothing. The sour
   `allow_abbrev=False` so `--dctrack-password` is never read as the file flag). https only unless `--insecure-http`;
   `--ca-bundle` / `--no-verify-tls`. The password, the Basic credential and the bearer token are registered with the
   redacting filter; serials are never logged.
+- **`--devices` (placement, `dctrack_devices.py`)** reads racked `devices` and `zeroUDevices` (newer keys within
+  version 1: cabinets' `row`/`rowPosition`/`make`/`model`/`widthMm`/`depthMm`, devices' `role`/`kind`; all optional,
+  as an older Railyard sends none). Per device: the item at the position (the serials matcher; a 0U device has no U
+  to match, so only by name), else the item in the location with the Railyard name upper-cased: in the same cabinet
+  it is matched; elsewhere and exactly `Planned` → `move` (bulk PUT of `cmbCabinet`/`cmbUPosition`/`radioRailsUsed`,
+  or the 0U side fields); elsewhere and anything else → conflict `installed-item-elsewhere`, never moved. Else a
+  `create` (Planned), refused as `position-occupied` when its units overlap an item on the same rails (Both overlaps
+  everything; 0U items take no units) or `name-taken` (a cabinet's name, an item matched to another device, another
+  create's). A name differing at the position is reported, never renamed. A missing cabinet is created only with
+  `--cabinet-model` (validated against the Models Library; a cabinet licence each); locations never are.
+- Models for creates: `--model-map` CSV (`read_model_map`), then the Models Library's exact make and model (or alias),
+  then a placeholder `<--placeholder-make> / Generic {n}U {Class}` (class from `kind` via `dctrack_rest.KIND_CLASSES`,
+  next to `IMPORT_OBJECTS`; body from `placeholder_model()`), found before it is created so re-runs reuse it;
+  `--no-placeholders` makes it `no-model`. Write order: makes, models, cabinets (re-read), creates (bulk POST), moves
+  (bulk PUT), serial updates; a write that depends on a refused one fails with it, the rest carry on. Nothing is ever
+  deleted: items in a matched cabinet that no device accounts for are `only-in-dctrack`. New outcome and reason names
+  sit with the serials ones in `dctrack_serials.py` (`DEVICE_OUTCOMES`); `PlannedPlacement` / `PlacementResult`
+  extend the serials export's rows and result, so the serials mode's output is unchanged. `--import-file` stays
+  serials-only and is refused with `--devices`.
 - `RESTClient.explain()` / `refusal()` are the hooks dcTrack words its failures through (`errorList`, then
   `message`; never `trace`). Tests: `tests/export/fake_dctrack_rest.py` (quick search's `eq` is a "contains" match,
-  as dcTrack's is), `tests/export/test_dctrack_serials.py`, `tests/export/test_sunbird_document.py`,
-  `tests/test_cli_sunbird.py`.
+  as dcTrack's is; models, makes, creates, moves of Planned items only, and overlap refusal),
+  `tests/export/test_dctrack_serials.py`, `tests/export/test_dctrack_devices.py`, `tests/export/test_sunbird_document.py`,
+  `tests/test_cli_sunbird.py`; documents are built with `tests/export/sunbird_docs.py`.
 
 ## Import from Nautobot (`dcim/nautobot.py`)
 

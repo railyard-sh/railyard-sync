@@ -68,8 +68,31 @@ OUTCOMES = (
     NO_ITEM,
     NO_SERIAL,
 )
+# With --devices (``dctrack_devices.py``): a device that dcTrack does not have is created, one dcTrack has as a Planned
+# item elsewhere is moved (``PlannedPlacement.placement``), and items dcTrack has that Railyard does not are listed.
+CREATE = "create"
+MOVE = "move"
+NO_MODEL = "no-model"
+ONLY_IN_DCTRACK = "only-in-dctrack"
+DEVICE_OUTCOMES = (
+    UPDATE,
+    UNCHANGED,
+    CREATE,
+    CONFLICT,
+    AMBIGUOUS,
+    UNMAPPED,
+    LOCATION_NOT_FOUND,
+    CABINET_NOT_FOUND,
+    NO_POSITION,
+    NO_ITEM,
+    NO_MODEL,
+    NO_SERIAL,
+)
+
 #: Devices with a serial that could not be matched: reported, not written.
 PROBLEMS = (UNMAPPED, LOCATION_NOT_FOUND, CABINET_NOT_FOUND, NO_POSITION, NO_ITEM)
+#: The same with --devices, where a device needs a model to be created.
+DEVICE_PROBLEMS = (*PROBLEMS, NO_MODEL)
 #: Outcomes that make a run fail (exit 1): a serial was not written because it would be unsafe to.
 FAILING = (CONFLICT, AMBIGUOUS)
 
@@ -80,6 +103,9 @@ HEIGHT_MISMATCH = "height-mismatch"
 SEVERAL_ITEMS = "several-items"
 SAME_ITEM = "same-item"
 SEVERAL_CABINETS = "several-cabinets"
+INSTALLED_ELSEWHERE = "installed-item-elsewhere"
+POSITION_OCCUPIED = "position-occupied"
+NAME_TAKEN = "name-taken"
 
 #: The dcTrack rails (``radioRailsUsed``) an item may use to be the device on a Railyard face.
 FACE_RAILS = {"front": ("Front", "Both"), "rear": ("Back", "Both"), "full": ("Front", "Back", "Both")}
@@ -111,15 +137,18 @@ class PlannedDevice:
     applied: bool | None = None  # with --apply: whether dcTrack took the update
     error: str = ""  # dcTrack's words when it refused the update
 
+    def where_in_cabinet(self) -> str:
+        return f"U{self.u if self.u else '?'}"
+
     def line(self) -> str:
         """``R01 U12 SRV-01 → dcTrack SRV01: (blank) → ABC123``, then the outcome and why for anything but an
         update."""
-        text = f"{self.cabinet} U{self.u if self.u else '?'} {self.name or '(unnamed)'}"
+        text = f"{self.cabinet} {self.where_in_cabinet()} {self.name or '(unnamed)'}"
         if self.item_name or self.item_id:
             text += f" → dcTrack {self.item_name or '#' + self.item_id}"
         if self.item_id and self.outcome in (UPDATE, UNCHANGED, CONFLICT) and self.reason != HEIGHT_MISMATCH:
             text += f": {self.item_serial or '(blank)'} → {self.serial}"
-        else:
+        elif self.serial:
             text += f": serial {self.serial}"
         if self.outcome == UPDATE and self.item_serial:
             text += " (replaces dcTrack's serial: --overwrite)"
